@@ -16,7 +16,10 @@
  */
 import * as gm0 from './gm0.js';
 import * as ftcDocs from './ftc-docs.js';
-import { ctrlaltftc, ftclib, roadrunner, rev, pedropathing, firstRules } from './link-sources.js';
+import {
+  ctrlaltftc, ftclib, roadrunner, rev, pedropathing, firstRules,
+  chiefdelphi, ftcCommunity, frczero, communityHubs,
+} from './link-sources.js';
 import { samples as sdkSamples, api as sdkApi } from './ftc-sdk.js';
 
 export const SOURCES = {
@@ -26,6 +29,10 @@ export const SOURCES = {
   'ftc-sdk-samples': sdkSamples,
   ctrlaltftc, ftclib, roadrunner, rev, pedropathing,
   'first-rules': firstRules,
+  chiefdelphi,
+  'ftc-community': ftcCommunity,
+  frczero,
+  'community-hubs': communityHubs,
 };
 
 export function getSource(id) {

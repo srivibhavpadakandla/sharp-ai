@@ -147,3 +147,94 @@ export const firstRules = {
     return linkChunks(entries, this.meta);
   },
 };
+
+/**
+ * Chief Delphi — FTC-tagged topics only.
+ *
+ * The full forum sitemap is 22 files of 10,000 URLs each: roughly 220,000
+ * pages, overwhelmingly FRC. Indexing that would be seventy times the whole
+ * rest of the corpus and would bury real FTC documentation under unrelated
+ * discussion. Discourse exposes /tag/ftc.json, which is the correct filter, so
+ * only FTC-tagged threads are indexed — titles and links, capped.
+ */
+export const chiefdelphi = {
+  meta: {
+    sourceId: 'chiefdelphi', sourceName: 'Chief Delphi',
+    homepage: 'https://www.chiefdelphi.com',
+    license: 'Community forum posts — not openly licensed',
+    licenseUrl: null,
+    attribution: 'Chief Delphi — https://www.chiefdelphi.com — FTC-tagged threads, title and link only',
+    canExcerpt: false, priority: 70, linkOnly: true,
+    category: () => 'programming',
+  },
+  async loadChunks() {
+    const entries = await cached('chiefdelphi', async () => {
+      const out = [];
+      const seen = new Set();
+      for (let page = 0; page < 10; page += 1) {
+        const res = await fetch(`https://www.chiefdelphi.com/tag/ftc.json?page=${page}`, {
+          headers: { 'user-agent': 'sharp-ai-indexer' },
+          signal: AbortSignal.timeout(25000),
+        });
+        if (!res.ok) break;
+        const topics = (await res.json())?.topic_list?.topics || [];
+        if (!topics.length) break;
+        for (const t of topics) {
+          if (seen.has(t.id)) continue;
+          seen.add(t.id);
+          out.push({
+            title: t.title,
+            url: `https://www.chiefdelphi.com/t/${t.slug}/${t.id}`,
+            docPath: `t/${t.id}`,
+            headingPath: ['Chief Delphi', 'FTC'],
+          });
+        }
+      }
+      return out;
+    });
+    return linkChunks(entries, this.meta);
+  },
+};
+
+export const ftcCommunity = sitemapped(
+  'ftc-community', 'FTC Community', 'https://ftc-community.firstinspires.org',
+  'https://ftc-community.firstinspires.org/sitemap.xml', 'rules',
+);
+
+/**
+ * FRC Zero. FRC rather than FTC, but its control-theory, wiring and mechanism
+ * write-ups carry over directly, and the captain asked for it explicitly. The
+ * source name makes the distinction visible in every citation.
+ */
+export const frczero = sitemapped(
+  'frczero', 'FRC Zero (FRC)', 'https://www.frczero.org',
+  'https://www.frczero.org/sitemap.xml', 'programming',
+);
+
+/**
+ * Sites with no sitemap and client-rendered navigation. Rather than crawl them
+ * badly, a small hand-checked set of entry points is indexed so a question can
+ * still be routed to the right destination.
+ */
+export const communityHubs = {
+  meta: {
+    sourceId: 'community-hubs', sourceName: 'FTC Community Resources',
+    homepage: 'https://theopenalliance.org',
+    license: 'Community sites — not openly licensed',
+    licenseUrl: null,
+    attribution: 'Community FTC resources — entry pages linked, no text reproduced',
+    canExcerpt: false, priority: 75, linkOnly: true,
+    category: () => 'build',
+  },
+  async loadChunks() {
+    const entries = [
+      { title: 'The Open Alliance — FTC build threads and open-source robot documentation',
+        url: 'https://theopenalliance.org/ftc', docPath: 'open-alliance-ftc', headingPath: ['Open Alliance'] },
+      { title: 'FTC Secrets — OPR, cOPR, match prediction and team analytics',
+        url: 'https://secrets.team31000.org/resources', docPath: 'ftc-secrets', headingPath: ['FTC Secrets'] },
+      { title: 'FTC Secrets resources — scouting and statistics tools',
+        url: 'https://secrets.team31000.org', docPath: 'ftc-secrets-home', headingPath: ['FTC Secrets'] },
+    ];
+    return linkChunks(entries, this.meta);
+  },
+};

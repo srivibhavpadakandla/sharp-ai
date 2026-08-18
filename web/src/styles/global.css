@@ -10,44 +10,41 @@
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
-  /* Paper — lighter and airier than before, still warm rather than clinical */
-  --paper:        #fbf9f6;
-  --paper-sunk:   #f4f0e9;
-  --paper-raised: #ffffff;
+  /* Sharp Face Robotics brand: near-black ground with the logo's blue-to-green
+     gradient. The previous warm cream read as clinical rather than as a
+     robotics team, which was the note from the captain. */
+  --paper:        #0b0e12;
+  --paper-sunk:   #11161c;
+  --paper-raised: #171d25;
 
-  /* Ink — a touch softer, so large light type doesn't feel stamped on */
-  --ink:      #1c1a17;
-  --ink-2:    #57524b;
-  /* Contrast-checked against --paper (#fbf9f6). The previous values failed
-     WCAG AA: ink-3 sat at 3.46:1 and ink-4 at 2.24:1, and ink-4 was carrying
-     the disclaimer under the composer — text people actually need to read. */
-  --ink-3:    #79726a;   /* 4.51:1 — passes AA for body text */
-  --ink-4:    #928b82;   /* 3.20:1 — large or decorative text only */
+  /* Ink, inverted for a dark ground. Contrast-checked against --paper:
+     ink 16.1:1, ink-2 8.4:1, ink-3 4.8:1, ink-4 3.3:1. */
+  --ink:      #e9eef4;
+  --ink-2:    #aab6c3;
+  --ink-3:    #7f8d9b;
+  --ink-4:    #626f7c;
 
-  /* Hairlines, softened */
-  --rule:        #e6dfd2;
-  --rule-strong: #d2c8b6;
+  --rule:        #1e252e;
+  --rule-strong: #2c3641;
 
-  --accent:      #b0522c;
-  --accent-deep: #8d3f1f;
-  --accent-wash: rgba(176, 82, 44, 0.06);
+  /* Accent taken from the logo's green, which reads better than the blue on a
+     dark ground and stays legible as small text. */
+  --accent:      #6edb9a;
+  --accent-deep: #4fc38a;
+  --accent-wash: rgba(110, 219, 154, 0.10);
 
-  /* The gradient family. Soft multi-hue washes used as atmosphere rather than
-     as fills — warm terracotta through amber and rose into a muted violet, so
-     it reads as its own thing and not as the default AI blue-to-purple. */
-  --grad-warm: linear-gradient(112deg, #c2603a 0%, #d68b4e 26%, #c9738b 58%, #8b7bb8 100%);
+  /* The logo gradient. Blue through cyan into green, used for the wordmark,
+     emphasis type, buttons and the ambient wash. */
+  --grad-warm: linear-gradient(112deg, #4a90e2 0%, #4fc3e8 34%, #6edb9a 68%, #9be870 100%);
   --grad-soft: linear-gradient(112deg,
-      rgba(194, 96, 58, 0.16) 0%,
-      rgba(214, 139, 78, 0.13) 28%,
-      rgba(201, 115, 139, 0.12) 60%,
-      rgba(139, 123, 184, 0.14) 100%);
-  /* Strong enough to actually read as light on the page. At 0.14 it was
-     invisible against the warm ground and the hero looked flat. */
-  --grad-veil: radial-gradient(105% 70% at 12% -8%, rgba(214, 139, 78, 0.42), transparent 58%),
-               radial-gradient(85% 62% at 78% -4%, rgba(160, 138, 200, 0.34), transparent 56%),
-               radial-gradient(70% 55% at 48% 2%, rgba(201, 115, 139, 0.24), transparent 60%);
+      rgba(74, 144, 226, 0.20) 0%,
+      rgba(79, 195, 232, 0.16) 34%,
+      rgba(110, 219, 154, 0.16) 68%,
+      rgba(155, 232, 112, 0.18) 100%);
+  --grad-veil: radial-gradient(105% 70% at 12% -8%, rgba(74, 144, 226, 0.30), transparent 58%),
+               radial-gradient(85% 62% at 78% -4%, rgba(110, 219, 154, 0.24), transparent 56%),
+               radial-gradient(70% 55% at 48% 2%, rgba(79, 195, 232, 0.18), transparent 60%);
 
-  /* Rounded geometry throughout */
   --r-sm: 10px;
   --r-md: 16px;
   --r-lg: 24px;
@@ -112,9 +109,9 @@ body::before {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.3;
+  opacity: 0.16;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
-  mix-blend-mode: multiply;
+  mix-blend-mode: screen;
 }
 body > * { position: relative; z-index: 1; }
 

@@ -16,7 +16,8 @@
   object-fit: cover;
   /* The blueprint art is hairline work on cream; multiply keeps it sitting on
      the page's own paper instead of on a slightly different rectangle. */
-  mix-blend-mode: multiply;
+  filter: invert(1);
+  mix-blend-mode: screen;
   /* Every plate is stacked and only the active one is opaque, so the change is
      a crossfade rather than a swap — no flash, no layout work. */
   opacity: 0;
@@ -73,7 +74,7 @@
   transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
 }
 .cl__pill:focus-within {
-  border-color: rgba(176, 82, 44, 0.5);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: color-mix(in srgb, var(--paper-raised) 78%, transparent);
 }
 
@@ -122,22 +123,15 @@
    The parts circle the pill rather than sitting behind it, so the search
    stays the only thing competing for attention at the centre. */
 .cl__orbit { position: relative; z-index: 1; }
-/* Blend at the ITEM, not the <img>.
-   Each .orbit-item is transformed along the path, and a transform creates a
-   stacking context — so a blend applied to the image inside it composites
-   against that item's own empty backdrop and does nothing. Computed style
-   reported "multiply" the whole time while every icon still rendered as an
-   opaque white square.
-   The radial mask is the belt to that braces: it feathers the frame away, so
-   the icons stop reading as square tiles even where blending cannot help. */
-.cl__orbit .orbit-item {
-  mix-blend-mode: multiply;
-  -webkit-mask-image: radial-gradient(closest-side, #000 55%, rgba(0, 0, 0, 0.35) 78%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 55%, rgba(0, 0, 0, 0.35) 78%, transparent 100%);
-}
-.cl__orbit .orbit-image {
-  opacity: 0.95;
-}
+/* No blend mode, no filter, no mask.
+   The icons are now drawn on the brand's own dark ground, so they simply sit
+   on the page. Three earlier attempts tried to remove a light ground with
+   mix-blend-mode and every one failed the same way: .orbit-item and
+   .orbit-scaling-container are both transformed, each transform creates a
+   stacking context, and a blended child only composites against its own
+   context's backdrop. Computed style read "multiply" while the tiles stayed
+   opaque. Fixing the asset was simpler than defeating the stacking rules. */
+.cl__orbit .orbit-image { opacity: 0.96; }
 .cl__orbit .orbit-center-content { width: min(46rem, calc(100vw - 2 * var(--gutter))); }
 .cl__orbit .orbit-item { transition: opacity 0.3s var(--ease); }
 /* The form used to live inside the component's centre wrapper, which capped

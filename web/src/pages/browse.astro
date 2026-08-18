@@ -120,7 +120,7 @@ for (const cat of CATEGORIES) {
   .bindex__head { max-width: 46rem; margin-bottom: 2.4rem; }
   .bindex__head h1 { margin: 0.7rem 0 0.9rem; max-width: 16ch; }
   .bindex__head p { font-size: 0.92rem; color: var(--ink-3); margin: 0; }
-  .bindex__head a { color: var(--accent); border-bottom: 1px solid rgba(176,82,44,0.3); }
+  .bindex__head a { color: var(--accent); border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
 
   .mosaic {
     display: grid;
@@ -149,7 +149,8 @@ for (const cat of CATEGORIES) {
   /* The generated art is line work on its own cream paper, a shade off ours.
      Multiply drops its background out so the drawing sits on the page's paper
      instead of on a slightly wrong rectangle. */
-  .tile--art img { mix-blend-mode: multiply; }
+  .tile--art img { filter: invert(1);
+  mix-blend-mode: screen; }
   .tile__over {
     position: absolute; inset: auto 0 0 0;
     padding: 1rem 1.1rem;

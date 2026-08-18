@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import AnswerView from '../../components/AnswerView.tsx';
+import ChatThread from '../../components/ChatThread.tsx';
 import { API_BASE } from '../../lib/config';
 
 // Server-rendered so Google indexes the answer text itself, not an empty shell.
@@ -52,11 +52,11 @@ const jsonLd = {
   description={description}
   canonical={`https://sharp-ai-8a1.pages.dev/q/${answer.slug}`}
   jsonLd={jsonLd}
+  bare
 >
-  <AnswerView
+  <ChatThread
     client:load
-    question={answer.question}
-    initial={{
+    seed={{
       question: answer.question,
       answerMd: answer.answerMd,
       citations: answer.citations,

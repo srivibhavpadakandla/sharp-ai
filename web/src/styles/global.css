@@ -18,8 +18,11 @@
   /* Ink — a touch softer, so large light type doesn't feel stamped on */
   --ink:      #1c1a17;
   --ink-2:    #57524b;
-  --ink-3:    #8d857b;
-  --ink-4:    #b0a89d;
+  /* Contrast-checked against --paper (#fbf9f6). The previous values failed
+     WCAG AA: ink-3 sat at 3.46:1 and ink-4 at 2.24:1, and ink-4 was carrying
+     the disclaimer under the composer — text people actually need to read. */
+  --ink-3:    #79726a;   /* 4.51:1 — passes AA for body text */
+  --ink-4:    #928b82;   /* 3.20:1 — large or decorative text only */
 
   /* Hairlines, softened */
   --rule:        #e6dfd2;

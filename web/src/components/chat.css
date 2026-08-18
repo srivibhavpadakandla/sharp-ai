@@ -178,7 +178,9 @@
 .composer__note {
   margin: 0.55rem 0 0;
   font-size: 0.72rem;
-  color: var(--ink-4);
+  /* ink-3, not ink-4: this line carries the licence and the "can be wrong"
+     warning, so it has to clear AA rather than sit in the decorative tier. */
+  color: var(--ink-3);
   text-align: center;
 }
 

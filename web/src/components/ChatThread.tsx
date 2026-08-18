@@ -43,11 +43,34 @@ const blankTurn = (id: number, question: string): Turn => ({
   validation: null, citecheck: null, rated: null,
 });
 
+export interface SeedTurn {
+  question: string;
+  answerMd: string;
+  citations: Citation[];
+  excerpts: Excerpt[];
+  slug: string | null;
+}
+
 export default function ChatThread({
   initialQuestion = '',
   endpoint = '/api/ask',
-}: { initialQuestion?: string; endpoint?: string }) {
-  const [turns, setTurns] = useState<Turn[]>([]);
+  seed = null,
+}: { initialQuestion?: string; endpoint?: string; seed?: SeedTurn | null }) {
+  // A /q/ page seeds the thread with its stored answer instead of streaming
+  // one, so a permanent link and a live conversation are the same surface and
+  // a visitor can follow up from something someone shared with them.
+  const [turns, setTurns] = useState<Turn[]>(
+    seed
+      ? [{
+          ...blankTurn(0, seed.question),
+          answer: seed.answerMd,
+          citations: seed.citations,
+          excerpts: seed.excerpts,
+          slug: seed.slug,
+          status: 'done' as Status,
+        }]
+      : [],
+  );
   const [draft, setDraft] = useState('');
   const [active, setActive] = useState(0);
   const [activeCite, setActiveCite] = useState<number | null>(null);
@@ -56,7 +79,7 @@ export default function ChatThread({
   const threadRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
-  const nextId = useRef(0);
+  const nextId = useRef(seed ? 1 : 0);
   const started = useRef(false);
   const lastCount = useRef(0);
 
@@ -130,9 +153,9 @@ export default function ChatThread({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    if (initialQuestion) send(initialQuestion);
+    if (initialQuestion && !seed) send(initialQuestion);
     else composerRef.current?.focus();
-  }, [initialQuestion, send]);
+  }, [initialQuestion, seed, send]);
 
   // Follow the conversation down as it grows, the way a chat surface should.
   //

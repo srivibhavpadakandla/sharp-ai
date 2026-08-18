@@ -112,3 +112,11 @@
   .sim { grid-template-columns: minmax(0, 1fr); }
   .sim__stage { position: static; }
 }
+
+.sim__share {
+  margin-top: 0.8rem; width: 100%;
+  border: 1px solid var(--rule); background: var(--paper-sunk); color: var(--ink-2);
+  border-radius: var(--r-pill); padding: 0.42rem; font-size: 0.8rem; cursor: pointer;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+.sim__share:hover { border-color: var(--accent); color: var(--accent); }

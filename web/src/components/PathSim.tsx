@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
-  sampleChain, starterPath, validate, clampField, round2,
+  sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath,
   type Interp, type PathModel, type Pt,
 } from '../lib/pedro';
 import './pathsim.css';
@@ -20,14 +20,57 @@ const readDims = () => {
 export default function PathSim() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [model, setModel] = useState<PathModel>(starterPath);
+  const [copied, setCopied] = useState('');
+
+  /**
+   * Only report success if the write actually succeeded. clipboard.writeText
+   * rejects when the document is not focused or the permission is refused, and
+   * claiming "Copied" regardless means the user pastes stale text.
+   */
+  const copy = async (what: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+    } catch {
+      setCopied(`${what}:failed`);
+    }
+    setTimeout(() => setCopied(''), 2200);
+  };
   const [sel, setSel] = useState<Handle | null>({ kind: 'point', i: 0 });
   const [dims, setDims] = useState({ w: 18, l: 18 });
   const [playing, setPlaying] = useState(true);
   const [u, setU] = useState(0);              // position along the chain, 0..1
   const drag = useRef<Handle | null>(null);
   const uRef = useRef(0);
+  const moved = useRef(false);
+  const past = useRef<PathModel[]>([]);
+
+  /** Snapshot before a discrete edit, so Cmd-Z can step back through them. */
+  const remember = (m: PathModel) => {
+    past.current.push(m);
+    if (past.current.length > 50) past.current.shift();
+  };
+  const undo = () => {
+    const prev = past.current.pop();
+    if (prev) setModel(prev);
+  };
 
   useEffect(() => { setDims(readDims()); }, []);
+
+  // A path in the hash wins over the starter path.
+  useEffect(() => {
+    const shared = decodePath(window.location.hash);
+    if (shared) setModel(shared);
+  }, []);
+
+  // Keep the hash current so the address bar is always shareable, without
+  // pushing history entries for every pixel of a drag.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      history.replaceState(null, '', `#${encodePath(model)}`);
+    }, 250);
+    return () => clearTimeout(id);
+  }, [model]);
   useEffect(() => { uRef.current = u; }, [u]);
 
   const { table, total } = useMemo(() => sampleChain(model), [model]);
@@ -49,6 +92,41 @@ export default function PathSim() {
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [playing, total]);
+
+  // Keyboard: nudge, delete, undo, play. A planner you can only drive with a
+  // mouse makes fine positioning tedious.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+      if (e.key === ' ') { e.preventDefault(); setPlaying((v) => !v); return; }
+      if (!sel) return;
+      const step = e.shiftKey ? 5 : 1;
+      const nudge: Record<string, [number, number]> = {
+        ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step],
+      };
+      if (nudge[e.key]) {
+        e.preventDefault();
+        const [dx, dy] = nudge[e.key];
+        remember(model);
+        setModel((m) => {
+          if (sel.kind === 'point') {
+            return { ...m, points: m.points.map((w, i) => (i === sel.i
+              ? { ...w, x: round2(clampField(w.x + dx)), y: round2(clampField(w.y + dy)) } : w)) };
+          }
+          return { ...m, segments: m.segments.map((s, leg) => (leg !== sel.leg ? s
+            : { ...s, control: s.control.map((cp, i) => (i === sel.i
+              ? { x: round2(clampField(cp.x + dx)), y: round2(clampField(cp.y + dy)) } : cp)) })) };
+        });
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && sel.kind === 'point') {
+        e.preventDefault(); remember(model); removePoint(sel.i);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const draw = useCallback(() => {
     const cv = canvas.current;
@@ -180,14 +258,17 @@ export default function PathSim() {
   const onDown = (e: React.PointerEvent) => {
     const p = toField(e);
     const h = hit(p);
+    moved.current = false;
     if (h) {
       drag.current = h; setSel(h);
+      remember(model);
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     }
   };
 
   const onMove = (e: React.PointerEvent) => {
     if (!drag.current) return;
+    moved.current = true;
     const p = toField(e);
     const x = round2(clampField(p.x));
     const y = round2(clampField(p.y));
@@ -203,16 +284,33 @@ export default function PathSim() {
     });
   };
 
-  const onUp = () => { drag.current = null; };
+  const onUp = (e: React.PointerEvent) => {
+    // A press on empty field that never moved is a click: drop a waypoint
+    // there. Appending at a fixed offset from the last one, which is what this
+    // did before, means every new point lands somewhere you did not ask for.
+    if (!drag.current && !moved.current) {
+      const p = toField(e);
+      if (p.x >= 0 && p.x <= FIELD_IN && p.y >= 0 && p.y <= FIELD_IN) {
+        remember(model);
+        setModel((m) => ({
+          points: [...m.points, { x: round2(p.x), y: round2(p.y), heading: m.points[m.points.length - 1].heading }],
+          segments: [...m.segments, { control: [], interp: 'linear' as Interp, endTime: 0.8 }],
+        }));
+        setSel({ kind: 'point', i: model.points.length });
+      }
+    }
+    if (drag.current && !moved.current) past.current.pop();   // nothing changed
+    drag.current = null;
+  };
 
-  const addPoint = () => setModel((m) => {
+  const addPoint = () => { remember(model); setModel((m) => {
     const last = m.points[m.points.length - 1];
     const p = { x: round2(clampField(last.x + 18)), y: round2(clampField(last.y - 18)), heading: last.heading };
     return {
       points: [...m.points, p],
       segments: [...m.segments, { control: [], interp: 'linear' as Interp, endTime: 0.8 }],
     };
-  });
+  }); };
 
   const removePoint = (i: number) => setModel((m) => {
     if (m.points.length <= 2) return m;
@@ -223,7 +321,7 @@ export default function PathSim() {
     };
   });
 
-  const setLeg = (leg: number, patch: Partial<{ interp: Interp; endTime: number; curved: boolean }>) =>
+  const setLegRaw = (leg: number, patch: Partial<{ interp: Interp; endTime: number; curved: boolean }>) =>
     setModel((m) => ({
       ...m,
       segments: m.segments.map((s, i) => {
@@ -249,6 +347,10 @@ export default function PathSim() {
         return next;
       }),
     }));
+
+  const setLeg = (leg: number, patch: Partial<{ interp: Interp; endTime: number; curved: boolean }>) => {
+    remember(model); setLegRaw(leg, patch);
+  };
 
   const setPoint = (i: number, patch: Partial<{ x: number; y: number; heading: number; name: string }>) =>
     setModel((m) => ({ ...m, points: m.points.map((p, k) => (k === i ? { ...p, ...patch } : p)) }));
@@ -305,6 +407,16 @@ export default function PathSim() {
             </label>
           </div>
           <p className="sim__hint">Defaults to 18 × 18. Change it to your robot.</p>
+          <p className="sim__hint sim__keys">
+            Click the field to add a point · arrows nudge, shift for 5&Prime; ·
+            delete removes · space plays · {navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl'}Z undoes
+          </p>
+          <button type="button" className="sim__share" onClick={() =>
+            copy('link', `${location.origin}${location.pathname}#${encodePath(model)}`)}>
+            {copied === 'link' ? 'Link copied'
+              : copied === 'link:failed' ? 'Copy the address bar instead'
+              : 'Copy a link to this path'}
+          </button>
         </section>
 
         <section className="sim__card">
@@ -372,7 +484,9 @@ export default function PathSim() {
         <section className="sim__card">
           <div className="sim__codehead">
             <h2>Pedro Pathing code</h2>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(java)}>Copy</button>
+            <button type="button" onClick={() => copy('code', java)}>
+              {copied === 'code' ? 'Copied' : copied === 'code:failed' ? 'Select it manually' : 'Copy'}
+            </button>
           </div>
           <pre className="sim__code"><code>{java}</code></pre>
         </section>

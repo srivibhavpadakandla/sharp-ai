@@ -78,23 +78,29 @@ for (const cat of CATEGORIES) {
         <CorpusCount client:visible n={CORPUS_SECTIONS} /> documentation sections from
         <a href="https://gm0.org" rel="noopener">Game Manual 0</a> and the official
         <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a>,
-        grouped by the part of the robot they touch. Tiles link to answers; the
-        screenshots link to the source page they were drawn from.
+        grouped by the part of the robot they touch. Pick a category tile to narrow
+        the grid; the screenshots link to the source page they came from.
       </p>
     </header>
 
+    <p class="mosaic__filter" data-filter-bar hidden>
+      Showing <strong data-filter-name></strong>
+      <button type="button" data-filter-clear>Show everything</button>
+    </p>
+
     <div class="mosaic">
       {tiles.map((t) => t.kind === 'art' ? (
-        <a class="tile tile--art" href={`/ask?q=${encodeURIComponent(t.cat.blurb)}`} data-cat={t.cat.id}>
+        <button type="button" class="tile tile--art" data-filter={t.cat.id} data-cat={t.cat.id}
+          aria-pressed="false" aria-label={`Show only ${t.cat.label}`}>
           <img src={`/art/cat-${t.cat.id}.webp`} alt="" loading="lazy" decoding="async" width="900" height="657" />
           <div class="tile__over">
             <h2>{t.cat.label}</h2>
             <p>{t.cat.blurb}</p>
           </div>
           <span class="tile__n">{t.count}</span>
-        </a>
+        </button>
       ) : t.kind === 'shot' ? (
-        <a class="tile tile--src" href={t.url} target="_blank" rel="noopener noreferrer">
+        <a class="tile tile--src" href={t.url} target="_blank" rel="noopener noreferrer" data-cat={t.cat}>
           <span class="eyebrow">Source</span>
           <p class="tile__title">{SOURCE_TITLE[t.cat] ?? t.label}</p>
           <span class="tile__from">
@@ -106,7 +112,7 @@ for (const cat of CATEGORIES) {
           </span>
         </a>
       ) : (
-        <a class="tile tile--q" href={t.href}>
+        <a class="tile tile--q" href={t.href} data-cat={t.cat}>
           <p>{t.question}</p>
           <span class="tile__cat">{t.cat}</span>
         </a>
@@ -121,6 +127,20 @@ for (const cat of CATEGORIES) {
   .bindex__head h1 { margin: 0.7rem 0 0.9rem; max-width: 16ch; }
   .bindex__head p { font-size: 0.92rem; color: var(--ink-3); margin: 0; }
   .bindex__head a { color: var(--accent); border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+
+  .tile--art { appearance: none; font: inherit; text-align: left; cursor: pointer; }
+  .tile.is-filtered { display: none; }
+  .tile--art[aria-pressed='true'] { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mosaic__filter {
+    display: flex; align-items: center; gap: 0.7rem;
+    margin: 0 0 1.2rem; font-size: 0.88rem; color: var(--ink-3);
+  }
+  .mosaic__filter strong { color: var(--ink); font-weight: 500; }
+  .mosaic__filter button {
+    border: 1px solid var(--rule); background: transparent; color: var(--ink-2);
+    border-radius: var(--r-pill); padding: 0.2rem 0.75rem; font-size: 0.8rem; cursor: pointer;
+  }
+  .mosaic__filter button:hover { border-color: var(--accent); color: var(--accent); }
 
   .mosaic {
     display: grid;
@@ -227,3 +247,41 @@ for (const cat of CATEGORIES) {
     .tile__over h2 { font-size: 1.1rem; }
   }
 </style>
+
+<script>
+  // Category tiles filter the grid. They used to link to /ask with the blurb as
+  // the query, so every click asked "Tank, mecanum, X-drive, wheels and
+  // gearing." as a question and stored an answer for it. Two of those had
+  // already reached the live index.
+  const tiles = Array.from(document.querySelectorAll('.tile'));
+  const bar = document.querySelector('[data-filter-bar]');
+  const name = document.querySelector('[data-filter-name]');
+  const clear = document.querySelector('[data-filter-clear]');
+  let active = null;
+
+  const apply = () => {
+    for (const el of tiles) {
+      const cat = el.getAttribute('data-cat');
+      const on = !active || cat === active;
+      el.classList.toggle('is-filtered', !on);
+      if (el.hasAttribute('data-filter')) {
+        el.setAttribute('aria-pressed', String(el.getAttribute('data-filter') === active));
+      }
+    }
+    if (bar) bar.hidden = !active;
+    if (name && active) {
+      const label = document.querySelector(`[data-filter="${active}"] h2`);
+      name.textContent = label ? label.textContent : active;
+    }
+  };
+
+  for (const el of document.querySelectorAll('[data-filter]')) {
+    el.addEventListener('click', () => {
+      active = el.getAttribute('data-filter') === active ? null : el.getAttribute('data-filter');
+      apply();
+      if (active) document.querySelector('.mosaic')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  clear?.addEventListener('click', () => { active = null; apply(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && active) { active = null; apply(); } });
+</script>

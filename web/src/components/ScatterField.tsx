@@ -111,12 +111,27 @@ export default function ScatterField() {
       }
     };
 
+    // Cursor parallax. Target and current are separate so the field eases
+    // toward the pointer instead of snapping, and it all folds into the single
+    // transform write below rather than fighting the orbit for the property.
+    let pxTarget = 0;
+    let pyTarget = 0;
+    let px = 0;
+    let py = 0;
+    const onPointer = (e: PointerEvent) => {
+      pxTarget = (e.clientX / window.innerWidth - 0.5) * 2;
+      pyTarget = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    if (!reduced) window.addEventListener('pointermove', onPointer, { passive: true });
+
     let raf = 0;
     const start = performance.now();
 
     const frame = (now: number) => {
       const t = reduced ? 0 : (now - start) / 1000;
       const scroll = window.scrollY;
+      px += (pxTarget - px) * 0.045;
+      py += (pyTarget - py) * 0.045;
       for (let i = 0; i < nodes.length; i += 1) {
         const o = ORBITERS[i];
         // A tilted square needs a wider box than its own width, so each plate
@@ -131,9 +146,9 @@ export default function ScatterField() {
         // of its orbit faded out behind the copy.
         const r = fit * (0.72 + 0.28 * o.ring);
         const a = o.angle + t * o.speed * Math.PI * 2;
-        const x = cx + Math.cos(a) * r;
+        const x = cx + Math.cos(a) * r + px * o.depth * 46;
         // Squashed vertically so the field reads as a wide ellipse, not a wheel.
-        const y = cy + Math.sin(a) * r * 0.62 - scroll * o.depth;
+        const y = cy + Math.sin(a) * r * 0.62 - scroll * o.depth + py * o.depth * 30;
         nodes[i].style.transform =
           `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%) rotate(${o.tilt}deg)`;
         nodes[i].style.opacity = (o.opacity * clarity(x, y, (o.size * 16) / 2)).toFixed(3);
@@ -153,7 +168,11 @@ export default function ScatterField() {
     // The webfont changes the size of the copy after first paint.
     document.fonts?.ready?.then(measure).catch(() => {});
 
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener('pointermove', onPointer);
+    };
   }, []);
 
   return (

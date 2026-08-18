@@ -304,3 +304,78 @@ export function starterPath(): PathModel {
     ],
   };
 }
+
+/* --- Sharing ------------------------------------------------------------- */
+
+const INTERP_CODE: Record<Interp, string> = { linear: 'l', constant: 'c', tangent: 't' };
+const CODE_INTERP: Record<string, Interp> = { l: 'linear', c: 'constant', t: 'tangent' };
+const MAX_POINTS = 24;
+
+/**
+ * A path as a URL fragment, so a route can be sent to a teammate.
+ *
+ * Deliberately a compact readable format rather than base64 JSON: these get
+ * pasted into Discord, and a legible string survives that better than an opaque
+ * blob. Lives in the hash, so paths never reach the server or the query log.
+ */
+export function encodePath(m: PathModel): string {
+  const pts = m.points
+    .map((p) => [round2(p.x), round2(p.y), round2(p.heading), p.name || ''].join(','))
+    .join('_');
+  const segs = m.segments
+    .map((s) => [
+      INTERP_CODE[s.interp],
+      round2(s.endTime),
+      ...s.control.flatMap((c) => [round2(c.x), round2(c.y)]),
+    ].join(','))
+    .join('_');
+  return `p=${pts}&s=${segs}`;
+}
+
+const num = (v: string, fallback = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+/**
+ * Parse a shared path. Every value is bounded: this is untrusted input from a
+ * URL somebody else wrote, and it drives a render loop.
+ */
+export function decodePath(hash: string): PathModel | null {
+  try {
+    const q = new URLSearchParams(hash.replace(/^#/, ''));
+    const rawP = q.get('p');
+    const rawS = q.get('s');
+    if (!rawP) return null;
+
+    const points: Waypoint[] = rawP.split('_').slice(0, MAX_POINTS).map((row) => {
+      const [x, y, h, name] = row.split(',');
+      return {
+        x: clampField(num(x)),
+        y: clampField(num(y)),
+        heading: Math.max(-3600, Math.min(3600, num(h))),
+        name: name && /^[a-zA-Z_$][\w$]{0,31}$/.test(name) ? name : undefined,
+      };
+    });
+    if (points.length < 2) return null;
+
+    const rows = (rawS || '').split('_');
+    const segments: Segment[] = [];
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const parts = (rows[i] || '').split(',');
+      const control: Pt[] = [];
+      // Only whole coordinate pairs, and never more than Pedro will follow.
+      for (let k = 2; k + 1 < parts.length && control.length < 2; k += 2) {
+        control.push({ x: clampField(num(parts[k])), y: clampField(num(parts[k + 1])) });
+      }
+      segments.push({
+        interp: CODE_INTERP[parts[0]] || 'linear',
+        endTime: Math.min(1, Math.max(0.1, num(parts[1], 0.8))),
+        control,
+      });
+    }
+    return { points, segments };
+  } catch {
+    return null;
+  }
+}

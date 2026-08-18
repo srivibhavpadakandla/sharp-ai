@@ -53,16 +53,37 @@ const jsonLd = {
     </div>
   </section>
 
+  <section class="film reveal">
+    <div class="wrap">
+      <figure class="film__box">
+        <video
+          class="film__v"
+          poster="/planner-film-poster.png"
+          muted playsinline loop preload="none"
+          aria-label="A route being drawn on the field while the Pedro Pathing code writes itself"
+        >
+          <source src="/planner-film.mp4" type="video/mp4" />
+          <source src="/planner-film.webm" type="video/webm" />
+        </video>
+        <figcaption class="film__cap">
+          <span>Draw the route</span>
+          <span>the code writes itself</span>
+        </figcaption>
+        <button type="button" class="film__toggle" data-film-toggle aria-label="Play the film">Play</button>
+      </figure>
+    </div>
+  </section>
+
   <!-- Statement, then a panel that shows the thing rather than describing it.
        The cosmos home page alternates these; the captions on the three cards
        below read as one sentence across the row. -->
-  <section class="say">
+  <section class="say reveal">
     <div class="wrap">
       <h2>Every answer points at a page.</h2>
     </div>
   </section>
 
-  <section class="trio">
+  <section class="trio reveal">
     <div class="wrap">
       <div class="trio__grid">
         <article class="trio__card">
@@ -87,13 +108,13 @@ const jsonLd = {
     </div>
   </section>
 
-  <section class="say">
+  <section class="say reveal">
     <div class="wrap">
       <h2>Draw a path. Take the Java.</h2>
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel reveal">
     <div class="wrap">
       <a class="panel__box" href="/path">
         <svg class="panel__field" viewBox="0 0 144 144" role="img" aria-label="A Pedro Pathing route drawn across the field">
@@ -191,3 +212,40 @@ const jsonLd = {
     </div>
   </section>
 </Base>
+
+<script>
+  // Reveal on scroll. Everything starts visible in the markup and is only
+  // hidden once this runs, so a failed script or a no-JS reader still gets the
+  // whole page rather than a blank one.
+  const items = document.querySelectorAll('.reveal');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduced && 'IntersectionObserver' in window) {
+    items.forEach((el) => el.classList.add('reveal--armed'));
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('reveal--in');
+        io.unobserve(e.target);
+      }
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+    items.forEach((el) => io.observe(el));
+  }
+
+  // The film only plays while it is on screen: a looping video running behind
+  // three screens of scroll is wasted battery on a laptop in the pits.
+  const film = document.querySelector('[data-film-toggle]');
+  const video = document.querySelector('.film__v');
+  if (film && video) {
+    let wanted = !reduced;
+    const sync = () => {
+      const visible = video.getBoundingClientRect().top < innerHeight && video.getBoundingClientRect().bottom > 0;
+      if (wanted && visible) video.play().catch(() => {});
+      else video.pause();
+      film.textContent = wanted ? 'Pause' : 'Play';
+      film.setAttribute('aria-label', wanted ? 'Pause the film' : 'Play the film');
+    };
+    film.addEventListener('click', () => { wanted = !wanted; sync(); });
+    addEventListener('scroll', sync, { passive: true });
+    sync();
+  }
+</script>

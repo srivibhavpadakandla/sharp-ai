@@ -50,33 +50,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scatter__card {
-  position: absolute;
-  top: 0;
-  left: 0;
-  will-change: transform;
-  border-radius: var(--r-md);
-  overflow: hidden;
-  border: 1px solid var(--rule);
-  background: #16233f;
-  animation: scatterIn 0.9s var(--ease) both;
+  .scatter__card { animation: none; }
 }
 
 /* Below the reading width the field becomes clutter rather than atmosphere. */
 @media (max-width: 60rem) {
   .scatter__card:nth-child(n + 7) { display: none; }
-  .scatter__card {
-  position: absolute;
-  top: 0;
-  left: 0;
-  will-change: transform;
-  border-radius: var(--r-md);
-  overflow: hidden;
-  border: 1px solid var(--rule);
-  background: #16233f;
-  animation: scatterIn 0.9s var(--ease) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  
 }

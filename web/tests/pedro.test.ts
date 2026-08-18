@@ -40,3 +40,27 @@ const java = generateJava(m, 'DemoPath');
 for (const frag of ['new BezierLine(startPose, scorePose)','new BezierCurve(scorePose, new Pose(84, 96), pickupPose)','Math.toRadians(90)','follower.pathBuilder()','.build();','!follower.isBusy()','setLinearHeadingInterpolation(startPose.getHeading(), scorePose.getHeading(), 0.8)'])
   ok(java.includes(frag), `java contains ${frag}`);
 console.log(fail ? `\n${fail} FAILED` : '\nall passed');
+
+// --- sharing round-trip -----------------------------------------------------
+import { encodePath, decodePath } from '../src/lib/pedro';
+{
+  let f2 = 0;
+  const ok2 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f2++; } else console.log('ok  ', m); };
+  const src = starterPath();
+  const round = decodePath('#' + encodePath(src))!;
+  ok2(!!round, 'round-trips');
+  ok2(JSON.stringify(round.points) === JSON.stringify(src.points), 'waypoints survive');
+  ok2(round.segments[1].control.length === 1 && round.segments[1].control[0].x === 84, 'control point survives');
+  ok2(round.segments[0].endTime === 0.8, 'endTime survives');
+  // hostile input must not escape the field or blow up
+  const evil = decodePath('#p=99999,-500,1e9,__proto___0,0,0&s=x,55,1,2,3,4,5,6,7,8');
+  ok2(!!evil, 'hostile input still parses');
+  ok2(evil!.points.every(p => p.x >= 0 && p.x <= 144 && p.y >= 0 && p.y <= 144), 'coords clamped to field');
+  ok2(evil!.points[0].name === undefined, 'rejects __proto__ as a name');
+  ok2(evil!.segments[0].interp === 'linear', 'unknown interp falls back');
+  ok2(evil!.segments[0].endTime <= 1 && evil!.segments[0].endTime >= 0.1, 'endTime clamped');
+  ok2(evil!.segments[0].control.length <= 2, 'control points capped at 2');
+  ok2(decodePath('#p=1,2,3') === null, 'single waypoint rejected');
+  ok2(decodePath('#nonsense') === null, 'garbage rejected');
+  console.log(f2 ? `${f2} SHARE FAILED` : 'sharing ok');
+}

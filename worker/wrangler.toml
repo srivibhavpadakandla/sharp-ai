@@ -23,10 +23,17 @@ RATE_PER_MIN     = "10"
 RATE_PER_DAY     = "100"
 # Gemini free tier is the real ceiling; KV's 1000 writes/day sits just above the
 # ~3 writes each uncached question costs, so these two numbers move together.
-LLM_DAILY_CEILING = "200"
+# Counts LLM CALLS, not questions. A confident question costs one call; an
+# escalated one costs three (plan + rerank + answer).
+LLM_DAILY_CEILING = "300"
 MAX_QUESTION_CHARS = "500"
 # --- model -----------------------------------------------------------------
-GEMINI_MODEL     = "gemini-2.5-flash"
+GEMINI_MODEL     = "gemini-3.5-flash"
+# Planning and reranking are short structured calls; the lite model is enough
+# and keeps the agentic pass affordable against the same daily ceiling.
+GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"
+THINKING_LEVEL   = "medium"
+AGENTIC          = "true"
 # --- site ------------------------------------------------------------------
 SITE_ORIGIN      = "https://sharp-ai-8a1.pages.dev"
 REQUIRE_TURNSTILE = "true"

@@ -252,3 +252,52 @@
 .src__body strong { color: var(--ink); font-weight: 600; }
 .src__body .md-link { color: var(--ink-2); border-bottom: 1px solid var(--rule-strong); }
 .src__body .md-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* --- beyond the documentation --------------------------------------------
+   Deliberately set apart from the cited answer: a dashed rule instead of a
+   solid one, sunken paper, and lighter ink. The reader should be able to tell
+   at a glance that the authority behind this text is different — and the
+   server never persists it, so a /q/ page shows only the cited half. */
+
+.beyond {
+  margin-top: 2.6rem;
+  padding-top: 1.4rem;
+  border-top: 1px dashed var(--rule-strong);
+  max-width: var(--measure);
+}
+.beyond__head { display: flex; align-items: center; gap: 0.5rem; }
+.beyond__head .eyebrow { color: var(--ink-3); }
+.beyond__head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, var(--rule) 0 3px, transparent 3px 6px);
+}
+.beyond__warn {
+  margin: 0.75rem 0 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ink-3);
+  border-left: 2px solid var(--rule-strong);
+  padding-left: 0.75rem;
+}
+.beyond__body {
+  font-size: 0.965rem;
+  color: var(--ink-2);
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 1.05rem 1.15rem 0.4rem;
+}
+.beyond__body p:last-child { margin-bottom: 1em; }
+
+.av__agent {
+  font-family: var(--type-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.08rem 0.45rem;
+  cursor: help;
+}

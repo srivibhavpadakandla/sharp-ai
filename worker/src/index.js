@@ -15,8 +15,9 @@
  *
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
-import { retrieve } from './retrieval.js';
-import { streamGemini, buildPrompt } from './gemini.js';
+import { retrieve, retrieveMulti } from './retrieval.js';
+import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
+import { needsEscalation, planSearch, rerank } from './agent.js';
 import { checkRateLimit, reserveLlmCall, llmUsage } from './ratelimit.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
 import {
@@ -127,18 +128,55 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     );
   }
 
-  const { citations, excerpts } = buildPrompt(question, chunks, { isError });
-  const category = chunks[0]?.category || null;
+  // --- 6b. Agentic pass -----------------------------------------------------
+  // A confident first retrieval is left alone. A weak one gets the model to
+  // rewrite the search in the documentation's vocabulary, then to rerank what
+  // comes back. Both extra calls are charged against the same daily ceiling as
+  // the answer itself, and if the ceiling refuses them we simply proceed with
+  // what fusion already found.
+  let finalChunks = chunks;
+  const agent = { escalated: false, queries: null, interpretation: null, reranked: false };
+
+  if (String(env.AGENTIC ?? 'true') !== 'false' && needsEscalation(question, stats, gate)) {
+    try {
+      const planBudget = await reserveLlmCall(env);
+      if (planBudget.granted) {
+        const plan = await planSearch(env, question, chunks.map((c) => c.headingPath));
+        const queries = [question, ...(plan.queries || [])].slice(0, 5);
+        agent.escalated = true;
+        agent.queries = plan.queries || [];
+        agent.interpretation = plan.interpretation || null;
+
+        const wide = await retrieveMulti(env, queries);
+        const candidates = wide.chunks.length ? wide.chunks : chunks;
+
+        const rerankBudget = await reserveLlmCall(env);
+        if (rerankBudget.granted && candidates.length > Number(env.TOP_K || 6)) {
+          finalChunks = await rerank(env, question, candidates, Number(env.TOP_K || 6));
+          agent.reranked = true;
+        } else {
+          finalChunks = candidates.slice(0, Number(env.TOP_K || 6));
+        }
+      }
+    } catch (err) {
+      // The agentic layer is an improvement, never a dependency.
+      console.error('agentic pass failed, using fusion order', err.message);
+      finalChunks = chunks;
+    }
+  }
+
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError });
+  const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
   const reservation = await reserveLlmCall(env);
   if (!reservation.granted) {
-    const md = degradedMarkdown(chunks);
+    const md = degradedMarkdown(finalChunks);
     ctx.waitUntil(logQuery(env, {
       question, questionHash, cacheHit: false, llmCalled: false, degraded: true,
       bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
-      sourceIds: [...new Set(chunks.map((c) => c.sourceId))],
-      chunkIds: chunks.map((c) => c.chunkId), latencyMs: Date.now() - started,
+      sourceIds: [...new Set(finalChunks.map((c) => c.sourceId))],
+      chunkIds: finalChunks.map((c) => c.chunkId), latencyMs: Date.now() - started,
     }));
     return streamPrerendered(
       { question, answerMd: md, citations, excerpts, slug: null },
@@ -153,35 +191,64 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const writer = writable.getWriter();
 
   const pump = (async () => {
-    let answer = '';
+    // `grounded` is the only text that will ever be persisted. `beyond` is
+    // streamed to this reader and then discarded — it never reaches D1, KV, or
+    // the indexable /q/ page.
+    let grounded = '';
+    let beyond = '';
+    const splitter = createAnswerSplitter();
+
     try {
       await writer.write(encoder.encode(sse('meta', {
         question, citations, excerpts, category,
         cached: false, degraded: false,
+        agent,
         stats: { bestBm25: stats.bestBm25, bestCosine: stats.bestCosine },
       })));
 
-      for await (const delta of streamGemini(env, { question, chunks, isError })) {
-        answer += delta;
-        await writer.write(encoder.encode(sse('token', { t: delta })));
+      let announcedBeyond = false;
+      const emit = async ({ grounded: g, beyond: b }) => {
+        if (g) {
+          grounded += g;
+          await writer.write(encoder.encode(sse('token', { t: g })));
+        }
+        if (b) {
+          let text = sanitiseBeyond(b);
+          if (!announcedBeyond) {
+            announcedBeyond = true;
+            text = text.replace(/^\s+/, '');          // only the very first delta
+            await writer.write(encoder.encode(sse('beyond_start', {})));
+          }
+          beyond += text;
+          if (text) await writer.write(encoder.encode(sse('beyond', { t: text })));
+        }
+      };
+
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError })) {
+        await emit(splitter.push(delta));
       }
+      await emit(splitter.end());
 
       let slug = null;
-      if (answer.trim()) {
+      if (grounded.trim()) {
         const saved = await writeAnswer(env, {
-          question, answerMd: answer.trim(), citations, excerpts, category,
-          model: env.GEMINI_MODEL || 'gemini-2.5-flash', topScore: stats.bestCosine,
+          // Grounded only. Persisting the ungrounded half would put uncited
+          // claims on a permanent, crawlable URL.
+          question, answerMd: grounded.trim(), citations, excerpts, category,
+          model: env.GEMINI_MODEL || 'gemini-3.5-flash', topScore: stats.bestCosine,
         });
         slug = saved.slug;
       }
-      await writer.write(encoder.encode(sse('done', { slug, chars: answer.length })));
+      await writer.write(encoder.encode(sse('done', {
+        slug, chars: grounded.length, beyondChars: beyond.length,
+      })));
 
       await logQuery(env, {
         question, questionHash, cacheHit: false, llmCalled: true,
         bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
         topScore: stats.bestCosine,
-        sourceIds: [...new Set(chunks.map((c) => c.sourceId))],
-        chunkIds: chunks.map((c) => c.chunkId),
+        sourceIds: [...new Set(finalChunks.map((c) => c.sourceId))],
+        chunkIds: finalChunks.map((c) => c.chunkId),
         latencyMs: Date.now() - started,
       });
     } catch (err) {
@@ -190,7 +257,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       // excerpt fallback rather than an error page.
       await writer.write(encoder.encode(sse('degrade', {
         reason: 'llm-unavailable',
-        answerMd: degradedMarkdown(chunks),
+        answerMd: degradedMarkdown(finalChunks),
       })));
       await writer.write(encoder.encode(sse('done', { slug: null })));
     } finally {

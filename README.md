@@ -31,10 +31,43 @@ web/      Astro site on Cloudflare Pages, React islands only where needed
 4. KV cache lookup on the normalised question
 5. D1 FTS5 and Vectorize queried in parallel, merged with reciprocal rank fusion
 6. **Relevance gate** — below threshold returns a refusal with no LLM call
-7. Gemini, with `can_excerpt` enforced during prompt assembly
-8. Response streamed as SSE
-9. Answer written to KV and to the D1 `answers` table with a slug
-10. Anonymised row appended to `query_log`
+7. **Agentic pass**, when the first retrieval is not near-exact: the model reads
+   the naive results, rewrites the search into the documentation's vocabulary
+   (one query per part of the question), everything is retrieved again and
+   fused, then the model reranks the shortlist. Two extra calls, charged
+   against the same ceiling, skipped entirely on a confident first pass.
+8. Gemini, with `can_excerpt` enforced during prompt assembly
+9. Response streamed as SSE, split into two parts (below)
+10. **Grounded half only** written to KV and to the D1 `answers` table
+11. Anonymised row appended to `query_log`
+
+## Grounded vs beyond
+
+The model returns two parts behind `===GROUNDED===` / `===BEYOND===` markers,
+and `worker/src/gemini.js` splits them *while the tokens are still streaming*.
+
+**Grounded** is documentation only, every claim cited, and it is the only thing
+that is ever persisted — it is what a `/q/<slug>` page contains, what Google
+indexes, and what the JSON-LD `acceptedAnswer` holds.
+
+**Beyond** is general robotics reasoning the sections do not cover: why a
+failure happens physically, what to check first, a tradeoff worth knowing. It
+carries no citations (any that slip through are stripped server-side), it is
+never written to D1 or KV, and it is visually set apart in the UI with an
+explicit warning. Revisiting a `/q/` page shows the cited half alone.
+
+The prohibition on invented part numbers, gear ratios, tick counts and rule
+numbers applies to *both* halves.
+
+## Models
+
+| Role | Model |
+|---|---|
+| Answer | `gemini-3.5-flash`, `thinkingLevel: medium` |
+| Plan + rerank | `gemini-3.5-flash-lite`, `thinkingLevel: low`, structured output |
+
+`gemini-2.5-flash-lite` is closed to new API users and 3.x rejects
+`thinkingBudget` on flash-lite — use `thinkingLevel`.
 
 A hard daily LLM ceiling degrades to *retrieved excerpts with links, no
 summary*. It never errors out.
@@ -105,7 +138,9 @@ writer and embedder are source-agnostic and need no changes. One source per PR.
 
 ## Free-tier budget
 
-The binding constraint is the Gemini free tier, not Cloudflare. `LLM_DAILY_CEILING`
-defaults to 200/day. Each uncached question costs about three KV writes
+The binding constraint is the Gemini free tier, not Cloudflare.
+`LLM_DAILY_CEILING` counts **calls**, not questions, and defaults to 300: a
+confident question costs one call, an escalated one costs three. Set
+`AGENTIC = "false"` to disable the agentic pass and return to one call each. Each uncached question costs about three KV writes
 (minute bucket, day bucket, answer cache) which keeps the whole site inside KV's
 1,000 writes/day. Cached and `/q/<slug>` traffic costs no LLM calls at all.

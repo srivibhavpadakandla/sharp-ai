@@ -37,6 +37,9 @@ export default function AnswerView({ question, initial = null, endpoint = '/api/
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<number | null>(null);
   const [stage, setStage] = useState(0);
+  const [beyond, setBeyond] = useState('');
+  const [agent, setAgent] = useState<{ escalated: boolean; queries: string[] | null;
+    interpretation: string | null; reranked: boolean } | null>(null);
 
   const sourcesRef = useRef<HTMLDivElement>(null);
   const proseRef = useRef<HTMLDivElement>(null);
@@ -99,6 +102,7 @@ export default function AnswerView({ question, initial = null, endpoint = '/api/
         clearInterval(ticker);
         setCitations(meta.citations || []);
         setExcerpts(meta.excerpts || []);
+        setAgent(meta.agent || null);
         if (meta.refused) setStatus('refused');
         else setStatus('streaming');
         if (meta.cached) setNotice('Served from cache.');
@@ -107,6 +111,8 @@ export default function AnswerView({ question, initial = null, endpoint = '/api/
         }
       },
       onToken: (t) => setAnswer((a) => a + t),
+      onBeyondStart: () => setBeyond((b) => b || ' '),
+      onBeyond: (t) => setBeyond((b) => (b === ' ' ? '' : b) + t),
       onDegrade: (p) => {
         setNotice('The answer service is unavailable right now — here are the matching sections.');
         setAnswer(p.answerMd);
@@ -135,6 +141,10 @@ export default function AnswerView({ question, initial = null, endpoint = '/api/
     [answer, citations.length],
   );
 
+  // Rendered with zero citations available, so a stray [3] can never become a
+  // clickable chip that implies a source it does not have.
+  const beyondHtml = useMemo(() => renderMarkdown(beyond.trim(), 0), [beyond]);
+
   const busy = status === 'retrieving';
 
   return (
@@ -151,6 +161,11 @@ export default function AnswerView({ question, initial = null, endpoint = '/api/
           <div className="av__panehead">
             <span className="eyebrow">Answer</span>
             {status === 'streaming' && <span className="av__pulse" aria-label="Writing" />}
+            {agent?.escalated && (
+              <span className="av__agent" title={agent.interpretation || undefined}>
+                re-searched{agent.reranked ? ' · reranked' : ''}
+              </span>
+            )}
             {slug && status === 'done' && (
               <button
                 type="button"
@@ -178,6 +193,20 @@ export default function AnswerView({ question, initial = null, endpoint = '/api/
           )}
 
           <div className="prose av__prose" ref={proseRef} dangerouslySetInnerHTML={{ __html: html }} />
+
+          {beyond.trim() && (
+            <section className="beyond" aria-labelledby="beyond-h">
+              <header className="beyond__head">
+                <span className="eyebrow" id="beyond-h">Beyond the documentation</span>
+              </header>
+              <p className="beyond__warn">
+                Not from the indexed sources. This is general engineering
+                reasoning — uncited, unverified, and not saved to this page.
+                Treat it as a starting point, not an answer.
+              </p>
+              <div className="prose beyond__body" dangerouslySetInnerHTML={{ __html: beyondHtml }} />
+            </section>
+          )}
 
           {status === 'done' && answer && (
             <p className="av__verify">

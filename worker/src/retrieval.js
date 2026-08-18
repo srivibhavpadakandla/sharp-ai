@@ -3,7 +3,7 @@
  * parallel, then merge with reciprocal rank fusion.
  */
 import { buildFtsQuery, termCoverage } from './lib/query.js';
-import { fuse, passesRelevanceGate } from './lib/fusion.js';
+import { fuse, passesRelevanceGate, reciprocalRankFusion } from './lib/fusion.js';
 import { embedQuery } from './embed.js';
 
 /** Must stay identical to ingest/src/lib/keyword.js so offline eval is honest. */
@@ -73,6 +73,56 @@ export async function hydrate(env, chunkIds) {
     .bind(...chunkIds)
     .all();
   return new Map((results || []).map((r) => [r.chunkId, r]));
+}
+
+/**
+ * Retrieve for several planned queries at once and fuse everything together.
+ *
+ * Each query contributes its own keyword list and its own semantic list, and
+ * all of them go into one fusion. A chunk that several different phrasings of
+ * the question independently surface is exactly what we want at the top.
+ */
+export async function retrieveMulti(env, queries, { candidates, topK } = {}) {
+  const nCand = candidates || Number(env.CANDIDATES || 24);
+  const nTop = topK || Number(env.TOP_K || 6);
+
+  const legs = await Promise.all(queries.flatMap((q) => [
+    keywordSearch(env, q, nCand).then((r) => ({ name: `kw:${q}`, kind: 'keyword', results: r }),
+      () => ({ name: `kw:${q}`, kind: 'keyword', results: [] })),
+    semanticSearch(env, q, nCand).then((r) => ({ name: `sem:${q}`, kind: 'semantic', results: r }),
+      () => ({ name: `sem:${q}`, kind: 'semantic', results: [] })),
+  ]));
+
+  const merged = reciprocalRankFusion(legs);
+  const bm25By = new Map();
+  const cosBy = new Map();
+  for (const leg of legs) {
+    const target = leg.kind === 'keyword' ? bm25By : cosBy;
+    for (const r of leg.results) {
+      if (!target.has(r.chunkId) || target.get(r.chunkId) < r.score) target.set(r.chunkId, r.score);
+    }
+  }
+
+  const ordered = [...merged.values()]
+    .map((e) => ({ ...e, bm25: bm25By.get(e.chunkId) ?? null, cosine: cosBy.get(e.chunkId) ?? null }))
+    .sort((a, b) => b.rrf - a.rrf || (b.cosine ?? 0) - (a.cosine ?? 0));
+
+  const shortlist = ordered.slice(0, Math.max(nTop * 2, 12));
+  const rows = await hydrate(env, shortlist.map((r) => r.chunkId));
+  const chunks = shortlist
+    .map((r) => (rows.has(r.chunkId) ? { ...rows.get(r.chunkId), rrf: r.rrf, bm25: r.bm25, cosine: r.cosine } : null))
+    .filter(Boolean);
+
+  return {
+    chunks,
+    stats: {
+      queries,
+      keywordHits: legs.filter((l) => l.kind === 'keyword').reduce((n, l) => n + l.results.length, 0),
+      semanticHits: legs.filter((l) => l.kind === 'semantic').reduce((n, l) => n + l.results.length, 0),
+      bestBm25: bm25By.size ? Math.max(...bm25By.values()) : null,
+      bestCosine: cosBy.size ? Math.max(...cosBy.values()) : null,
+    },
+  };
 }
 
 /**

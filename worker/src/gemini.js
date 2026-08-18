@@ -27,11 +27,37 @@ Rules you must follow without exception:
    only their title and link. You may tell the reader that the topic is covered
    there and point them to the link, but you must not state, guess or
    paraphrase what those sections say.
-6. Write like a well-set reference document, not a chat message. No greetings,
+6. Be concise. Lead with the direct answer, give the detail that changes what
+   someone does, and stop. Four short paragraphs is usually plenty; do not
+   restate a section just because it was retrieved.
+7. Write like a well-set reference document, not a chat message. No greetings,
    no sign-offs, no "great question". Lead with the direct answer in one or two
    sentences, then the detail. Use short paragraphs; use a list only when the
    content is genuinely a list. Markdown for structure, no headings above ###.
-7. Keep code samples verbatim from the sections when you include them.`;
+8. Keep code samples verbatim from the sections when you include them.
+
+YOUR REPLY HAS TWO PARTS, IN THIS ORDER, USING THESE EXACT MARKERS:
+
+===GROUNDED===
+The answer, under every rule above. Documentation only. Every claim cited.
+This is the part that gets a permanent URL and is read by people who will act
+on it, so it must be defensible line by line.
+
+===BEYOND===
+Optional. General robotics and FTC engineering reasoning that the sections do
+not cover but that genuinely helps: what to check first, why the failure
+happens physically, a tradeoff worth knowing, a common mistake. Rules for THIS
+part only:
+- Never put a citation number here. Nothing here is from the documentation.
+- Still never invent a specific part number, SKU, gear ratio, tick count or
+  rule number. Vague-but-true beats precise-and-fabricated. Say "a worm gear or
+  a high reduction" rather than naming a ratio you do not know.
+- Two short paragraphs at most. If you have nothing genuinely useful to add,
+  write ===BEYOND=== followed by nothing at all. Padding here is worse than
+  silence.
+- Do not repeat the grounded answer in other words.
+- Speak plainly about uncertainty. "Usually", "in most designs", "worth
+  checking" are honest; false confidence is not.`;
 
 const ERROR_SYSTEM_ADDENDUM = `
 
@@ -101,7 +127,7 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  */
 export async function* streamGemini(env, { question, chunks, isError = false }) {
   const { prompt } = buildPrompt(question, chunks, { isError });
-  const model = env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {
     systemInstruction: {
@@ -111,8 +137,15 @@ export async function* streamGemini(env, { question, chunks, isError = false }) 
     generationConfig: {
       temperature: 0.15,
       topP: 0.9,
-      maxOutputTokens: 1600,
-      thinkingConfig: { thinkingBudget: 0 },
+      // Thinking tokens are drawn from this same budget, so a tight cap
+      // truncated the answer mid-word and the BEYOND section never arrived.
+      // The cap exists to bound a runaway generation, not to shape length —
+      // length is controlled by the prompt.
+      maxOutputTokens: Number(env.MAX_OUTPUT_TOKENS || 8192),
+      // Thinking is on now. The model has to decide what the sections actually
+      // support before writing, and which of its own knowledge is safe to add
+      // below the line — both are reasoning steps, not retrieval steps.
+      thinkingConfig: { thinkingLevel: env.THINKING_LEVEL || 'medium' },
     },
     safetySettings: [
       'HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH',
@@ -158,4 +191,78 @@ export async function* streamGemini(env, { question, chunks, isError = false }) 
       for (const p of parts) if (typeof p.text === 'string' && p.text) yield p.text;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Splitting the two parts
+// ---------------------------------------------------------------------------
+
+export const GROUNDED_MARKER = '===GROUNDED===';
+export const BEYOND_MARKER = '===BEYOND===';
+
+/**
+ * Incremental splitter for the streamed reply.
+ *
+ * The separation is enforced here, on the server, while the tokens are still
+ * passing through — not by the frontend deciding what to show. Text before the
+ * BEYOND marker is grounded and persistable; text after it is not, and is never
+ * written to D1 or KV.
+ */
+export function createAnswerSplitter() {
+  let buffer = '';
+  let inBeyond = false;
+
+  return {
+    /** @returns {{grounded: string, beyond: string}} newly completed text */
+    push(delta) {
+      buffer += delta;
+      let grounded = '';
+      let beyond = '';
+
+      if (!inBeyond) {
+        const idx = buffer.indexOf(BEYOND_MARKER);
+        if (idx === -1) {
+          // Hold back a marker-length tail so a marker split across two chunks
+          // is never emitted as answer text.
+          const safe = Math.max(0, buffer.length - BEYOND_MARKER.length);
+          grounded = buffer.slice(0, safe);
+          buffer = buffer.slice(safe);
+        } else {
+          grounded = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + BEYOND_MARKER.length);
+          inBeyond = true;
+          beyond = buffer;
+          buffer = '';
+        }
+      } else {
+        beyond = buffer;
+        buffer = '';
+      }
+
+      return { grounded: stripGroundedMarker(grounded), beyond };
+    },
+    /** Flush whatever is still held back. */
+    end() {
+      const rest = buffer;
+      buffer = '';
+      return inBeyond
+        ? { grounded: '', beyond: rest }
+        : { grounded: stripGroundedMarker(rest), beyond: '' };
+    },
+    get startedBeyond() { return inBeyond; },
+  };
+}
+
+function stripGroundedMarker(text) {
+  return text.replace(GROUNDED_MARKER, '');
+}
+
+/**
+ * Defence in depth: a citation marker in the ungrounded half would imply the
+ * documentation said something it did not, so strip any that slip through.
+ */
+export function sanitiseBeyond(text) {
+  // No trimming: this runs on every streamed delta, and trimming each one
+  // welds the last word of one chunk to the first word of the next.
+  return text.replace(/\[\d{1,2}(?:\s*,\s*\d{1,2})*\]/g, '');
 }

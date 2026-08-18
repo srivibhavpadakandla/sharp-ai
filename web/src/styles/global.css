@@ -225,6 +225,28 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .site-head nav a { padding-bottom: 1px; border-bottom: 1px solid transparent; transition: border-color 0.2s var(--ease), color 0.2s var(--ease); }
 .site-head nav a:hover { color: var(--ink); border-bottom-color: var(--rule-strong); }
 
+/* On a phone five links wrapped into three ragged rows with the last one
+   clipped off the edge. Stack the header and let the nav scroll sideways as a
+   single row instead, so every destination stays reachable. */
+@media (max-width: 46rem) {
+  .site-head .wrap {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding-block: 0.5rem;
+  }
+  .site-head nav {
+    justify-self: stretch;
+    gap: 1.15rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Bleed to the edges so the row reads as scrollable rather than cut. */
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+  }
+  .site-head nav::-webkit-scrollbar { display: none; }
+  .site-head nav a { flex: none; white-space: nowrap; }
+}
+
 /* --- footer -------------------------------------------------------------- */
 
 .site-foot {
@@ -469,7 +491,10 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .how__steps strong { color: var(--ink); font-weight: 600; }
 .how__steps li:last-child { border-bottom: 1px solid var(--rule); }
 
-@media (max-width: 60rem) {
+/* Between the search breakpoint and the phone breakpoint: no search pill, so
+   two tracks. Bounded below because the phone rule stacks the header, and this
+   block sits later in the file and was winning. */
+@media (max-width: 60rem) and (min-width: 46.0625rem) {
   .site-head .wrap { grid-template-columns: 1fr auto; }
 }
 

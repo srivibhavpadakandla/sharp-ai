@@ -129,3 +129,15 @@
 }
 .sim__paste:focus { outline: none; border-color: var(--accent); }
 .sim__paste::placeholder { color: var(--ink-4); }
+
+/* On a phone the generated Java is better wrapped than side-scrolled. Left as
+   `pre`, the <code> measured 586px inside a 390pt viewport and Chromium widened
+   the whole layout viewport to fit it, zooming the entire page out. */
+@media (max-width: 62rem) {
+  .sim__code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* The readout is nowrap so it never reflows mid-drag on a desktop, but on a
+     phone that pushed it 90px past the page edge, and Chromium widened the
+     layout viewport to fit — zooming the whole page out. Give it its own row. */
+  .sim__transport { flex-wrap: wrap; }
+  .sim__read { white-space: normal; flex-basis: 100%; }
+}

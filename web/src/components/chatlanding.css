@@ -17,6 +17,14 @@
   /* The blueprint art is hairline work on cream; multiply keeps it sitting on
      the page's own paper instead of on a slightly different rectangle. */
   mix-blend-mode: multiply;
+  /* Every plate is stacked and only the active one is opaque, so the change is
+     a crossfade rather than a swap — no flash, no layout work. */
+  opacity: 0;
+  transition: opacity 1.6s var(--ease);
+  will-change: opacity;
+}
+.cl__art.is-active {
+  opacity: 1;
   animation: clDrift 40s ease-in-out infinite alternate;
 }
 
@@ -107,5 +115,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cl__art { animation: none; }
+  .cl__art { animation: none; transition: none; }
 }

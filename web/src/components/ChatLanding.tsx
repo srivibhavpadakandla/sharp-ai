@@ -11,7 +11,22 @@ import './chatlanding.css';
  * conversation instead of loading a different page.
  */
 
-const BACKDROPS = ['drivetrains', 'intakes', 'odometry', 'build', 'electronics'];
+const BACKDROPS = [
+  'drivetrains', 'odometry', 'intakes', 'electronics',
+  'programming', 'build', 'rules', 'errors',
+];
+
+/** Fisher-Yates, so a visit sees a different order rather than the same loop. */
+function shuffled<T>(items: T[]): T[] {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const HOLD_MS = 6500;
 
 const PROMPTS = [
   'mecanum drive',
@@ -26,11 +41,20 @@ export default function ChatLanding() {
   const [value, setValue] = useState('');
   const [placeholder, setPlaceholder] = useState(PROMPTS[0]);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Chosen once per mount so the backdrop differs between visits without
-  // shuffling under the reader mid-session.
-  const art = useRef(BACKDROPS[Math.floor(Math.random() * BACKDROPS.length)]);
+  // Order is shuffled per mount so repeat visits do not replay the same
+  // sequence; every plate is rendered and crossfaded by opacity, which keeps
+  // the transition on the compositor and avoids a flash of unloaded image.
+  const plates = useRef(shuffled(BACKDROPS));
+  const [plate, setPlate] = useState(0);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+
+  useEffect(() => {
+    if (entered) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const t = setInterval(() => setPlate((i) => (i + 1) % plates.current.length), HOLD_MS);
+    return () => clearInterval(t);
+  }, [entered]);
 
   // Cycle the placeholder so the pill suggests what this is for without
   // needing a paragraph of instructions next to it.
@@ -53,7 +77,16 @@ export default function ChatLanding() {
 
   return (
     <div className="cl">
-      <img className="cl__art" src={`/art/cat-${art.current}.webp`} alt="" />
+      {plates.current.map((name, i) => (
+        <img
+          key={name}
+          className={`cl__art${i === plate ? ' is-active' : ''}`}
+          src={`/art/cat-${name}.webp`}
+          alt=""
+          decoding="async"
+          loading={i === 0 ? 'eager' : 'lazy'}
+        />
+      ))}
       <div className="cl__scrim" />
 
       <form

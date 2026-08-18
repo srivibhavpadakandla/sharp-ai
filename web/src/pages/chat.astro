@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+import ChatLanding from '../components/ChatLanding.tsx';
+export const prerender = true;
+---
+<Base
+  title="Chat — Sharp AI"
+  description="Ask Sharp AI about building, wiring or programming a FIRST Tech Challenge robot. Every answer shows the documentation section it came from."
+  bare
+>
+  <ChatLanding client:load />
+</Base>

@@ -19,6 +19,7 @@ import { retrieve, retrieveMulti } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
 import { needsEscalation, planSearch, rerank } from './agent.js';
 import { isCodeRequest, validateCode } from './codegen.js';
+import { verifyCitations } from './citecheck.js';
 import { checkRateLimit, reserveLlmCall, llmUsage } from './ratelimit.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
 import {
@@ -368,6 +369,14 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         return;
       }
 
+      // Do the citations point where they claim? Deterministic, so it runs on
+      // every answer instead of only when there is quota to spare.
+      if (grounded.trim() && citations.length) {
+        const textById = new Map(finalChunks.map((c) => [c.chunkId, c.text]));
+        const cc = verifyCitations(grounded, citations, textById);
+        if (cc.checked) await writer.write(encoder.encode(sse('citecheck', cc)));
+      }
+
       // The generated code is checked against the real SDK surface before the
       // reader is told it is done. Warnings only — see codegen.js.
       let validation = null;
@@ -543,6 +552,37 @@ async function handleSearch(request, env, url) {
   }, {}, cors);
 }
 
+/**
+ * Anonymous answer feedback. No Turnstile and no rate-limit spend: the barrier
+ * has to be lower than the barrier to asking, or nobody reports anything and
+ * the signal never arrives.
+ */
+async function handleFeedback(request, env) {
+  const cors = corsHeaders(env, request);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'invalid-json' }, { status: 400 }, cors); }
+
+  const verdict = body.verdict === 'up' ? 'up' : body.verdict === 'down' ? 'down' : null;
+  const question = String(body.question || '').slice(0, 500);
+  if (!verdict || !question) return json({ error: 'bad-request' }, { status: 400 }, cors);
+
+  try {
+    const { norm } = await cacheKeyFor(question);
+    await env.DB.prepare(`
+      INSERT INTO feedback (ts, question, question_hash, slug, verdict, reason, chunk_ids, source_ids, best_cosine, best_bm25)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
+    `).bind(
+      new Date().toISOString(), question, await sha256hex(norm),
+      body.slug || null, verdict, String(body.reason || '').slice(0, 300) || null,
+      JSON.stringify(body.chunkIds || []), JSON.stringify(body.sourceIds || []),
+      body.bestCosine ?? null, body.bestBm25 ?? null,
+    ).run();
+  } catch (err) {
+    console.error('feedback failed', err.message);
+  }
+  return json({ ok: true }, {}, cors);
+}
+
 async function handleSitemap(request, env) {
   const cors = corsHeaders(env, request);
   const { results } = await env.DB
@@ -585,6 +625,7 @@ export default {
       if (p === '/api/explain-error' && request.method === 'POST') {
         return handleAsk(request, env, ctx, { isError: true });
       }
+      if (p === '/api/feedback' && request.method === 'POST') return handleFeedback(request, env);
       if (p === '/api/search') return handleSearch(request, env, url);
       if (p === '/api/categories') return handleCategories(request, env);
       if (p === '/api/answers') return handleAnswers(request, env, url);

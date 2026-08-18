@@ -9,6 +9,13 @@ export interface Citation {
 }
 export interface Excerpt { chunkId: string; n: number; text: string }
 
+export interface CiteCheck {
+  checked: number;
+  ok: boolean;
+  outOfRange: number[];
+  weak: Array<{ n: number; overlap: number; claim: string }>;
+}
+
 export interface Validation {
   ok: boolean;
   checked: number;
@@ -29,6 +36,8 @@ export interface AskCallbacks {
   onBeyond(text: string): void;
   /** SDK validation report for generated code. Warnings, never blocks. */
   onValidation(report: Validation): void;
+  /** Do the [n] markers point at the sections they claim? */
+  onCiteCheck(report: CiteCheck): void;
   onDegrade(payload: { reason: string; answerMd: string }): void;
   onDone(payload: { slug: string | null }): void;
   onError(message: string): void;
@@ -99,6 +108,7 @@ export async function ask(
       else if (event === 'beyond_start') cb.onBeyondStart();
       else if (event === 'beyond') cb.onBeyond(payload.t);
       else if (event === 'validation') cb.onValidation(payload);
+      else if (event === 'citecheck') cb.onCiteCheck(payload);
       else if (event === 'degrade') cb.onDegrade(payload);
       else if (event === 'done') cb.onDone(payload);
       else if (event === 'error') cb.onError(payload.message || 'Something went wrong.');

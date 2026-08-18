@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ask, type Citation, type Excerpt, type Validation } from '../lib/ask';
+import { API_BASE } from '../lib/config';
+import { ask, type Citation, type Excerpt, type Validation, type CiteCheck } from '../lib/ask';
 import { renderMarkdown } from '../lib/markdown';
 import SourceCard from './SourceCard';
 import './sources.css';
@@ -25,6 +26,8 @@ export interface Turn {
   notice: string | null;
   error: string | null;
   validation: Validation | null;
+  citecheck: CiteCheck | null;
+  rated: 'up' | 'down' | null;
 }
 
 const STAGES = [
@@ -37,7 +40,7 @@ const STAGES = [
 const blankTurn = (id: number, question: string): Turn => ({
   id, question, answer: '', beyond: '', citations: [], excerpts: [],
   status: 'thinking', agent: null, slug: null, notice: null, error: null,
-  validation: null,
+  validation: null, citecheck: null, rated: null,
 });
 
 export default function ChatThread({
@@ -100,6 +103,7 @@ export default function ChatThread({
       onBeyondStart: () => patch(id, (cur) => ({ beyond: cur.beyond || ' ' })),
       onBeyond: (t) => patch(id, (cur) => ({ beyond: (cur.beyond === ' ' ? '' : cur.beyond) + t })),
       onValidation: (v) => patch(id, () => ({ validation: v })),
+      onCiteCheck: (v) => patch(id, () => ({ citecheck: v })),
       onDegrade: (p) => patch(id, () => ({
         answer: p.answerMd,
         notice: 'The answer service is unavailable — here are the matching sections.',
@@ -191,7 +195,7 @@ export default function ChatThread({
           {turns.map((t, i) => (
             <TurnView
               key={t.id} turn={t} index={i} stage={stage}
-              isActive={i === active} onFocus={() => setActive(i)}
+              isActive={i === active} onFocus={() => setActive(i)} patch={patch}
             />
           ))}
 
@@ -281,8 +285,9 @@ export default function ChatThread({
 
 // ---------------------------------------------------------------------------
 
-function TurnView({ turn, index, stage, isActive, onFocus }: {
+function TurnView({ turn, index, stage, isActive, onFocus, patch }: {
   turn: Turn; index: number; stage: number; isActive: boolean; onFocus: () => void;
+  patch: (id: number, fn: (t: Turn) => Partial<Turn>) => void;
 }) {
   const html = useMemo(
     () => renderMarkdown(turn.answer, turn.citations.length),
@@ -323,6 +328,51 @@ function TurnView({ turn, index, stage, isActive, onFocus }: {
         {turn.error && <div className="turn__error">{turn.error}</div>}
 
         <div className="prose turn__prose" dangerouslySetInnerHTML={{ __html: html }} />
+
+        {turn.status === 'done' && turn.answer && (
+          <div className="rate">
+            <span>Was this right?</span>
+            {(['up', 'down'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={turn.rated === v ? 'rate__btn rate__btn--on' : 'rate__btn'}
+                disabled={!!turn.rated}
+                onClick={() => {
+                  patch(turn.id, () => ({ rated: v }));
+                  // Fire and forget: feedback must never block or fail loudly.
+                  fetch(`${API_BASE}/api/feedback`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                      verdict: v, question: turn.question, slug: turn.slug,
+                      chunkIds: turn.citations.map((c) => c.chunkId),
+                      sourceIds: [...new Set(turn.citations.map((c) => c.sourceId))],
+                    }),
+                  }).catch(() => {});
+                }}
+              >{v === 'up' ? 'Yes' : 'No'}</button>
+            ))}
+            {turn.rated && <span className="rate__thanks">Logged — thank you.</span>}
+          </div>
+        )}
+
+        {turn.citecheck && !turn.citecheck.ok ? (
+          <section className="citecheck">
+            <p className="citecheck__head">Citation check</p>
+            {turn.citecheck.outOfRange.length > 0 && (
+              <p className="citecheck__note">
+                {turn.citecheck.outOfRange.map((n) => `[${n}]`).join(', ')} point at
+                sections that were not retrieved — treat those claims as uncited.
+              </p>
+            )}
+            {turn.citecheck.weak.map((w) => (
+              <p key={`${w.n}-${w.claim}`} className="citecheck__note">
+                <strong>[{w.n}]</strong> may be the wrong section for “{w.claim}…” — check it before relying on it.
+              </p>
+            ))}
+          </section>
+        ) : null}
 
         {turn.validation?.checked ? (
           <section className={`sdkcheck${turn.validation.ok ? ' sdkcheck--ok' : ''}`}>

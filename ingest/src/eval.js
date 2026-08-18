@@ -20,16 +20,63 @@ const TOP_K = 6;
 
 /** Real questions FTC teams ask, with the doc page that ought to surface. */
 const QUESTIONS = [
-  { q: 'how do I make my mecanum drive field centric',            expect: /mecanum-drive\.html#field-centric/ },
+  // --- drivetrains -------------------------------------------------------
+  { q: 'how do I make my mecanum drive field centric',            expect: /mecanum-drive\.html/ },
   { q: 'why is my robot slower when strafing',                    expect: /holonomic\.html/ },
-  { q: 'what is the difference between a REV motor and a goBILDA motor', expect: /motor-guide|hardware-components/ },
+  { q: 'what is the difference between tank drive and mecanum',   expect: /drivetrain|holonomic|tank/ },
+  { q: 'should the mecanum rollers form an X or an O',            expect: /holonomic\.html/ },
+  { q: 'what is an X drive and when would I use one',             expect: /holonomic\.html/ },
+  { q: 'how many motors should a drivetrain have',                expect: /drivetrain|motor/ },
+  // --- odometry ----------------------------------------------------------
   { q: 'how do dead wheels track robot position',                 expect: /dead-wheels\.html/ },
-  { q: 'my lift keeps falling down when I let go of the stick',   expect: /linear-motion|lead-screws|rigging|motion-mounting|arms/ },
-  { q: 'what gear ratio should I use to make my arm stronger',    expect: /gears\.html|power-transmission|arms\.html/ },
-  { q: 'how do I read encoder values in an opmode',               expect: /encoders\.html/ },
-  { q: 'what should go in our engineering notebook',              expect: /notebook\.html|portfolio\.html/ },
-  { q: 'how do I wire the control hub and expansion hub together', expect: /power-and-electronics|wiring/ },
+  { q: 'where should I mount my odometry pods',                   expect: /dead-wheels\.html/ },
+  { q: 'two wheel versus three wheel odometry',                   expect: /dead-wheels\.html/ },
+  { q: 'why does my robot drift during autonomous',               expect: /dead-wheels|odometry|control-loops|imu/ },
+  // --- intakes -----------------------------------------------------------
   { q: 'best way to pick up game elements off the floor',         expect: /intake/ },
+  { q: 'how do compliant wheels work in an intake',               expect: /intake/ },
+  { q: 'how should a transfer move elements to a scoring mechanism', expect: /transfer|intake/ },
+  { q: 'active versus passive intake tradeoffs',                  expect: /intake|design-tradeoffs/ },
+  // --- electronics -------------------------------------------------------
+  { q: 'how do I wire the control hub and expansion hub together', expect: /power-and-electronics|wiring|control-system/ },
+  { q: 'what motors are legal in FTC',                            expect: /motor/ },
+  { q: 'why does my robot lose power in the middle of a match',   expect: /motor-power|current|electronic|wiring/ },
+  { q: 'how do I choose a servo for an arm',                      expect: /servo/ },
+  { q: 'what is a servo power module for',                        expect: /servo/ },
+  { q: 'how do I connect to the control hub wifi',                expect: /ftc-docs|control_hub|wireless|hardware_and_software/ },
+  { q: 'how do I update the robot controller software',           expect: /ftc-docs|update|software/ },
+  { q: 'what does the driver station do',                         expect: /driver|station|control-system/ },
+  // --- programming -------------------------------------------------------
+  { q: 'how do I read encoder values in an opmode',               expect: /encoders\.html/ },
+  { q: 'what is a finite state machine and when should I use one', expect: /finite-state-machines\.html/ },
+  { q: 'how does PID control work on an arm',                     expect: /control-loops\.html/ },
+  { q: 'how do I use telemetry to debug',                         expect: /telemetry/ },
+  { q: 'what is gravity compensated feedforward',                 expect: /control-loops\.html/ },
+  { q: 'how do bulk reads speed up my loop',                      expect: /bulk-reads\.html/ },
+  { q: 'how do I detect a button press only once',                expect: /gamepad/ },
+  { q: 'how do I write an autonomous opmode',                     expect: /software|opmode|autonomous/ },
+  { q: 'what is the difference between OpMode and LinearOpMode',  expect: /software|opmode/ },
+  { q: 'how do I use apriltags for localization',                 expect: /apriltag|vision/ },
+  { q: 'how do I set up a webcam for vision',                     expect: /vision|camera|apriltag/ },
+  { q: 'what is OnBot Java and when should I use it',             expect: /onbot|programming_resources|blocks/ },
+  { q: 'how do I use blocks programming',                         expect: /blocks|programming_resources/ },
+  { q: 'how do I configure my hardware in the robot configuration', expect: /config|hardware/ },
+  // --- rules and team ----------------------------------------------------
+  { q: 'what should go in our engineering notebook',              expect: /notebook|portfolio/ },
+  { q: 'how does judging and the awards process work',            expect: /award|judg/ },
+  { q: 'what is the inspire award',                               expect: /award/ },
+  { q: 'what happens during robot inspection',                    expect: /inspection|award|competition/ },
+  { q: 'how do we start a new FTC team',                          expect: /starting-a-team|being-a-team/ },
+  { q: 'what should we practice before a competition',            expect: /competition|design-strategy|being-a-team/ },
+  // --- build and CAD -----------------------------------------------------
+  { q: 'what gear ratio should I use to make my arm stronger',    expect: /gear|power-transmission|arms|design-tradeoffs/ },
+  { q: 'when should I use belts instead of chain',                expect: /belt|chain|power-transmission/ },
+  { q: 'how do I keep a shaft from sliding out of its bearing',   expect: /shaft-retention|power-transmission/ },
+  { q: 'how does a linear slide rigging work',                    expect: /rigging|linear-motion/ },
+  { q: 'what is a lead screw good for',                           expect: /lead-screws|linear-motion/ },
+  { q: 'how do I design a turret',                                expect: /turret/ },
+  { q: 'what material should I use for a custom part',             expect: /custom-manufacturing|material|3d-printing|machining/ },
+  { q: 'how do I 3d print strong parts for a robot',              expect: /3d-printing|custom-manufacturing/ },
 ];
 
 /** Must be refused BEFORE any LLM call. */

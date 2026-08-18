@@ -64,16 +64,16 @@
 .chat__empty { max-width: 34rem; padding: 3rem 0 1rem; }
 .chat__empty h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); margin-bottom: 1rem; }
 .chat__starters { list-style: none; margin: 1.8rem 0 0; padding: 0; }
-.chat__starters li { border-top: 1px solid var(--rule); }
-.chat__starters li:last-child { border-bottom: 1px solid var(--rule); }
+
 .chat__starters button {
   display: block; width: 100%; text-align: left;
-  background: none; border: 0; cursor: pointer;
-  font-family: var(--type-sans); font-size: 0.9rem; color: var(--ink-2);
-  padding: 0.72rem 0;
+  background: var(--paper-raised); border: 1px solid var(--rule); cursor: pointer;
+  border-radius: var(--r-md);
+  font-family: var(--type-sans); font-size: 0.92rem; color: var(--ink-2);
+  padding: 0.85rem 1.05rem; margin-bottom: 0.5rem;
   transition: color 0.16s var(--ease), padding-left 0.2s var(--ease);
 }
-.chat__starters button:hover { color: var(--accent); padding-left: 0.35rem; }
+.chat__starters button:hover { color: var(--accent); border-color: var(--rule-strong); transform: translateX(3px); }
 
 /* --- a turn -------------------------------------------------------------- */
 .turn { padding-bottom: 2.2rem; margin-bottom: 2.2rem; border-bottom: 1px solid var(--rule); }
@@ -85,8 +85,8 @@
   max-width: 34ch;
   background: var(--paper-raised);
   border: 1px solid var(--rule-strong);
-  border-radius: 14px 14px 3px 14px;
-  padding: 0.6rem 0.9rem;
+  border-radius: var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg);
+  padding: 0.7rem 1.05rem;
   font-size: 0.95rem;
   line-height: 1.5;
   text-wrap: pretty;
@@ -138,13 +138,13 @@
   display: flex; align-items: flex-end; gap: 0.5rem;
   background: var(--paper-raised);
   border: 1px solid var(--rule-strong);
-  border-radius: 3px;
-  padding: 0.7rem 0.7rem 0.7rem 1rem;
+  border-radius: var(--r-lg);
+  padding: 0.85rem 0.85rem 0.85rem 1.25rem;
   transition: border-color 0.24s var(--ease);
 }
 /* The one borrowed gradient, reused here so the site has exactly one of them. */
 .composer__field::after {
-  content: ''; position: absolute; inset: -1px; border-radius: 4px; padding: 1px;
+  content: ''; position: absolute; inset: -1px; border-radius: calc(var(--r-lg) + 1px); padding: 1px;
   background: linear-gradient(102deg, rgba(176,82,44,0.85) 0%, rgba(196,132,76,0.55) 34%,
     rgba(120,128,112,0.45) 66%, rgba(176,82,44,0.75) 100%);
   background-size: 220% 100%;
@@ -167,9 +167,9 @@
 
 .composer button {
   flex: none; display: grid; place-items: center;
-  width: 1.9rem; height: 1.9rem;
-  border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
-  border-radius: 3px; cursor: pointer;
+  width: 2.15rem; height: 2.15rem;
+  border: 0; background: var(--grad-warm); color: #fff;
+  border-radius: var(--r-pill); cursor: pointer;
   transition: background 0.18s var(--ease), opacity 0.18s var(--ease);
 }
 .composer button:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }

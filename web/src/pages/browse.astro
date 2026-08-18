@@ -107,15 +107,15 @@ for (const cat of CATEGORIES) {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr));
     grid-auto-rows: 11.5rem;
-    gap: 1px;
-    background: var(--rule);
-    border: 1px solid var(--rule);
+    gap: 0.6rem;
   }
 
   .tile {
     position: relative;
     overflow: hidden;
-    background: var(--paper);
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
     display: flex;
     transition: background 0.25s var(--ease);
   }
@@ -134,7 +134,7 @@ for (const cat of CATEGORIES) {
   .tile__over {
     position: absolute; inset: auto 0 0 0;
     padding: 1rem 1.1rem;
-    background: linear-gradient(transparent, var(--paper) 55%);
+    background: linear-gradient(transparent, var(--paper-raised) 55%);
   }
   .tile__over h2 { font-size: 1.32rem; }
   .tile__over p { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--ink-3); line-height: 1.45; max-width: 30ch; }
@@ -152,7 +152,7 @@ for (const cat of CATEGORIES) {
     position: absolute; inset: 40% 0 0 0;
     display: flex; flex-direction: column; justify-content: flex-end;
     padding: 0.75rem 0.9rem;
-    background: linear-gradient(transparent, var(--paper) 58%);
+    background: linear-gradient(transparent, var(--paper-raised) 58%);
   }
   .tile__src p { margin: 0.15rem 0 0; font-size: 0.78rem; color: var(--ink-2); }
 
@@ -160,7 +160,8 @@ for (const cat of CATEGORIES) {
     flex-direction: column; justify-content: space-between;
     padding: 0.95rem 1rem 0.8rem;
   }
-  .tile--q:hover { background: var(--paper-raised); }
+  .tile--q { background: var(--paper-raised); }
+  .tile--q:hover { border-color: var(--rule-strong); background: #fff; }
   .tile--q p {
     margin: 0; font-size: 0.875rem; line-height: 1.42;
     color: var(--ink); text-wrap: pretty;

@@ -1,4 +1,4 @@
-.ep__box { border: 1px solid var(--rule-strong); border-radius: 2px; background: var(--paper-raised); }
+.ep__box { border: 1px solid var(--rule-strong); border-radius: var(--r-sm); background: var(--paper-raised); }
 .ep__box textarea {
   display: block;
   width: 100%;
@@ -42,7 +42,7 @@
   border: 1px solid var(--ink);
   background: var(--ink);
   color: var(--paper);
-  border-radius: 2px;
+  border-radius: var(--r-sm);
   font-family: var(--type-sans);
   font-size: 0.83rem;
   font-weight: 500;

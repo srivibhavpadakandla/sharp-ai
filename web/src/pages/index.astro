@@ -132,7 +132,13 @@ const jsonLd = {
 <style>
   .hero { padding: clamp(3.5rem, 9vw, 7rem) 0 clamp(3rem, 6vw, 5rem); }
   .hero__title { margin: 0.9rem 0 0; max-width: 16ch; }
-  .hero__title em { font-style: italic; color: var(--accent); }
+  .hero__title em {
+    font-style: italic;
+    background: var(--grad-warm);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
   .hero__lede { max-width: 40ch; margin: 1.5rem 0 0; }
   .hero__search { max-width: 44rem; margin-top: 2.4rem; }
 
@@ -146,6 +152,7 @@ const jsonLd = {
   }
   .hero__examples a {
     display: inline-block;
+    background: var(--paper-raised);
     border: 1px solid var(--rule);
     border-radius: 999px;
     padding: 0.28rem 0.8rem;
@@ -167,14 +174,13 @@ const jsonLd = {
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
-    gap: 0;
-    border-top: 1px solid var(--rule);
-    border-left: 1px solid var(--rule);
+    gap: 0.6rem;
   }
   .cell {
-    border-right: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-    padding: 1.25rem 1.35rem 1.5rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    padding: 1.3rem 1.4rem 1.5rem;
     transition: background 0.24s var(--ease);
   }
   .cell:hover { background: var(--paper-raised); }

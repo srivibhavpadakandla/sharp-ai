@@ -10,35 +10,56 @@
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
-  /* Paper — warm, never white, never grey */
-  --paper:        #f7f4ed;
-  --paper-sunk:   #f1ece0;
-  --paper-raised: #fbf9f4;
+  /* Paper — lighter and airier than before, still warm rather than clinical */
+  --paper:        #fbf9f6;
+  --paper-sunk:   #f4f0e9;
+  --paper-raised: #ffffff;
 
-  /* Ink */
-  --ink:      #191714;
-  --ink-2:    #55504a;
-  --ink-3:    #8b8379;
-  --ink-4:    #aaa298;
+  /* Ink — a touch softer, so large light type doesn't feel stamped on */
+  --ink:      #1c1a17;
+  --ink-2:    #57524b;
+  --ink-3:    #8d857b;
+  --ink-4:    #b0a89d;
 
-  /* Hairlines — the only structural device */
-  --rule:        #ded6c6;
-  --rule-strong: #c9bfaa;
+  /* Hairlines, softened */
+  --rule:        #e6dfd2;
+  --rule-strong: #d2c8b6;
 
-  /* The one accent: a muted terracotta, borrowed from printers' ink */
   --accent:      #b0522c;
   --accent-deep: #8d3f1f;
-  --accent-wash: rgba(176, 82, 44, 0.07);
+  --accent-wash: rgba(176, 82, 44, 0.06);
+
+  /* The gradient family. Soft multi-hue washes used as atmosphere rather than
+     as fills — warm terracotta through amber and rose into a muted violet, so
+     it reads as its own thing and not as the default AI blue-to-purple. */
+  --grad-warm: linear-gradient(112deg, #c2603a 0%, #d68b4e 26%, #c9738b 58%, #8b7bb8 100%);
+  --grad-soft: linear-gradient(112deg,
+      rgba(194, 96, 58, 0.16) 0%,
+      rgba(214, 139, 78, 0.13) 28%,
+      rgba(201, 115, 139, 0.12) 60%,
+      rgba(139, 123, 184, 0.14) 100%);
+  /* Strong enough to actually read as light on the page. At 0.14 it was
+     invisible against the warm ground and the hero looked flat. */
+  --grad-veil: radial-gradient(105% 70% at 12% -8%, rgba(214, 139, 78, 0.42), transparent 58%),
+               radial-gradient(85% 62% at 78% -4%, rgba(160, 138, 200, 0.34), transparent 56%),
+               radial-gradient(70% 55% at 48% 2%, rgba(201, 115, 139, 0.24), transparent 60%);
+
+  /* Rounded geometry throughout */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
 
   --type-serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
   --type-sans:  'Hanken Grotesk', 'Helvetica Neue', Helvetica, sans-serif;
   --type-mono:  'IBM Plex Mono', ui-monospace, Menlo, monospace;
 
-  --measure: 34rem;          /* comfortable reading column */
+  --measure: 34rem;
   --gutter: clamp(1.25rem, 4vw, 3.5rem);
   --ease: cubic-bezier(0.22, 0.61, 0.24, 1);
 
-  --header-h: 3.75rem;
+  --header-h: 4rem;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -70,13 +91,25 @@ body {
 }
 
 /* Paper grain. Barely there — it stops the off-white reading as flat CSS. */
+/* Atmosphere: a soft, very low-contrast colour veil across the top of the
+   page so the background reads as lit rather than as a flat fill. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 88vh;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--grad-veil);
+}
+
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.4;
+  opacity: 0.3;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
   mix-blend-mode: multiply;
 }
@@ -91,8 +124,8 @@ h1, h2, h3, h4 {
   text-wrap: balance;
 }
 
-h1 { font-size: clamp(2.4rem, 6.2vw, 4.1rem); }
-h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); }
+h1 { font-size: clamp(2.6rem, 6.6vw, 4.6rem); font-weight: 300; letter-spacing: -0.03em; }
+h2 { font-size: clamp(1.7rem, 3.2vw, 2.35rem); font-weight: 300; }
 h3 { font-size: 1.22rem; letter-spacing: -0.012em; }
 
 p { margin: 0 0 1.05em; }
@@ -149,8 +182,8 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--rule);
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(9px);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: saturate(1.3) blur(14px);
 }
 .site-head .wrap {
   display: flex;
@@ -165,7 +198,10 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 }
 .wordmark em {
   font-style: italic;
-  color: var(--accent);
+  background: var(--grad-warm);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .site-head nav {
   margin-left: auto;
@@ -226,14 +262,14 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .prose code {
   background: var(--paper-sunk);
   border: 1px solid var(--rule);
-  border-radius: 3px;
-  padding: 0.08em 0.32em;
+  border-radius: 6px;
+  padding: 0.08em 0.34em;
 }
 .prose pre {
   background: var(--paper-sunk);
   border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: 0.9rem 1rem;
+  border-radius: var(--r-md);
+  padding: 1rem 1.15rem;
   overflow-x: auto;
   font-size: 0.8rem;
   line-height: 1.55;

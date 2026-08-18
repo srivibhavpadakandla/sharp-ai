@@ -79,7 +79,7 @@
   margin-left: auto;
   border: 1px solid var(--rule-strong);
   background: transparent;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
   font-family: var(--type-sans);
   font-size: 0.74rem;
   color: var(--ink-2);
@@ -144,7 +144,7 @@
   margin-left: 0.12em;
   padding: 0 0.28em;
   border: 1px solid var(--rule-strong);
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--paper-raised);
   color: var(--ink-2);
   font-family: var(--type-mono);

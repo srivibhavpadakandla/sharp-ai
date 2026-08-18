@@ -6,6 +6,8 @@ export interface Citation {
   n: number; chunkId: string; sourceId: string; sourceName: string;
   pageTitle: string; sectionTitle: string; headingPath: string;
   url: string; license: string; canExcerpt: boolean;
+  /** full | summarize | link — decides what the source card may show. */
+  mode?: 'full' | 'summarize' | 'link';
 }
 export interface Excerpt { chunkId: string; n: number; text: string }
 

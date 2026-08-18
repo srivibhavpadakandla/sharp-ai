@@ -23,7 +23,9 @@ export default function SourceCard({ citation: c, text, active, onEnter }: {
         <div className="src__body prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(body, 0) }} />
       ) : (
         <p className="src__restricted">
-          This section is under {c.license} and cannot be quoted here. Open the source to read it.
+          {c.mode === 'summarize'
+            ? 'Summarised above in Sharp AI\u2019s own words. The original text is not reproduced here \u2014 open the source to read it.'
+            : 'This source does not publish a licence, so its text is not reproduced here. Open the source to read it.'}
         </p>
       )}
       <a className="src__link" href={c.url} target="_blank" rel="noopener noreferrer">

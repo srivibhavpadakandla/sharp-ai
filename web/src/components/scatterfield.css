@@ -1,0 +1,47 @@
+/* Scattered documentation cards drifting behind the hero. Decorative and
+   inert: pointer-events are off so nothing here can intercept the search
+   field, and the whole field is aria-hidden. */
+
+.scatter {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scatter__card {
+  position: absolute;
+  will-change: transform;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+  animation: scatterIn 0.9s var(--ease) both;
+}
+
+.scatter__card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* No multiply here.
+     The art is hairline linework on cream; multiplied onto a near-white page
+     at reduced opacity, the lines vanished and every card rendered as an empty
+     white rectangle. Cosmos can use small faint tiles because theirs are dense
+     photographs — ours need to stay opaque to read at all. */
+  background: var(--paper-sunk);
+}
+
+@keyframes scatterIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scatter__card { animation: none; }
+}
+
+/* Below the reading width the field becomes clutter rather than atmosphere. */
+@media (max-width: 60rem) {
+  .scatter__card:nth-child(n + 7) { display: none; }
+  .scatter__card { opacity: 0.55 !important; }
+}

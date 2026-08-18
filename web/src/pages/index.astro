@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import SearchBox from '../components/SearchBox.tsx';
+import ScatterField from '../components/ScatterField.tsx';
 import { CATEGORIES, SEED_QUESTIONS, API_BASE, SITE_TAGLINE } from '../lib/config';
 
 // Popular questions come from the answers table when the site has traffic;
@@ -34,6 +35,7 @@ const jsonLd = {
   jsonLd={jsonLd}
 >
   <section class="hero">
+    <ScatterField client:idle />
     <div class="wrap">
       <p class="eyebrow rise d1">FIRST Tech Challenge · documentation search</p>
       <h1 class="hero__title rise d2">
@@ -130,7 +132,14 @@ const jsonLd = {
 </Base>
 
 <style>
-  .hero { padding: clamp(3.5rem, 9vw, 7rem) 0 clamp(3rem, 6vw, 5rem); }
+  .hero {
+    position: relative;
+    padding: clamp(5rem, 12vw, 10rem) 0 clamp(6rem, 12vw, 11rem);
+    min-height: 88vh;
+    display: flex;
+    align-items: center;
+  }
+  .hero > .wrap { position: relative; z-index: 1; width: 100%; }
   .hero__title { margin: 0.9rem 0 0; max-width: 16ch; }
   .hero__title em {
     font-style: italic;
@@ -140,7 +149,7 @@ const jsonLd = {
     color: transparent;
   }
   .hero__lede { max-width: 40ch; margin: 1.5rem 0 0; }
-  .hero__search { max-width: 44rem; margin-top: 2.4rem; }
+  .hero__search { max-width: 39rem; margin-top: 2.4rem; }
 
   .hero__examples {
     list-style: none;
@@ -149,6 +158,10 @@ const jsonLd = {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    /* Bounded so the chip row cannot run under the scatter field on the right.
+       Unconstrained it reached ~82% of the viewport and collided with cards
+       that the headline and search box cleared comfortably. */
+    max-width: 38rem;
   }
   .hero__examples a {
     display: inline-block;

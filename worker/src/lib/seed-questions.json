@@ -1,0 +1,44 @@
+{
+  "drivetrains": [
+    "How do I make my mecanum drive field centric?",
+    "Why is my robot slower when strafing than driving forward?",
+    "Should the mecanum rollers form an X or an O from above?",
+    "What is the difference between tank drive and mecanum drive?"
+  ],
+  "odometry": [
+    "How do dead wheels track the robot position?",
+    "Where should I mount my odometry pods?",
+    "What is the difference between two-wheel and three-wheel odometry?"
+  ],
+  "intakes": [
+    "What is the best way to pick game elements up off the floor?",
+    "How do compliant wheels work in an intake?",
+    "How should a transfer move game elements to a scoring mechanism?"
+  ],
+  "electronics": [
+    "How do I wire the Control Hub and Expansion Hub together?",
+    "What motors are legal in FTC and how do they compare?",
+    "Why does my robot lose power in the middle of a match?",
+    "How do I keep my wiring from coming loose during a match?"
+  ],
+  "programming": [
+    "How do I read encoder values in an OpMode?",
+    "What is a finite state machine and when should I use one?",
+    "How does PID control work on an FTC arm?",
+    "How do I use telemetry to debug my OpMode?"
+  ],
+  "rules": [
+    "What should go in our engineering notebook?",
+    "How does judging and the awards process work?",
+    "What happens during robot inspection?"
+  ],
+  "errors": [
+    "What does it mean when the robot says the hardware map is missing a device?",
+    "Why does my OpMode stop with a NullPointerException?"
+  ],
+  "build": [
+    "What gear ratio should I use to make my arm stronger?",
+    "When should I use belts instead of chain?",
+    "How do I keep a shaft from sliding out of its bearing?"
+  ]
+}

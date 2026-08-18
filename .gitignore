@@ -1,0 +1,11 @@
+node_modules/
+ingest/vendor/
+ingest/data/
+ingest/.cache/
+web/dist/
+web/.astro/
+web/.env
+.wrangler/
+.dev.vars
+*.bak
+.DS_Store

@@ -1,0 +1,27 @@
+---
+import Base from '../layouts/Base.astro';
+import ErrorPaste from '../components/ErrorPaste.tsx';
+export const prerender = true;
+---
+<Base
+  title="Paste an FTC error — Sharp AI"
+  description="Paste a FIRST Tech Challenge SDK stack trace or robot error message and get a plain-language explanation with links to the documentation that covers it."
+>
+  <section class="wrap ep">
+    <p class="eyebrow rise d1">Diagnostics</p>
+    <h1 class="rise d2">Paste the error.<br /><em>Get the page it's on.</em></h1>
+    <p class="serif-lede rise d3">
+      Drop in a stack trace from Android Studio, a Driver Station error, or
+      whatever red text the robot is showing. Sharp AI names what it means and
+      links the documentation that covers it.
+    </p>
+    <div class="rise d4"><ErrorPaste client:load /></div>
+  </section>
+</Base>
+
+<style>
+  .ep { padding: clamp(3rem, 7vw, 5.5rem) 0 2rem; max-width: 58rem; }
+  .ep h1 { margin: 0.8rem 0 0; }
+  .ep h1 em { font-style: italic; color: var(--accent); }
+  .ep .serif-lede { max-width: 40ch; margin: 1.35rem 0 2.4rem; }
+</style>

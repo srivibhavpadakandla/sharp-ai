@@ -1,0 +1,17 @@
+{
+  "name": "sharp-ai-ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-only corpus ingest for Sharp AI. Never runs in the Worker.",
+  "scripts": {
+    "ingest": "node src/ingest.js",
+    "embed": "node src/embed.js",
+    "search": "node --experimental-sqlite src/search-cli.js",
+    "eval": "node --experimental-sqlite src/eval.js",
+    "embed-server": "node src/embed-server.js"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1"
+  }
+}

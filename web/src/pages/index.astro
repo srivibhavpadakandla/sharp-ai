@@ -1,0 +1,224 @@
+---
+import Base from '../layouts/Base.astro';
+import SearchBox from '../components/SearchBox.tsx';
+import { CATEGORIES, SEED_QUESTIONS, API_BASE, SITE_TAGLINE } from '../lib/config';
+
+// Popular questions come from the answers table when the site has traffic;
+// until then the seeded list keeps the index dense and browsable.
+type Q = { slug: string; question: string; category: string };
+let live: Record<string, Q[]> = {};
+try {
+  const res = await fetch(`${API_BASE}/api/categories`, { signal: AbortSignal.timeout(4000) });
+  if (res.ok) {
+    const data = await res.json() as { categories: Array<{ id: string; questions: Q[] }> };
+    live = Object.fromEntries(data.categories.map((c) => [c.id, c.questions || []]));
+  }
+} catch { /* build offline: fall back to seeds */ }
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Sharp AI',
+  description: SITE_TAGLINE,
+  url: 'https://sharp-ai-8a1.pages.dev',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: 'https://sharp-ai-8a1.pages.dev/ask?q={search_term_string}',
+    'query-input': 'required name=search_term_string',
+  },
+};
+---
+<Base
+  title="Sharp AI — FTC documentation, answered"
+  description="Ask a question about building, wiring or programming a FIRST Tech Challenge robot and get an answer drawn from indexed official documentation, with the source section shown next to it."
+  jsonLd={jsonLd}
+>
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow rise d1">FIRST Tech Challenge · documentation search</p>
+      <h1 class="hero__title rise d2">
+        Every answer arrives<br /><em>with its source.</em>
+      </h1>
+      <p class="serif-lede hero__lede rise d3">
+        Sharp AI reads the indexed FTC documentation and answers in plain
+        language — with the exact section it drew from open beside it, so you
+        can check the claim before you cut the metal.
+      </p>
+
+      <div class="hero__search rise d4">
+        <SearchBox client:load autofocus />
+      </div>
+
+      <ul class="hero__examples rise d5">
+        {[
+          'How do I make my mecanum drive field centric?',
+          'Where should odometry pods be mounted?',
+          'What gear ratio makes an arm stronger?',
+        ].map((q) => (
+          <li><a href={`/ask?q=${encodeURIComponent(q)}`}>{q}</a></li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <hr class="rule" />
+
+  <section id="browse" class="browse">
+    <div class="wrap">
+      <div class="browse__head">
+        <h2>Browse by system</h2>
+        <p>Questions already answered, grouped by the part of the robot they touch.</p>
+      </div>
+
+      <div class="grid">
+        {CATEGORIES.map((cat) => {
+          const answered = live[cat.id] || [];
+          const seeds = SEED_QUESTIONS[cat.id] || [];
+          return (
+            <article class="cell">
+              <header class="cell__head">
+                <h3>{cat.label}</h3>
+                <span class="cell__n">{answered.length || seeds.length}</span>
+              </header>
+              <p class="cell__blurb">{cat.blurb}</p>
+              <ul class="cell__list">
+                {answered.slice(0, 5).map((q) => (
+                  <li><a href={`/q/${q.slug}`}>{q.question}</a></li>
+                ))}
+                {answered.length === 0 && seeds.slice(0, 5).map((q) => (
+                  <li><a href={`/ask?q=${encodeURIComponent(q)}`}>{q}</a></li>
+                ))}
+              </ul>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+
+  <section class="how">
+    <div class="wrap">
+      <div class="how__grid">
+        <div>
+          <p class="eyebrow">How it works</p>
+          <h2 class="how__title">Retrieval first, language second.</h2>
+        </div>
+        <ol class="how__steps">
+          <li>
+            <strong>Search twice.</strong> Your question runs against a keyword
+            index and a semantic index at the same time, and the two result
+            lists are merged by rank.
+          </li>
+          <li>
+            <strong>Refuse early.</strong> If nothing in the documentation is a
+            real match, Sharp AI says so and stops — before a language model is
+            ever called.
+          </li>
+          <li>
+            <strong>Answer from the page.</strong> The model may only use the
+            retrieved sections, must cite each claim, and is instructed never to
+            invent a part number, gear ratio or rule number.
+          </li>
+          <li>
+            <strong>Keep the receipts.</strong> Every answer gets a permanent
+            link, and the sections it used stay next to it.
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero { padding: clamp(3.5rem, 9vw, 7rem) 0 clamp(3rem, 6vw, 5rem); }
+  .hero__title { margin: 0.9rem 0 0; max-width: 16ch; }
+  .hero__title em { font-style: italic; color: var(--accent); }
+  .hero__lede { max-width: 40ch; margin: 1.5rem 0 0; }
+  .hero__search { max-width: 44rem; margin-top: 2.4rem; }
+
+  .hero__examples {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .hero__examples a {
+    display: inline-block;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 0.28rem 0.8rem;
+    font-size: 0.81rem;
+    color: var(--ink-2);
+    transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background 0.2s var(--ease);
+  }
+  .hero__examples a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-wash);
+  }
+
+  /* --- cosmos-style index: near-zero chrome, dense, content forward ------- */
+  .browse { padding: clamp(3rem, 6vw, 4.5rem) 0 1rem; }
+  .browse__head { max-width: 44rem; margin-bottom: 2.4rem; }
+  .browse__head p { color: var(--ink-3); font-size: 0.92rem; margin: 0.5rem 0 0; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+  }
+  .cell {
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 1.25rem 1.35rem 1.5rem;
+    transition: background 0.24s var(--ease);
+  }
+  .cell:hover { background: var(--paper-raised); }
+  .cell__head { display: flex; align-items: baseline; gap: 0.6rem; }
+  .cell__head h3 { flex: 1; }
+  .cell__n { font-family: var(--type-mono); font-size: 0.68rem; color: var(--ink-4); }
+  .cell__blurb { font-size: 0.79rem; color: var(--ink-3); margin: 0.35rem 0 0.95rem; line-height: 1.5; }
+  .cell__list { list-style: none; margin: 0; padding: 0; }
+  .cell__list li { border-top: 1px solid var(--rule); }
+  .cell__list a {
+    display: block;
+    padding: 0.5rem 0;
+    font-size: 0.845rem;
+    line-height: 1.42;
+    color: var(--ink-2);
+    text-wrap: pretty;
+    transition: color 0.16s var(--ease), padding-left 0.2s var(--ease);
+  }
+  .cell__list a:hover { color: var(--accent); padding-left: 0.3rem; }
+
+  /* --- how it works ------------------------------------------------------ */
+  .how { padding: clamp(3.5rem, 7vw, 6rem) 0 1rem; }
+  .how__grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
+  @media (max-width: 52rem) { .how__grid { grid-template-columns: 1fr; } }
+  .how__title { margin-top: 0.6rem; max-width: 12ch; }
+  .how__steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+  .how__steps li {
+    counter-increment: step;
+    border-top: 1px solid var(--rule);
+    padding: 1.05rem 0 1.05rem 2.6rem;
+    position: relative;
+    font-size: 0.94rem;
+    color: var(--ink-2);
+    max-width: 46rem;
+  }
+  .how__steps li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 1.15rem;
+    font-family: var(--type-mono);
+    font-size: 0.7rem;
+    color: var(--ink-4);
+  }
+  .how__steps strong { color: var(--ink); font-weight: 600; }
+  .how__steps li:last-child { border-bottom: 1px solid var(--rule); }
+</style>

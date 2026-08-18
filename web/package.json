@@ -1,0 +1,24 @@
+{
+  "name": "sharp-ai-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "wrangler pages dev dist",
+    "deploy": "astro build && wrangler pages deploy dist --project-name sharp-ai"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.6.10",
+    "@astrojs/react": "^4.4.1",
+    "astro": "^5.16.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.1",
+    "wrangler": "^4.87.0"
+  }
+}

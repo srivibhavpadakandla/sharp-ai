@@ -1,0 +1,56 @@
+name = "sharp-ai"
+main = "src/index.js"
+compatibility_date = "2025-11-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[observability]
+enabled = true
+
+[vars]
+# --- retrieval -------------------------------------------------------------
+TOP_K            = "6"
+CANDIDATES       = "24"
+# Relevance gate, tuned by ingest/src/eval.js against 10 real FTC questions and
+# 5 deliberately off-topic probes (0 false positives, 0 false negatives).
+MIN_COSINE       = "0.60"     # a confident embedding match passes on its own
+FLOOR_COSINE     = "0.46"     # below this nothing passes, whatever BM25 says
+MIN_BM25         = "8.0"      # keyword-led pass needs a strong BM25 ...
+MIN_OVERLAP      = "1"        # ... and both retrievers agreeing on a chunk ...
+MIN_COVERAGE     = "0.5"      # ... and half the question's terms present
+# --- abuse + quota ---------------------------------------------------------
+RATE_PER_MIN     = "10"
+RATE_PER_DAY     = "100"
+# Gemini free tier is the real ceiling; KV's 1000 writes/day sits just above the
+# ~3 writes each uncached question costs, so these two numbers move together.
+LLM_DAILY_CEILING = "200"
+MAX_QUESTION_CHARS = "500"
+# --- model -----------------------------------------------------------------
+GEMINI_MODEL     = "gemini-2.5-flash"
+# --- site ------------------------------------------------------------------
+SITE_ORIGIN      = "https://sharp-ai-8a1.pages.dev"
+REQUIRE_TURNSTILE = "true"
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sharp-ai"
+database_id = "dc18db74-3fed-4e66-9679-ad59ebc2e98b"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "sharp-ai-chunks"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "28ebda3920aa47218af7afa7f8f8ad72"
+
+[[kv_namespaces]]
+binding = "RATE"
+id = "277faf1d0d6c4be4aecafd611087ad06"
+
+# Secrets (never in this file):
+#   wrangler secret put GEMINI_API_KEY
+#   wrangler secret put TURNSTILE_SECRET

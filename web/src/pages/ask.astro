@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+import AskIsland from '../components/AskIsland.tsx';
+export const prerender = true;
+---
+<Base
+  title="Asking… — Sharp AI"
+  description="Sharp AI is retrieving the FTC documentation sections that answer your question."
+  noindex
+>
+  <AskIsland client:only="react" />
+</Base>

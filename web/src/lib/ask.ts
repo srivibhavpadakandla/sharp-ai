@@ -1,0 +1,84 @@
+/** SSE client for the Worker's /api/ask and /api/explain-error endpoints. */
+import { API_BASE } from './config';
+import { getTurnstileToken } from './turnstile';
+
+export interface Citation {
+  n: number; chunkId: string; sourceId: string; sourceName: string;
+  pageTitle: string; sectionTitle: string; headingPath: string;
+  url: string; license: string; canExcerpt: boolean;
+}
+export interface Excerpt { chunkId: string; n: number; text: string }
+
+export interface AskCallbacks {
+  onMeta(meta: { citations: Citation[]; excerpts: Excerpt[]; category?: string | null;
+                 cached?: boolean; refused?: boolean; degraded?: boolean }): void;
+  onToken(text: string): void;
+  onDegrade(payload: { reason: string; answerMd: string }): void;
+  onDone(payload: { slug: string | null }): void;
+  onError(message: string): void;
+}
+
+export async function ask(
+  question: string,
+  cb: AskCallbacks,
+  { endpoint = '/api/ask', signal }: { endpoint?: string; signal?: AbortSignal } = {},
+) {
+  let turnstileToken = '';
+  try {
+    turnstileToken = await getTurnstileToken();
+  } catch {
+    // Turnstile unreachable (offline dev, blocked script): let the Worker decide.
+    turnstileToken = '';
+  }
+
+  const res = await fetch(API_BASE + endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ question, turnstileToken }),
+    signal,
+  });
+
+  if (!res.ok || !res.body) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      if (j.error === 'rate-limited') {
+        detail = `You have hit the ${j.limit}-question ${j.scope} limit. Try again shortly.`;
+      } else if (j.error === 'question-too-long') {
+        detail = `Questions are limited to ${j.maxChars} characters.`;
+      } else if (j.error === 'turnstile-failed') {
+        detail = 'Could not verify this browser. Reload and try again.';
+      } else if (j.error) detail = j.error;
+    } catch { /* keep the status */ }
+    cb.onError(detail);
+    return;
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+
+    let sep: number;
+    while ((sep = buf.indexOf('\n\n')) !== -1) {
+      const raw = buf.slice(0, sep);
+      buf = buf.slice(sep + 2);
+      const evLine = raw.split('\n').find((l) => l.startsWith('event:'));
+      const dataLine = raw.split('\n').find((l) => l.startsWith('data:'));
+      if (!evLine || !dataLine) continue;
+      const event = evLine.slice(6).trim();
+      let payload: any;
+      try { payload = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
+
+      if (event === 'meta') cb.onMeta(payload);
+      else if (event === 'token') cb.onToken(payload.t);
+      else if (event === 'degrade') cb.onDegrade(payload);
+      else if (event === 'done') cb.onDone(payload);
+      else if (event === 'error') cb.onError(payload.message || 'Something went wrong.');
+    }
+  }
+}

@@ -1,0 +1,78 @@
+---
+import Base from '../layouts/Base.astro';
+export const prerender = true;
+---
+<Base
+  title="About Sharp AI"
+  description="How Sharp AI indexes FIRST Tech Challenge documentation, what it will and will not answer, and why it carries no advertising."
+>
+  <section class="wrap ab">
+    <p class="eyebrow">About</p>
+    <h1>An index, not an oracle.</h1>
+
+    <div class="ab__body prose">
+      <p class="serif-lede">
+        Sharp AI answers FIRST Tech Challenge questions from documentation that
+        has been indexed section by section. It is a retrieval system with a
+        writer attached — not a model asked to recall FTC from memory.
+      </p>
+
+      <h3>What is indexed</h3>
+      <p>
+        Today: <a href="https://gm0.org" rel="noopener">Game Manual 0</a>, in
+        full, chunked by heading section so a citation lands on the exact part
+        of the page it came from. Planned next, in this order: the official
+        ftc-docs site, REV Robotics documentation, CTRL ALT FTC, and the FTC SDK
+        javadocs.
+      </p>
+
+      <h3>What is deliberately not indexed</h3>
+      <p>
+        LearnRoadRunner is excluded: it documents Road Runner 0.5 and would
+        produce confidently wrong answers for teams on current versions.
+      </p>
+      <p>
+        The <em>FIRST</em> Game Manual Part 1 and Part 2 and the official Q&amp;A
+        are copyright <em>FIRST</em> and are not openly licensed. If and when
+        they are indexed, Sharp AI will return the rule number and a link and
+        nothing more — their text will never be stored on an answer page or put
+        into a model prompt. That restriction is enforced on the server, in the
+        code that assembles the prompt, not in the page you are reading.
+      </p>
+
+      <h3>Why there are no ads</h3>
+      <p>
+        Game Manual 0 is published under
+        <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license noopener">CC BY-NC 4.0</a>.
+        Non-commercial means non-commercial: this site will never carry
+        advertising, a paid tier, or a sponsorship. That is a permanent
+        constraint of using the corpus, not a launch promise.
+      </p>
+
+      <h3>When it refuses</h3>
+      <p>
+        If nothing in the index is a genuine match for your question, Sharp AI
+        says so instead of improvising. That check runs on the retrieval scores
+        before any language model is called, which is also what keeps the
+        service inside a free tier.
+      </p>
+
+      <h3>Verify everything that matters</h3>
+      <p>
+        Answers are model-written from retrieved text and can be wrong. The
+        source section is shown beside every answer so you can check it in one
+        glance. For anything rules-related, the official Game Manual is the only
+        authority.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .ab { padding: clamp(3rem, 7vw, 5.5rem) 0 2rem; max-width: 52rem; }
+  .ab h1 { margin: 0.8rem 0 1.8rem; max-width: 14ch; }
+  .ab__body { max-width: 40rem; }
+  .ab__body .serif-lede { margin-bottom: 2rem; }
+  .ab__body a { color: var(--accent); border-bottom: 1px solid rgba(176,82,44,0.3); }
+  .ab__body a:hover { border-bottom-color: var(--accent); }
+</style>

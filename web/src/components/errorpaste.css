@@ -1,0 +1,54 @@
+.ep__box { border: 1px solid var(--rule-strong); border-radius: 2px; background: var(--paper-raised); }
+.ep__box textarea {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  background: transparent;
+  padding: 1rem 1.1rem;
+  font-family: var(--type-mono);
+  font-size: 0.8rem;
+  line-height: 1.62;
+  color: var(--ink);
+  min-height: 11rem;
+}
+.ep__box textarea::placeholder { color: var(--ink-4); }
+
+.ep__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  border-top: 1px solid var(--rule);
+  padding: 0.65rem 0.75rem 0.65rem 1.1rem;
+}
+.ep__samples { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; font-size: 0.76rem; color: var(--ink-3); }
+.ep__samples button {
+  border: 1px solid var(--rule);
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.16rem 0.6rem;
+  font-family: var(--type-sans);
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.ep__samples button:hover { color: var(--accent); border-color: var(--accent); }
+
+.ep__go {
+  margin-left: auto;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 2px;
+  font-family: var(--type-sans);
+  font-size: 0.83rem;
+  font-weight: 500;
+  padding: 0.42rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), border-color 0.18s var(--ease), opacity 0.18s var(--ease);
+}
+.ep__go:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
+.ep__go:disabled { opacity: 0.32; cursor: default; }

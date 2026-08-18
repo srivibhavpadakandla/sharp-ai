@@ -1,0 +1,16 @@
+{
+  "name": "sharp-ai-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "schema:local": "wrangler d1 execute sharp-ai --local --file=sql/0000_schema.sql",
+    "schema:remote": "wrangler d1 execute sharp-ai --remote --file=sql/0000_schema.sql",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.87.0"
+  }
+}

@@ -117,3 +117,71 @@
 @media (prefers-reduced-motion: reduce) {
   .cl__art { animation: none; transition: none; }
 }
+
+/* --- orbit ring ----------------------------------------------------------
+   The parts circle the pill rather than sitting behind it, so the search
+   stays the only thing competing for attention at the centre. */
+.cl__orbit { position: relative; z-index: 1; }
+/* Blend at the ITEM, not the <img>.
+   Each .orbit-item is transformed along the path, and a transform creates a
+   stacking context — so a blend applied to the image inside it composites
+   against that item's own empty backdrop and does nothing. Computed style
+   reported "multiply" the whole time while every icon still rendered as an
+   opaque white square.
+   The radial mask is the belt to that braces: it feathers the frame away, so
+   the icons stop reading as square tiles even where blending cannot help. */
+.cl__orbit .orbit-item {
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(closest-side, #000 55%, rgba(0, 0, 0, 0.35) 78%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 55%, rgba(0, 0, 0, 0.35) 78%, transparent 100%);
+}
+.cl__orbit .orbit-image {
+  opacity: 0.95;
+}
+.cl__orbit .orbit-center-content { width: min(46rem, calc(100vw - 2 * var(--gutter))); }
+.cl__orbit .orbit-item { transition: opacity 0.3s var(--ease); }
+/* The form used to live inside the component's centre wrapper, which capped
+   its width. Now that it is a sibling of the ring, it has to cap itself or it
+   spans the whole viewport. */
+.cl__form {
+  position: relative;
+  z-index: 1;
+  width: min(42rem, calc(100vw - 2 * var(--gutter)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cl__orbit .orbit-item { animation: none !important; }
+}
+@media (max-width: 46rem) {
+  /* The ring crowds the pill on a phone; keep the search, drop the orbit. */
+  .cl__orbit .orbit-item { display: none; }
+}
+
+/* The orbit's design box is square (baseWidth x baseWidth); scaled responsively
+   it is taller than the viewport, so the landing lets it overflow rather than
+   scrolling, and the ring is clipped top and bottom by design. */
+.cl__orbit { width: min(100%, 78rem); }
+.cl__orbit .orbit-scaling-container { margin-inline: auto; }
+
+/* Ring layer. Centred on the pill by our own geometry: the wrapper is square,
+   pinned to the middle of the landing, and the form sits above it. */
+.cl__orbitwrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* The design box is square, but the ring inside it is a wide ellipse: items
+     span about 95% of the box width and 57% of its height (radiusX 600 /
+     radiusY 330 / itemSize 132 in a 1400 box). So the wrapper has to be
+     bounded on BOTH axes or the top and bottom of the ring clip off-screen —
+     which is exactly what a width-only cap was doing. */
+  width: min(84rem, 100vw, calc((100dvh - var(--header-h)) * 1.62));
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  /* No z-index here on purpose. `position:absolute` alone does not create a
+     stacking context, but adding z-index does — and a blended child only
+     composites against its own stacking context's backdrop. With z-index:0 the
+     multiply had nothing to blend into and every icon rendered as an opaque
+     white square. The form is lifted instead. */
+}
+.cl__orbitwrap .orbit-container { width: 100%; }

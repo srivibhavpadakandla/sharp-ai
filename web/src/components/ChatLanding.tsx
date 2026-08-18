@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ChatThread from './ChatThread';
+import OrbitImages from './OrbitImages';
 import './chatlanding.css';
 
 /**
@@ -11,12 +12,15 @@ import './chatlanding.css';
  * conversation instead of loading a different page.
  */
 
-const BACKDROPS = [
-  'drivetrains', 'odometry', 'intakes', 'electronics',
-  'programming', 'build', 'rules', 'errors',
-];
+/**
+ * Small, single-subject drawings made specifically for the orbit: the wide
+ * category plates are hairline work and dissolve into noise at ~110px, so
+ * these were generated square, one object each, with heavier line weight.
+ */
+const ORBIT = ['mecanum', 'motor', 'servo', 'gear', 'hub', 'battery', 'odometry', 'pulley']
+  .map((n) => `/orbit/${n}.webp`);
 
-/** Fisher-Yates, so a visit sees a different order rather than the same loop. */
+/** Fisher-Yates, so the parts do not sit in the same order every visit. */
 function shuffled<T>(items: T[]): T[] {
   const a = [...items];
   for (let i = a.length - 1; i > 0; i -= 1) {
@@ -25,8 +29,6 @@ function shuffled<T>(items: T[]): T[] {
   }
   return a;
 }
-
-const HOLD_MS = 6500;
 
 const PROMPTS = [
   'mecanum drive',
@@ -41,20 +43,10 @@ export default function ChatLanding() {
   const [value, setValue] = useState('');
   const [placeholder, setPlaceholder] = useState(PROMPTS[0]);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Order is shuffled per mount so repeat visits do not replay the same
-  // sequence; every plate is rendered and crossfaded by opacity, which keeps
-  // the transition on the compositor and avoids a flash of unloaded image.
-  const plates = useRef(shuffled(BACKDROPS));
-  const [plate, setPlate] = useState(0);
+  // Order is shuffled per mount so the ring is not identical every visit.
+  const orbit = useRef(shuffled(ORBIT));
 
   useEffect(() => { inputRef.current?.focus(); }, []);
-
-  useEffect(() => {
-    if (entered) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const t = setInterval(() => setPlate((i) => (i + 1) % plates.current.length), HOLD_MS);
-    return () => clearInterval(t);
-  }, [entered]);
 
   // Cycle the placeholder so the pill suggests what this is for without
   // needing a paragraph of instructions next to it.
@@ -77,17 +69,31 @@ export default function ChatLanding() {
 
   return (
     <div className="cl">
-      {plates.current.map((name, i) => (
-        <img
-          key={name}
-          className={`cl__art${i === plate ? ' is-active' : ''}`}
-          src={`/art/cat-${name}.webp`}
-          alt=""
-          decoding="async"
-          loading={i === 0 ? 'eager' : 'lazy'}
-        />
-      ))}
       <div className="cl__scrim" />
+
+      {/* Decorative ring, positioned by our own CSS rather than the
+          component's centreContent. Its layout model is a fixed square design
+          box that is transform-scaled, with the centre content absolutely
+          positioned inside it — which does not centre reliably inside a
+          viewport-height hero. Three attempts left the pill 350px left and
+          310px low. Owning the positioning is simpler and stays put. */}
+      <div className="cl__orbitwrap" aria-hidden="true">
+        <OrbitImages
+          className="cl__orbit"
+          images={orbit.current}
+          altPrefix=""
+          shape="ellipse"
+          baseWidth={1400}
+          radiusX={600}
+          radiusY={330}
+          itemSize={132}
+          duration={52}
+          easing="linear"
+          responsive
+          width="100%"
+          height={1400}
+        />
+      </div>
 
       <form
         className="cl__form"

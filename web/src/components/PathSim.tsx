@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { animate } from 'animejs';
 import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
   sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath, parseJava,
@@ -44,6 +45,8 @@ export default function PathSim() {
   const [u, setU] = useState(0);              // position along the chain, 0..1
   const drag = useRef<Handle | null>(null);
   const uRef = useRef(0);
+  /** 0..1 — how much of the route has been drawn in. Animated on arrival. */
+  const reveal = useRef(0);
   const moved = useRef(false);
   const past = useRef<PathModel[]>([]);
 
@@ -173,17 +176,20 @@ export default function PathSim() {
       }
     }
 
+    // Stroked from the arc-length table rather than per-leg bezier steps, so the
+    // draw-in advances at a constant rate instead of racing through short legs.
     ctx.strokeStyle = accent;
     ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    model.segments.forEach((_, leg) => {
-      const pts = legPoints(model, leg);
-      for (let s = 0; s <= 60; s += 1) {
-        const p = bezierAt(pts, s / 60);
-        if (leg === 0 && s === 0) ctx.moveTo(X(p.x), Y(p.y)); else ctx.lineTo(X(p.x), Y(p.y));
-      }
-    });
+    const upto = total * reveal.current;
+    let started = false;
+    for (const sp of table) {
+      if (sp.s > upto) break;
+      if (!started) { ctx.moveTo(X(sp.p.x), Y(sp.p.y)); started = true; }
+      else ctx.lineTo(X(sp.p.x), Y(sp.p.y));
+    }
     ctx.stroke();
 
     model.segments.forEach((seg, leg) => {
@@ -211,7 +217,7 @@ export default function PathSim() {
       ctx.stroke();
     });
 
-    if (total > 0.5) {
+    if (total > 0.5 && reveal.current > 0.98) {
       const pose = poseAtLength(model, table, u * total);
       const corners = robotCorners(pose, dims.w, dims.l);
       ctx.fillStyle = 'rgba(110,219,154,0.16)';
@@ -230,6 +236,17 @@ export default function PathSim() {
   }, [model, sel, u, total, table, dims]);
 
   useEffect(() => { draw(); }, [draw]);
+
+  // Draw the route on once, when the planner first appears.
+  useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { reveal.current = 1; draw(); return; }
+    const state = { v: 0 };
+    const a = animate(state, {
+      v: 1, duration: 1100, ease: 'inOut(2)',
+      onUpdate: () => { reveal.current = state.v; draw(); },
+    });
+    return () => { a.pause(); reveal.current = 1; };
+  }, []);
   useEffect(() => {
     const on = () => draw();
     window.addEventListener('resize', on);

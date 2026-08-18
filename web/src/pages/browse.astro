@@ -250,6 +250,26 @@ for (const cat of CATEGORIES) {
 </style>
 
 <script>
+  // Tiles settle in on load, in reading order.
+  import { animate, stagger, utils } from 'animejs';
+
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const tiles = document.querySelectorAll('.tile');
+    utils.set(tiles, { opacity: 0 });
+    animate(tiles, {
+      opacity: [0, 1],
+      y: [26, 0],
+      scale: [0.97, 1],
+      // grid stagger, so the wave runs from the top-left corner outward rather
+      // than strictly one row at a time
+      delay: stagger(34, { grid: [4, Math.ceil(tiles.length / 4)], from: 'first' }),
+      duration: 760,
+      ease: 'out(3)',
+    });
+  }
+</script>
+
+<script>
   // Category tiles filter the grid. They used to link to /ask with the blurb as
   // the query, so every click asked "Tank, mecanum, X-drive, wheels and
   // gearing." as a question and stored an answer for it. Two of those had

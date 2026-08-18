@@ -38,7 +38,7 @@ const jsonLd = {
     <ScatterField client:idle />
     <div class="wrap">
       <p class="hero__mark rise d1">Sharp AI</p>
-      <h1 class="hero__title rise d2">
+      <h1 class="hero__title">
         Search every FTC doc<br /><em>at once.</em>
       </h1>
       <p class="hero__lede rise d3">
@@ -94,13 +94,13 @@ const jsonLd = {
   <!-- Statement, then a panel that shows the thing rather than describing it.
        The cosmos home page alternates these; the captions on the three cards
        below read as one sentence across the row. -->
-  <section class="say reveal">
+  <section class="say">
     <div class="wrap">
       <h2>Every answer points at a page.</h2>
     </div>
   </section>
 
-  <section class="trio reveal">
+  <section class="trio">
     <div class="wrap">
       <div class="trio__grid">
         <article class="trio__card">
@@ -125,7 +125,7 @@ const jsonLd = {
     </div>
   </section>
 
-  <section class="say reveal">
+  <section class="say">
     <div class="wrap">
       <h2>Draw a path. Take the Java.</h2>
     </div>
@@ -327,6 +327,86 @@ const jsonLd = {
       measure();
       paint(p);
     });
+  }
+</script>
+
+<script>
+  // Entrances. Words for the headlines, a stagger for the card rows.
+  import { animate, stagger, split, utils } from 'animejs';
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!reduced) {
+    /** Split a heading into words and lift them in. */
+    const words = (el, opts = {}) => {
+      // accessible keeps the original text for screen readers; without it a
+      // split headline reads as a pile of loose spans.
+      const s = split(el, { words: true, chars: false, accessible: true });
+      return animate(s.words, {
+        opacity: [0, 1],
+        y: [26, 0],
+        filter: ['blur(7px)', 'blur(0px)'],
+        delay: stagger(52),
+        duration: 850,
+        ease: 'out(3)',
+        ...opts,
+      });
+    };
+
+    const title = document.querySelector('.hero__title');
+    if (title) {
+      words(title, {
+        // The scattered plates position themselves against the measured copy,
+        // so they have to re-measure once the words have settled — mid-flight
+        // they read the animated positions, not the resting ones.
+        onComplete: () => dispatchEvent(new Event('resize')),
+      });
+    }
+
+    // Split and hide up front. Left visible, a card would be on screen at full
+    // opacity and then blink out the moment its observer fired.
+    const splits = new Map();
+    document.querySelectorAll('.say h2').forEach((h) => {
+      const s = split(h, { words: true, chars: false, accessible: true });
+      utils.set(s.words, { opacity: 0 });
+      splits.set(h, s);
+    });
+    utils.set(document.querySelectorAll('.trio__card'), { opacity: 0 });
+
+    // Statement headlines and card rows, once each as they come into view.
+    const seen = new WeakSet();
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting || seen.has(e.target)) continue;
+        seen.add(e.target);
+        io.unobserve(e.target);
+
+        if (e.target.matches('.say h2')) {
+          const sp = splits.get(e.target);
+          if (sp) {
+            animate(sp.words, {
+              opacity: [0, 1], y: [26, 0], filter: ['blur(7px)', 'blur(0px)'],
+              delay: stagger(52), duration: 850, ease: 'out(3)',
+            });
+          }
+          continue;
+        }
+
+        const cards = e.target.querySelectorAll('.trio__card');
+        if (cards.length) {
+          animate(cards, {
+            opacity: [0, 1],
+            y: [34, 0],
+            scale: [0.965, 1],
+            delay: stagger(110),
+            duration: 900,
+            ease: 'out(3)',
+          });
+        }
+      }
+    }, { threshold: 0.25, rootMargin: '0px 0px -8% 0px' });
+
+    document.querySelectorAll('.say h2, .trio').forEach((el) => io.observe(el));
   }
 </script>
 

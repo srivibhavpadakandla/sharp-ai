@@ -388,7 +388,6 @@ const jsonLd = {
       return animate(s.words, {
         opacity: [0, 1],
         y: [26, 0],
-        filter: ['blur(7px)', 'blur(0px)'],
         delay: stagger(52),
         duration: 850,
         ease: 'out(3)',
@@ -396,12 +395,20 @@ const jsonLd = {
       });
     };
 
+    // The hero headline is NOT split. Its last line is a gradient <em> that
+    // paints via background-clip:text, and the splitter puts inline-block word
+    // spans inside it — an inline-block child breaks the clip, so the line took
+    // up a full row and rendered nothing. It animates as one element instead;
+    // the statement headlines below carry no gradient and still split.
     const title = document.querySelector('.hero__title');
     if (title) {
-      words(title, {
-        // The scattered plates position themselves against the measured copy,
-        // so they have to re-measure once the words have settled — mid-flight
-        // they read the animated positions, not the resting ones.
+      animate(title, {
+        opacity: [0, 1],
+        y: [26, 0],
+        duration: 900,
+        ease: 'out(3)',
+        // The scattered plates measure themselves against the copy, so they
+        // re-measure once it has settled rather than mid-flight.
         onComplete: () => dispatchEvent(new Event('resize')),
       });
     }
@@ -428,7 +435,7 @@ const jsonLd = {
           const sp = splits.get(e.target);
           if (sp) {
             animate(sp.words, {
-              opacity: [0, 1], y: [26, 0], filter: ['blur(7px)', 'blur(0px)'],
+              opacity: [0, 1], y: [26, 0],
               delay: stagger(52), duration: 850, ease: 'out(3)',
             });
           }

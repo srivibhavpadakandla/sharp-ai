@@ -82,7 +82,7 @@ export default function ScatterField() {
       for (const rc of copy) {
         const dx = Math.max(rc.l - x, 0, x - rc.r);
         const dy = Math.max(rc.t - y, 0, y - rc.b);
-        f = Math.min(f, Math.min(1, Math.max(0, Math.hypot(dx, dy) - half) / 48));
+        f = Math.min(f, Math.min(1, Math.max(0, Math.hypot(dx, dy) - half) / 88));
       }
       return f;
     };
@@ -149,9 +149,11 @@ export default function ScatterField() {
         // sizes its orbit from its own rotated half-extent.
         const half = ((o.size * 16) / 2) * (Math.cos(rad) + Math.sin(rad));
         const fit = Math.max(0, Math.min(cx - half, (cy - half) / 0.62));
-        // Rings occupy the outer band only; further in, a plate would spend most
-        // of its orbit faded out behind the copy.
-        const r = fit * (0.72 + 0.28 * o.ring);
+        // Pushed right out to the rim. The top of the ellipse passes through the
+        // middle of the page, which is where the headline is, so anything on an
+        // inner ring spent most of its orbit faded out and the corners of the
+        // hero read as empty.
+        const r = fit * (0.86 + 0.14 * o.ring);
         const a = o.angle + t * o.speed * Math.PI * 2;
         const x = cx + Math.cos(a) * r + px * o.depth * 46;
         // Squashed vertically so the field reads as a wide ellipse, not a wheel.

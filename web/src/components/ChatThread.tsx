@@ -275,7 +275,7 @@ export default function ChatThread({
             <a href="https://gm0.org" target="_blank" rel="noopener">Game Manual 0</a>{' '}
             (CC BY-NC 4.0) and{' '}
             <a href="https://ftc-docs.firstinspires.org" target="_blank" rel="noopener">FTC Docs</a>{' '}
-            (BSD 3-Clause).
+            (BSD 3-Clause). Built by Sharp Face Robotics.
           </p>
         </form>
       </div>

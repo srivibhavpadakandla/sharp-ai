@@ -289,3 +289,17 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 }
 
 .corpus-count { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink); }
+
+/* Team credit in the footer. */
+.madeby {
+  margin: 1.4rem 0 0;
+  font-size: 0.86rem;
+  color: var(--ink-2);
+}
+.madeby strong {
+  font-weight: 600;
+  background: var(--grad-warm);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

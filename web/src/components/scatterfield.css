@@ -12,7 +12,7 @@
 
 .scatter__card {
   position: absolute;
-  background: transparent;
+  background: #16233f;   /* navy ground the screened linework sits on */
   will-change: transform;
   border-radius: var(--r-md);
   overflow: hidden;
@@ -24,15 +24,23 @@
   display: block;
   width: 100%;
   height: auto;
-  /* The wide category plates are dark ink on cream, drawn for the old light
-     theme. Inverting turns them into light linework for the dark ground,
-     rather than regenerating eight large illustrations. */
-  /* Navy, not neutral grey.
-     invert() alone gives colourless light-on-dark linework. sepia() first
-     collapses the plate to a single warm hue (~40 degrees), then hue-rotate
-     swings it to ~220 — deep blue — and saturate pushes it far enough to read
-     as navy rather than slate against the near-black ground. */
-  filter: invert(1) sepia(1) hue-rotate(178deg) saturate(3.2) brightness(0.82);
+  /* Navy ground, white object.
+     A uniform filter chain cannot do this — it tints the linework and the
+     ground together, which is why the previous version came out navy-on-navy.
+     invert() turns the plate into white lines on near-black, then screen keeps
+     the light pixels (lines stay white) and lets the card's own navy show
+     through wherever the plate was dark. The blend resolves against the card
+     because the card paints that background itself. */
+  /* The plates are hairline drawings, so after inverting the strokes are thin
+     and pale. Contrast and brightness push them to a clear white against the
+     navy rather than a washed blue. */
+  /* Gentle. Pushing contrast harder does the opposite of what it looks like it
+     should: after inverting, a hairline stroke is mid-grey, and raising
+     contrast drives mid-tones apart — toward black — so the drawings faded out
+     almost entirely at 1.75. Brightness alone lifts the strokes toward white
+     without crushing them. */
+  filter: invert(1) contrast(1.1) brightness(1.45);
+  mix-blend-mode: screen;
 }
 
 @keyframes scatterIn {

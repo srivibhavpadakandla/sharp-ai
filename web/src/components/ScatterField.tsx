@@ -34,17 +34,19 @@ interface Orbiter {
   opacity: number;
 }
 
-const COUNT = 14;
+const COUNT = 22;
 
 const ORBITERS: Orbiter[] = Array.from({ length: COUNT }, (_, i) => {
-  const ring = i % 3 === 0 ? 0 : i % 3 === 1 ? 0.55 : 1;
+  // Four rings rather than three: with 22 plates, three rings crowded each
+  // orbit enough that neighbouring cards touched at the ellipse's narrow ends.
+  const ring = (i % 4) / 3;
   return {
-    src: `/art/cat-${ART[i % ART.length]}.webp`,
+    src: `/art/cat-${ART[(i * 3) % ART.length]}.webp`,
     angle: (i / COUNT) * Math.PI * 2 + (i % 2 ? 0.35 : 0),
     ring,
     // Outer rings sweep slower, which reads as depth rather than a spinning wheel.
     speed: (0.0075 - ring * 0.0028) * (i % 2 ? -1 : 1),
-    size: 5.5 + ring * 3.2,
+    size: 4.6 + ring * 3.6 + (i % 3) * 0.5,
     tilt: -14 + (i * 37) % 28,
     depth: 0.10 + ring * 0.22,
     opacity: 0.72 + ring * 0.24,
@@ -60,10 +62,25 @@ export default function ScatterField() {
     const nodes = Array.from(root.querySelectorAll<HTMLElement>('.scatter__card'));
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    let inner = 0;
-    let outer = 0;
+    let copy: { l: number; r: number; t: number; b: number }[] = [];
     let cx = 0;
     let cy = 0;
+
+    /**
+     * 1 well clear of the copy, ramping to 0 on top of it.
+     *
+     * Measured from the plate's edge, not its centre: a centre-only test left
+     * plates whose bodies still lapped ~70px over the headline at full opacity.
+     */
+    const clarity = (x: number, y: number, half: number) => {
+      let f = 1;
+      for (const rc of copy) {
+        const dx = Math.max(rc.l - x, 0, x - rc.r);
+        const dy = Math.max(rc.t - y, 0, y - rc.b);
+        f = Math.min(f, Math.min(1, Math.max(0, Math.hypot(dx, dy) - half) / 48));
+      }
+      return f;
+    };
 
     /** Clear the measured copy, stay inside the viewport. */
     const measure = () => {
@@ -71,21 +88,27 @@ export default function ScatterField() {
       cx = box.width / 2;
       cy = box.height / 2;
 
-      const texts = ['.hero__mark', '.hero__title', '.hero__lede', '.hero__actions']
-        .map((s) => document.querySelector(s))
-        .filter(Boolean)
-        .map((el) => (el as HTMLElement).getBoundingClientRect());
-
-      // Furthest corner of the copy from the centre, plus half a card and a gap.
-      let reach = 0;
-      for (const t of texts) {
-        const dx = Math.max(Math.abs(t.left - (box.left + cx)), Math.abs(t.right - (box.left + cx)));
-        const dy = Math.max(Math.abs(t.top - (box.top + cy)), Math.abs(t.bottom - (box.top + cy)));
-        reach = Math.max(reach, Math.hypot(dx, dy * 0.62));
+      // Copy boxes in root-relative coordinates. Plates are not routed *around*
+      // these — a keep-out ring wide enough to clear the headline does not fit
+      // on the page at all — so they orbit freely and fade where they cross.
+      //
+      // Per-line glyph boxes, via Range, rather than each element's border box:
+      // .hero__mark and .hero__actions are block level and report the full
+      // container width, which laid two full-width no-go bands across the field
+      // and blanked most of the orbit. Ragged lines also let plates tuck in
+      // beside the short ones.
+      copy = [];
+      for (const sel of ['.hero__mark', '.hero__title', '.hero__lede', '.hero__actions']) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        for (const t of Array.from(range.getClientRects())) {
+          if (t.width < 2 || t.height < 2) continue;
+          copy.push({ l: t.left - box.left, r: t.right - box.left, t: t.top - box.top, b: t.bottom - box.top });
+        }
+        range.detach();
       }
-      const card = 0.5 * 9 * 16;                 // half the largest card, px
-      inner = reach + card + 28;
-      outer = Math.max(inner + 40, Math.min(box.width, box.height * 1.55) / 2 - card);
     };
 
     let raf = 0;
@@ -96,13 +119,24 @@ export default function ScatterField() {
       const scroll = window.scrollY;
       for (let i = 0; i < nodes.length; i += 1) {
         const o = ORBITERS[i];
-        const r = inner + (outer - inner) * o.ring;
+        // A tilted square needs a wider box than its own width, so each plate
+        // clamps against its own rotated half-extent rather than a shared
+        // worst-case constant.
+        const rad = (Math.abs(o.tilt) * Math.PI) / 180;
+        // A tilted square needs a wider box than its own width, so each plate
+        // sizes its orbit from its own rotated half-extent.
+        const half = ((o.size * 16) / 2) * (Math.cos(rad) + Math.sin(rad));
+        const fit = Math.max(0, Math.min(cx - half, (cy - half) / 0.62));
+        // Rings occupy the outer band only; further in, a plate would spend most
+        // of its orbit faded out behind the copy.
+        const r = fit * (0.72 + 0.28 * o.ring);
         const a = o.angle + t * o.speed * Math.PI * 2;
         const x = cx + Math.cos(a) * r;
         // Squashed vertically so the field reads as a wide ellipse, not a wheel.
         const y = cy + Math.sin(a) * r * 0.62 - scroll * o.depth;
         nodes[i].style.transform =
           `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%) rotate(${o.tilt}deg)`;
+        nodes[i].style.opacity = (o.opacity * clarity(x, y, (o.size * 16) / 2)).toFixed(3);
       }
       raf = requestAnimationFrame(frame);
     };

@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import { SITE_NAME, SDK_VERSION, CORPUS_SECTIONS, CORPUS_UPDATED } from '../lib/config';
+import HeaderSearch from '../components/HeaderSearch.tsx';
 
 interface Props {
   title: string;
@@ -38,6 +39,7 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
   <header class="site-head">
     <div class="wrap">
       <a href="/" class="wordmark">Sharp<em>AI</em></a>
+      <HeaderSearch client:idle />
       <nav>
         <a href="/chat">Chat</a>
         <a href="/browse">Browse</a>

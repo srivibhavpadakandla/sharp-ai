@@ -41,24 +41,52 @@ const PROMPTS = [
 export default function ChatLanding() {
   const [entered, setEntered] = useState<string | null>(null);
   const [value, setValue] = useState('');
-  const [placeholder, setPlaceholder] = useState(PROMPTS[0]);
+  const [placeholder, setPlaceholder] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   // Order is shuffled per mount so the ring is not identical every visit.
   const orbit = useRef(shuffled(ORBIT));
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  // Cycle the placeholder so the pill suggests what this is for without
-  // needing a paragraph of instructions next to it.
+  // Type the placeholder out a character at a time, hold it, delete it, move on.
+  //
+  // It used to swap the whole phrase at once every 2.6s, which read as the text
+  // glitching rather than as a suggestion being offered. Typing makes the
+  // intent obvious: these are things you could ask.
   useEffect(() => {
     if (entered) return;
-    let i = 0;
-    const t = setInterval(() => {
-      i = (i + 1) % PROMPTS.length;
-      setPlaceholder(PROMPTS[i]);
-    }, 2600);
-    return () => clearInterval(t);
-  }, [entered]);
+    // Someone mid-thought should not have text moving underneath them.
+    if (value) { setPlaceholder(''); return; }
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPlaceholder(PROMPTS[0]);
+      return;
+    }
+
+    let phrase = 0;
+    let chars = 0;
+    let deleting = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const step = () => {
+      const full = PROMPTS[phrase];
+      chars += deleting ? -1 : 1;
+      setPlaceholder(full.slice(0, chars));
+
+      let wait = deleting ? 26 : 52 + Math.random() * 38;   // uneven, like a person
+      if (!deleting && chars === full.length) {
+        deleting = true;
+        wait = 1900;                                        // let it be read
+      } else if (deleting && chars === 0) {
+        deleting = false;
+        phrase = (phrase + 1) % PROMPTS.length;
+        wait = 320;
+      }
+      timer = setTimeout(step, wait);
+    };
+
+    timer = setTimeout(step, 600);
+    return () => clearTimeout(timer);
+  }, [entered, value]);
 
   if (entered) return <ChatThread initialQuestion={entered} />;
 

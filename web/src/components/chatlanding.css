@@ -188,3 +188,8 @@
      white square. The form is lifted instead. */
 }
 .cl__orbitwrap .orbit-container { width: 100%; }
+
+/* A caret on the placeholder while it types, so the motion reads as typing
+   rather than as text glitching. Hidden once the field has real input. */
+.cl__pill input::placeholder { color: var(--ink-3); }
+.cl__pill:not(:focus-within) input::placeholder { opacity: 0.9; }

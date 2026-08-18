@@ -1,6 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import { CATEGORIES, SEED_QUESTIONS, API_BASE } from '../lib/config';
+import VisualIndex from '../components/VisualIndex.tsx';
+import CorpusCount from '../components/CorpusCount.tsx';
+import { CORPUS_SECTIONS } from '../lib/config';
 export const prerender = true;
 
 // Near-zero chrome, content forward, dense enough to scan in one pass — the
@@ -61,15 +64,18 @@ for (const cat of CATEGORIES) {
       <p class="eyebrow">Index</p>
       <h1>Everything indexed, at a glance.</h1>
       <p>
-        649 documentation sections from
-        <a href="https://gm0.org" rel="noopener">Game Manual 0</a>, grouped by the
-        part of the robot they touch. Tiles link to answers; the screenshots link
-        to the source page they were drawn from.
+        <CorpusCount client:visible n={CORPUS_SECTIONS} /> documentation sections from
+        <a href="https://gm0.org" rel="noopener">Game Manual 0</a> and the official
+        <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a>,
+        grouped by the part of the robot they touch. Tiles link to answers; the
+        screenshots link to the source page they were drawn from.
       </p>
     </header>
 
+    <VisualIndex client:visible />
+
     <div class="mosaic">
-      {tiles.map((t) => t.kind === 'art' ? (
+      {tiles.filter((t) => t.kind === 'q').map((t) => t.kind === 'art' ? (
         <a class="tile tile--art" href={`/ask?q=${encodeURIComponent(t.cat.blurb)}`} data-cat={t.cat.id}>
           <img src={`/art/cat-${t.cat.id}.webp`} alt="" loading="lazy" decoding="async" width="900" height="657" />
           <div class="tile__over">

@@ -283,3 +283,5 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   color: var(--ink-2);
   font-style: italic;
 }
+
+.corpus-count { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink); }

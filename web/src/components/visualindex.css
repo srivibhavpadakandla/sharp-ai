@@ -1,0 +1,12 @@
+/* Masonry ships its own absolute-positioned layout; this only sets the frame
+   and softens the tiles to match the rest of the site. */
+.vindex { position: relative; margin-bottom: 3rem; }
+.vindex .item-img {
+  border-radius: var(--r-lg);
+  border: 1px solid var(--rule);
+  background-color: var(--paper-raised);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  mix-blend-mode: multiply;
+}

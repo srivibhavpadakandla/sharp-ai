@@ -13,12 +13,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { getSource } from './sources/index.js';
+import { getSource, SOURCES } from './sources/index.js';
 import { chunkDocument, CHUNK_LIMITS } from './lib/chunk.js';
 import { DATA_DIR, openLocal } from './lib/db.js';
 
 const args = parseArgs(process.argv.slice(2));
-const sourceId = args.source || 'gm0';
+// Multiple sources accumulate into one corpus: `--source gm0,ftc-docs` or
+// `--all`. chunk_id is namespaced by source, so ids never collide.
+const sourceIds = args.all
+  ? Object.keys(SOURCES)
+  : String(args.source || 'gm0').split(',').map((x) => x.trim()).filter(Boolean);
 const BATCH = Number(args.batch || 400);
 
 function parseArgs(argv) {
@@ -38,14 +42,16 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const q = (v) => (v === null || v === undefined ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`);
 
 function main() {
-  const src = getSource(sourceId);
   const now = new Date().toISOString();
-
-  let docs = src.loadDocuments();
-  if (args.limit) docs = docs.slice(0, Number(args.limit));
-  console.log(`[ingest] ${src.meta.sourceName}: ${docs.length} pages`);
-
+  const metas = sourceIds.map((id) => getSource(id).meta);
   const chunks = [];
+
+  for (const sourceId of sourceIds) {
+    const src = getSource(sourceId);
+    let docs = src.loadDocuments();
+    if (args.limit) docs = docs.slice(0, Number(args.limit));
+    console.log(`[ingest] ${src.meta.sourceName}: ${docs.length} pages`);
+
   for (const doc of docs) {
     for (const c of chunkDocument(doc)) {
       // Licensing invariant: a chunk may be stricter than its source, never looser.
@@ -65,6 +71,7 @@ function main() {
         updatedAt: now,
       });
     }
+  }
   }
 
   const seen = new Set();
@@ -91,12 +98,12 @@ function main() {
   fs.rmSync(sqlDir, { recursive: true, force: true });
   fs.mkdirSync(sqlDir, { recursive: true });
 
-  const m = src.meta;
-  const sourceSql =
+  const sourceSql = metas.map((m) =>
     `DELETE FROM chunks WHERE source_id = ${q(m.sourceId)};\n` +
     `INSERT OR REPLACE INTO sources (source_id, source_name, homepage, license, license_url, attribution, can_excerpt, priority, updated_at)\n` +
     `VALUES (${q(m.sourceId)}, ${q(m.sourceName)}, ${q(m.homepage)}, ${q(m.license)}, ` +
-    `${q(m.licenseUrl)}, ${q(m.attribution)}, ${m.canExcerpt ? 1 : 0}, ${m.priority}, ${q(now)});\n`;
+    `${q(m.licenseUrl)}, ${q(m.attribution)}, ${m.canExcerpt ? 1 : 0}, ${m.priority}, ${q(now)});\n`,
+  ).join('');
   fs.writeFileSync(path.join(sqlDir, '000-source.sql'), sourceSql);
 
   const cols = '(chunk_id, source_id, source_name, doc_path, page_title, section_title, heading_path, anchor, source_url, category, license, can_excerpt, text, char_len, ordinal, part, part_count, content_hash, updated_at)';
@@ -135,12 +142,15 @@ function main() {
   const pct = (p) => lens[Math.min(lens.length - 1, Math.floor(lens.length * p))];
   const byCat = {};
   for (const c of chunks) byCat[c.category] = (byCat[c.category] || 0) + 1;
+  const bySrc = {};
+  for (const c of chunks) bySrc[c.sourceId] = (bySrc[c.sourceId] || 0) + 1;
 
   console.log(`[ingest] ${chunks.length} chunks -> ${ndjson}`);
   console.log(`[ingest] ${fileNo} SQL batches -> ${sqlDir}`);
   console.log(`[ingest] chars  min=${lens[0]} p50=${pct(0.5)} p90=${pct(0.9)} max=${lens[lens.length - 1]}`);
   console.log(`[ingest] limits ${JSON.stringify(CHUNK_LIMITS)}`);
   console.log(`[ingest] split  ${chunks.filter((c) => c.part > 0).length} chunks came from oversized sections`);
+  console.log('[ingest] sources   ', bySrc);
   console.log('[ingest] categories', byCat);
   console.log(`[ingest] fts rows ${db.prepare('SELECT count(*) n FROM chunks_fts').get().n}`);
   db.close();

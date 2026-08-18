@@ -33,6 +33,8 @@ GEMINI_MODEL     = "gemini-3.5-flash"
 # and keeps the agentic pass affordable against the same daily ceiling.
 GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"
 THINKING_LEVEL   = "medium"
+# Code needs far more room: thinking is billed from the same budget.
+MAX_OUTPUT_TOKENS_CODE = "24000"
 AGENTIC          = "true"
 # --- site ------------------------------------------------------------------
 SITE_ORIGIN      = "https://sharp-ai-8a1.pages.dev"

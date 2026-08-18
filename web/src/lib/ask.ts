@@ -9,6 +9,15 @@ export interface Citation {
 }
 export interface Excerpt { chunkId: string; n: number; text: string }
 
+export interface Validation {
+  ok: boolean;
+  checked: number;
+  sdkVersion: string;
+  unknownTypes: string[];
+  unknownMethods: string[];
+  notes: string[];
+}
+
 export interface AskCallbacks {
   onMeta(meta: { citations: Citation[]; excerpts: Excerpt[]; category?: string | null;
                  cached?: boolean; refused?: boolean; degraded?: boolean;
@@ -18,6 +27,8 @@ export interface AskCallbacks {
   /** Ungrounded reasoning begins. Everything after this is uncited by construction. */
   onBeyondStart(): void;
   onBeyond(text: string): void;
+  /** SDK validation report for generated code. Warnings, never blocks. */
+  onValidation(report: Validation): void;
   onDegrade(payload: { reason: string; answerMd: string }): void;
   onDone(payload: { slug: string | null }): void;
   onError(message: string): void;
@@ -87,6 +98,7 @@ export async function ask(
       else if (event === 'token') cb.onToken(payload.t);
       else if (event === 'beyond_start') cb.onBeyondStart();
       else if (event === 'beyond') cb.onBeyond(payload.t);
+      else if (event === 'validation') cb.onValidation(payload);
       else if (event === 'degrade') cb.onDegrade(payload);
       else if (event === 'done') cb.onDone(payload);
       else if (event === 'error') cb.onError(payload.message || 'Something went wrong.');

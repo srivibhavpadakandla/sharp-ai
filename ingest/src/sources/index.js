@@ -4,7 +4,6 @@
  * embedder stay untouched.
  *
  * Planned, not yet ingested:
- *   ftc-docs   https://ftc-docs.firstinspires.org
  *   rev        https://docs.revrobotics.com
  *   ctrlaltftc https://www.ctrlaltftc.com
  *   ftc-sdk    FIRST-Tech-Challenge/FtcRobotController javadocs
@@ -16,8 +15,9 @@
  *   the Worker returns rule number + link and never their body text.
  */
 import * as gm0 from './gm0.js';
+import * as ftcDocs from './ftc-docs.js';
 
-export const SOURCES = { gm0 };
+export const SOURCES = { gm0, 'ftc-docs': ftcDocs };
 
 export function getSource(id) {
   const s = SOURCES[id];

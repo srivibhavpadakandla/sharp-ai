@@ -181,3 +181,38 @@
   color: var(--ink-4);
   text-align: center;
 }
+
+/* --- SDK validation strip -------------------------------------------------
+   Sits directly under generated code. Green-free on purpose: a pass means
+   "these symbols exist", not "this code is correct", and the wording has to
+   carry that distinction rather than a reassuring colour. */
+
+.sdkcheck {
+  margin-top: 1.2rem;
+  border: 1px solid var(--rule-strong);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--accent-wash);
+  padding: 0.7rem 0.9rem;
+  max-width: var(--measure);
+}
+.sdkcheck--ok { border-left-color: var(--rule-strong); background: var(--paper-sunk); }
+.sdkcheck__head {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.sdkcheck__note {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.sdkcheck__note code {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 0.04em 0.3em;
+  font-size: 0.94em;
+}

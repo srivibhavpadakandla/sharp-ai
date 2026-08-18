@@ -9,7 +9,8 @@
     "embed": "node src/embed.js",
     "search": "node --experimental-sqlite src/search-cli.js",
     "eval": "node --experimental-sqlite src/eval.js",
-    "embed-server": "node src/embed-server.js"
+    "embed-server": "node src/embed-server.js",
+    "sdk-symbols": "node src/sdk-symbols.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1"

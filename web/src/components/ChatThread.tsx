@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ask, type Citation, type Excerpt } from '../lib/ask';
+import { ask, type Citation, type Excerpt, type Validation } from '../lib/ask';
 import { renderMarkdown } from '../lib/markdown';
 import SourceCard from './SourceCard';
 import './sources.css';
@@ -24,6 +24,7 @@ export interface Turn {
   slug: string | null;
   notice: string | null;
   error: string | null;
+  validation: Validation | null;
 }
 
 const STAGES = [
@@ -36,6 +37,7 @@ const STAGES = [
 const blankTurn = (id: number, question: string): Turn => ({
   id, question, answer: '', beyond: '', citations: [], excerpts: [],
   status: 'thinking', agent: null, slug: null, notice: null, error: null,
+  validation: null,
 });
 
 export default function ChatThread({
@@ -96,6 +98,7 @@ export default function ChatThread({
       onToken: (t) => patch(id, (cur) => ({ answer: cur.answer + t })),
       onBeyondStart: () => patch(id, (cur) => ({ beyond: cur.beyond || ' ' })),
       onBeyond: (t) => patch(id, (cur) => ({ beyond: (cur.beyond === ' ' ? '' : cur.beyond) + t })),
+      onValidation: (v) => patch(id, () => ({ validation: v })),
       onDegrade: (p) => patch(id, () => ({
         answer: p.answerMd,
         notice: 'The answer service is unavailable — here are the matching sections.',
@@ -303,6 +306,20 @@ function TurnView({ turn, index, stage, isActive, onFocus }: {
         {turn.error && <div className="turn__error">{turn.error}</div>}
 
         <div className="prose turn__prose" dangerouslySetInnerHTML={{ __html: html }} />
+
+        {turn.validation?.checked ? (
+          <section className={`sdkcheck${turn.validation.ok ? ' sdkcheck--ok' : ''}`}>
+            <p className="sdkcheck__head">
+              {turn.validation.ok
+                ? `Checked against the FTC SDK ${turn.validation.sdkVersion} — every type and method in this code exists.`
+                : `Checked against the FTC SDK ${turn.validation.sdkVersion} — some symbols are not in it.`}
+            </p>
+            {turn.validation.notes.map((n) => (
+              <p key={n} className="sdkcheck__note"
+                 dangerouslySetInnerHTML={{ __html: n.replace(/`([^`]+)`/g, '<code>$1</code>') }} />
+            ))}
+          </section>
+        ) : null}
 
         {turn.beyond.trim() && (
           <section className="beyond">

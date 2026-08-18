@@ -71,7 +71,7 @@ The user has pasted an FTC SDK stack trace or error message. Additionally:
 /**
  * @returns {{prompt: string, citations: Array, excerpts: Array}}
  */
-export function buildPrompt(question, chunks, { isError = false, history = [] } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [] } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -132,19 +132,21 @@ export function buildPrompt(question, chunks, { isError = false, history = [] } 
   return { prompt, citations, excerpts };
 }
 
+import { CODE_SYSTEM_ADDENDUM } from './codegen.js';
+
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, history = [] }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, history });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [] }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {
     systemInstruction: {
-      parts: [{ text: SYSTEM_PROMPT + (isError ? ERROR_SYSTEM_ADDENDUM : '') }],
+      parts: [{ text: SYSTEM_PROMPT + (isError ? ERROR_SYSTEM_ADDENDUM : '') + (isCode ? CODE_SYSTEM_ADDENDUM : '') }],
     },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
@@ -154,7 +156,13 @@ export async function* streamGemini(env, { question, chunks, isError = false, hi
       // truncated the answer mid-word and the BEYOND section never arrived.
       // The cap exists to bound a runaway generation, not to shape length —
       // length is controlled by the prompt.
-      maxOutputTokens: Number(env.MAX_OUTPUT_TOKENS || 8192),
+      // Thinking tokens are drawn from this same budget. A code request with
+      // thinkingLevel:medium spent all 8192 reasoning and emitted a single
+      // newline, so code gets a much larger ceiling. The cap bounds a runaway
+      // generation; length is controlled by the prompt.
+      maxOutputTokens: Number(
+        isCode ? (env.MAX_OUTPUT_TOKENS_CODE || 24000) : (env.MAX_OUTPUT_TOKENS || 8192),
+      ),
       // Thinking is on now. The model has to decide what the sections actually
       // support before writing, and which of its own knowledge is safe to add
       // below the line — both are reasoning steps, not retrieval steps.

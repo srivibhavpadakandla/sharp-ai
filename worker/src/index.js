@@ -18,6 +18,7 @@
 import { retrieve, retrieveMulti } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
 import { needsEscalation, planSearch, rerank } from './agent.js';
+import { isCodeRequest, validateCode } from './codegen.js';
 import { checkRateLimit, reserveLlmCall, llmUsage } from './ratelimit.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
 import {
@@ -65,14 +66,17 @@ const FTC_VOCAB = new RegExp(
   ].join('|') + ')', 'i',
 );
 
-function uncoveredRefusal(question) {
+function uncoveredRefusal(question, library) {
+  const lead = library
+    ? `**${library}** is a third-party library, and it is not part of any documentation Sharp AI has indexed.\n\n`
+      + `I could give you an answer assembled from adjacent pages about PID control or path following, but it would not be about ${library}, and you would have no way to tell. So I would rather not.\n\n`
+    : `That looks like a FIRST Tech Challenge question, but it is not covered by the documentation indexed so far.\n\n`;
   return (
-    `That looks like a FIRST Tech Challenge question, but it is not covered by `
-    + `the documentation indexed so far.\n\n`
-    + `Right now Sharp AI indexes **Game Manual 0** only. Topics it does not `
-    + `reach — the FTC SDK javadocs, REV hardware documentation, CTRL ALT FTC, `
-    + `and third-party libraries such as Road Runner, Pedro Pathing and FTCLib — `
-    + `are not in the index yet, so there is nothing here I can cite.\n\n`
+    lead
+    + `Sharp AI currently indexes **Game Manual 0** and the **official FTC Docs**. `
+    + `Third-party libraries — Road Runner, Pedro Pathing, FTCLib, FTC Dashboard — `
+    + `and the REV and CTRL ALT FTC sites are not in the index, so there is `
+    + `nothing here I can cite.\n\n`
     + `Rather than guess, here is where that answer actually lives:\n\n`
     + `- [ftc-docs](https://ftc-docs.firstinspires.org) — official FTC documentation\n`
     + `- [Game Manual 0](https://gm0.org) — the indexed source, for adjacent topics\n`
@@ -85,6 +89,20 @@ function uncoveredRefusal(question) {
  * Greetings are not documentation questions, but answering them with a refusal
  * is a bad way to meet someone. Handled before retrieval — no search, no LLM.
  */
+/**
+ * Third-party libraries we know for certain are not in any indexed source.
+ *
+ * These need naming explicitly rather than leaving to the relevance gate. Two
+ * different failures were happening: "what is pedro pathing" scored just under
+ * the cosine bar and got called off-topic — plainly false — while "how do I
+ * tune road runner" scored ABOVE the bar and got answered out of gm0's generic
+ * PID sections, which is worse, because a confident answer about the wrong
+ * library reads as authoritative.
+ *
+ * We know the corpus does not cover these. Say so, deterministically.
+ */
+const UNINDEXED_LIBRARY = /\b(pedro\s*path\w*|pedropathing|road\s*runner|roadrunner|ftclib|ftc\s*lib|solvers\s*lib|meepmeep|dashboard|ftc\s*dashboard)\b/i;
+
 const GREETING = /^\s*(h(ello|i|ey|iya)|yo|sup|good\s+(morning|afternoon|evening)|greetings|what\s*'?s\s+up|howdy|test|ping)\b[\s!.?]*$/i;
 
 const GREETING_REPLY =
@@ -146,6 +164,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       })).filter((h) => h.question)
     : [];
   const isFollowUp = history.length > 0;
+  const isCode = isCodeRequest(question);
 
   // --- 1. Turnstile ---------------------------------------------------------
   const ts = await verifyTurnstile(env, token, request);
@@ -193,6 +212,21 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
 
   await rl.commit();
 
+  // A question about a library we know is unindexed must not be answered from
+  // whatever happens to be nearby. Checked before retrieval so no LLM budget
+  // is spent deciding something we already know.
+  const lib = question.match(UNINDEXED_LIBRARY);
+  if (lib && !isFollowUp) {
+    ctx.waitUntil(logQuery(env, {
+      question, questionHash, cacheHit: false, belowThreshold: true, llmCalled: false,
+      latencyMs: Date.now() - started,
+    }));
+    return streamPrerendered(
+      { question, answerMd: uncoveredRefusal(question, lib[0]), citations: [], excerpts: [], slug: null },
+      cors, { refused: true, uncovered: true, unindexedLibrary: lib[0] },
+    );
+  }
+
   // --- 5. Retrieval ---------------------------------------------------------
   const { chunks, gate, stats } = await retrieve(env, question);
 
@@ -212,7 +246,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     return streamPrerendered(
       {
         question,
-        answerMd: looksFtc ? uncoveredRefusal(question) : OFF_TOPIC_REFUSAL,
+        answerMd: looksFtc ? uncoveredRefusal(question, null) : OFF_TOPIC_REFUSAL,
         citations: [], excerpts: [], slug: null,
       },
       cors,
@@ -258,7 +292,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, history });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -295,7 +329,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       await writer.write(encoder.encode(sse('meta', {
         question, citations, excerpts, category,
         cached: false, degraded: false,
-        agent,
+        agent, isCode,
         stats: { bestBm25: stats.bestBm25, bestCosine: stats.bestCosine },
       })));
 
@@ -317,10 +351,32 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, history })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());
+
+      // A generation that produced essentially nothing is a failure, not an
+      // answer. Falling through would show an empty page and cache it.
+      if (grounded.trim().length < 40 && !beyond.trim()) {
+        console.error('empty generation', { isCode, chars: grounded.length });
+        await writer.write(encoder.encode(sse('degrade', {
+          reason: 'empty-generation',
+          answerMd: degradedMarkdown(finalChunks),
+        })));
+        await writer.write(encoder.encode(sse('done', { slug: null })));
+        return;
+      }
+
+      // The generated code is checked against the real SDK surface before the
+      // reader is told it is done. Warnings only — see codegen.js.
+      let validation = null;
+      if (isCode && grounded.trim()) {
+        validation = validateCode(grounded);
+        if (validation.checked) {
+          await writer.write(encoder.encode(sse('validation', validation)));
+        }
+      }
 
       let slug = null;
       // Follow-ups get no permanent URL. "Why?" makes a terrible page title and
@@ -336,6 +392,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       }
       await writer.write(encoder.encode(sse('done', {
         slug, chars: grounded.length, beyondChars: beyond.length,
+        validated: validation ? validation.ok : null,
       })));
 
       await logQuery(env, {

@@ -10,7 +10,9 @@
     "search": "node --experimental-sqlite src/search-cli.js",
     "eval": "node --experimental-sqlite src/eval.js",
     "embed-server": "node src/embed-server.js",
-    "sdk-symbols": "node src/sdk-symbols.js"
+    "sdk-symbols": "node src/sdk-symbols.js",
+    "digest": "node src/digest.js",
+    "crawl-pedro": "node scripts/crawl-pedropathing.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1"

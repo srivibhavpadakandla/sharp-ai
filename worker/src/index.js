@@ -93,12 +93,15 @@ function uncoveredRefusal(question, library) {
 /**
  * Third-party libraries still absent from every index.
  *
- * Road Runner, FTCLib, REV and CTRL ALT FTC used to be listed here. They are
- * now indexed as LINK RECORDS — title, heading path and URL, with no body text,
- * because none of them publishes an open licence. Retrieval finds them and the
- * Worker cites the link, so a blanket refusal would hide the very thing we just
- * added. Pedro Pathing stays: it publishes no sitemap, so there is nothing to
- * index for it yet.
+ * Road Runner, FTCLib, REV, CTRL ALT FTC and Pedro Pathing were all listed
+ * here at various points. Every one of them is now indexed as LINK RECORDS —
+ * title, heading path and URL, no body text, because none publishes an open
+ * licence. Retrieval finds them and the Worker cites the link.
+ *
+ * This guard runs BEFORE retrieval, so anything left in it is unreachable no
+ * matter what the index contains. Pedro Pathing stayed here one deploy too
+ * long and kept being refused after its 29 pages had already been indexed.
+ * When a source is added, it must come out of this list.
  *
  * These need naming explicitly rather than leaving to the relevance gate. Two
  * different failures were happening: "what is pedro pathing" scored just under
@@ -109,7 +112,7 @@ function uncoveredRefusal(question, library) {
  *
  * We know the corpus does not cover these. Say so, deterministically.
  */
-const UNINDEXED_LIBRARY = /\b(pedro\s*path\w*|pedropathing|solvers\s*lib|meepmeep|next\s*ftc)\b/i;
+const UNINDEXED_LIBRARY = /\b(solvers\s*lib|meepmeep|next\s*ftc|rr\s*dashboard)\b/i;
 
 const GREETING = /^\s*(h(ello|i|ey|iya)|yo|sup|good\s+(morning|afternoon|evening)|greetings|what\s*'?s\s+up|howdy|test|ping)\b[\s!.?]*$/i;
 

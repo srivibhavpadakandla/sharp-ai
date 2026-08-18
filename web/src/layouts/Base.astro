@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css';
-import { SITE_NAME, SDK_VERSION } from '../lib/config';
+import { SITE_NAME, SDK_VERSION, CORPUS_SECTIONS, CORPUS_UPDATED } from '../lib/config';
 
 interface Props {
   title: string;
@@ -78,7 +78,10 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
               REV, Road Runner, CTRL ALT FTC, FTCLib — no open licence published,
               so their text is never copied here.
             </span><br />
-            <span style="color:var(--ink-3)">FTC SDK {SDK_VERSION} — API surface, for code checking</span>
+            <span style="color:var(--ink-3)">FTC SDK {SDK_VERSION} — API reference and sample OpModes</span>
+          </p>
+          <p style="margin:0.8em 0 0;color:var(--ink-3)">
+            {CORPUS_SECTIONS.toLocaleString()} sections · last indexed {CORPUS_UPDATED}
           </p>
         </div>
       </div>

@@ -49,13 +49,21 @@ async function main() {
   for (const sourceId of sourceIds) {
     const src = getSource(sourceId);
 
-    // Link-only sources emit chunk records directly: they carry titles and
-    // URLs, never body text, so there is nothing for the chunker to split.
+    // Some sources emit chunk records directly rather than documents: link
+    // indexes (titles and URLs only) and the SDK adapters (javadoc and sample
+    // OpModes), which are already one-chunk-per-page.
+    //
+    // The excerpt assertion keys off meta.linkOnly, NOT the presence of
+    // loadChunks. An earlier version conflated the two and refused to ingest
+    // the BSD-licensed SDK API because it is legitimately excerptable.
     if (typeof src.loadChunks === 'function') {
-      const linkChunks = await src.loadChunks();
-      console.log(`[ingest] ${src.meta.sourceName}: ${linkChunks.length} pages (link index, no text stored)`);
-      for (const c of linkChunks) {
-        if (c.canExcerpt) throw new Error(`${sourceId}: link-only source produced an excerptable chunk`);
+      const direct = await src.loadChunks();
+      const linkOnly = src.meta.linkOnly === true;
+      console.log(`[ingest] ${src.meta.sourceName}: ${direct.length} pages`
+        + (linkOnly ? ' (link index, no text stored)' : ''));
+      for (const c of direct) {
+        if (linkOnly && c.canExcerpt) throw new Error(`${sourceId}: link-only source produced an excerptable chunk`);
+        if (!linkOnly && !c.canExcerpt && src.meta.canExcerpt) throw new Error(`${sourceId}: excerptable source produced a restricted chunk`);
         chunks.push({
           ...c,
           chunkId: `${c.sourceId}:${sha(`${c.docPath}#link`).slice(0, 16)}`,

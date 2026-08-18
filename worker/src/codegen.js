@@ -49,6 +49,12 @@ const CODE_INTENT = new RegExp(
     'code (for|to)\\b', 'sample code', 'example code',
     'how (do|would) i (code|program|write)',
     'implement (a|an|the)\\b', 'make (a|an) opmode',
+    // An opmode request IS a code request however it is phrased. "show me an
+    // official sample opmode for mecanum teleop" matched none of the patterns
+    // above, so it took the prose token budget, spent all of it thinking about
+    // a long Java sample, and emitted nothing.
+    '\\bopmode\\b', 'sample (opmode|program|class)', 'example (opmode|program)',
+    'show me (a|an|the)? ?(official )?(sample|example)',
   ].join('|') + ')', 'i',
 );
 

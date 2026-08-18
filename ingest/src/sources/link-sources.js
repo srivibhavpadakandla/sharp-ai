@@ -87,3 +87,63 @@ export const rev = sitemapped(
   'rev', 'REV Robotics Docs', 'https://docs.revrobotics.com',
   'https://docs.revrobotics.com/sitemap.xml', 'electronics',
 );
+
+
+/**
+ * Pedro Pathing. The most-refused topic in the query log by a wide margin —
+ * every one of the six most recent refusals before this was asked about it.
+ *
+ * No licence and no sitemap, and the docs nav is client-rendered, so the link
+ * list is captured with a headless browser and cached. Titles and URLs only,
+ * like the rest of the link-only sources.
+ */
+export const pedropathing = {
+  meta: {
+    sourceId: 'pedropathing', sourceName: 'Pedro Pathing',
+    homepage: 'https://pedropathing.com',
+    license: 'All rights reserved (no licence published)',
+    licenseUrl: null,
+    attribution: 'Pedro Pathing — https://pedropathing.com — indexed by title and link only',
+    canExcerpt: false, priority: 60, linkOnly: true,
+    category: () => 'odometry',
+  },
+  async loadChunks() {
+    const entries = await cached('pedropathing', async () => {
+      throw new Error('run ingest/scripts/crawl-pedropathing.mjs to refresh this cache');
+    });
+    return linkChunks(entries, this.meta);
+  },
+};
+
+/**
+ * The official FIRST rules surfaces. These are FIRST copyright and not openly
+ * licensed, so only the landing pages are named and linked — never a rule and
+ * never its wording. Sharp AI should be able to answer "where are the rules"
+ * with the right destination instead of a shrug.
+ */
+export const firstRules = {
+  meta: {
+    sourceId: 'first-rules', sourceName: 'FIRST Official',
+    homepage: 'https://www.firstinspires.org',
+    license: 'FIRST copyright — not openly licensed',
+    licenseUrl: null,
+    attribution: 'FIRST — https://www.firstinspires.org — landing pages linked, no text reproduced',
+    canExcerpt: false, priority: 1, linkOnly: true,
+    category: () => 'rules',
+  },
+  async loadChunks() {
+    const entries = [
+      {
+        title: 'Game and Season Materials — Competition Manual, Game Manual Part 1 and Part 2',
+        url: 'https://www.firstinspires.org/resource-library/ftc/game-and-season-info',
+        docPath: 'game-and-season-info', headingPath: ['FIRST Official'],
+      },
+      {
+        title: 'Official FTC Question and Answer System — binding rule interpretations',
+        url: 'https://ftc-qa.firstinspires.org',
+        docPath: 'qa', headingPath: ['FIRST Official'],
+      },
+    ];
+    return linkChunks(entries, this.meta);
+  },
+};

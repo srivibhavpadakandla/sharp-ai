@@ -79,6 +79,29 @@ const QUESTIONS = [
   { q: 'how do I 3d print strong parts for a robot',              expect: /3d-printing|custom-manufacturing/ },
 ];
 
+/**
+ * Link-only routing. These sources publish no open licence, so they are
+ * indexed by title and URL alone — which means retrieval has far less text to
+ * match on and is easy to regress without noticing. Each of these must surface
+ * its own source; the earlier eval set tested only gm0 and ftc-docs, so a
+ * regression here would have been invisible.
+ */
+const ROUTING = [
+  { q: 'how do I tune pedro pathing',                 source: 'pedropathing' },
+  { q: 'pedro pathing installation',                  source: 'pedropathing' },
+  { q: 'bezier curves for path following',            source: 'pedropathing' },
+  { q: 'how do I tune road runner',                   source: 'roadrunner' },
+  { q: 'road runner trajectory following',            source: 'roadrunner' },
+  { q: 'ftclib command base',                         source: 'ftclib' },
+  { q: 'ftclib subsystem and command scheduler',      source: 'ftclib' },
+  { q: 'REV through bore encoder wiring',             source: 'rev' },
+  { q: 'REV expansion hub firmware',                  source: 'rev' },
+  { q: 'closed loop control theory feedforward',      source: 'ctrlaltftc' },
+  { q: 'where is the official competition manual',    source: 'first-rules' },
+  { q: 'what does DcMotorEx setVelocity do',          source: 'ftc-sdk-api' },
+  { q: 'official sample opmode for mecanum teleop',   source: 'ftc-sdk-samples' },
+];
+
 /** Must be refused BEFORE any LLM call. */
 const OFF_TOPIC = [
   'write me a poem about the ocean',
@@ -204,5 +227,24 @@ console.log('\n  false negatives (good question refused): %d',
   onScores.filter((r) => !r.pass).length);
 console.log('  false positives (junk let through):      %d',
   offScores.filter((r) => r.pass).length);
+
+// ---------------------------------------------------------------------------
+console.log('\nSOURCE ROUTING — does each source surface for its own topic\n' + '-'.repeat(78));
+
+const routeVecs = await embedBatch(ROUTING.map((r) => embedQueryText(r.q)));
+const srcOf = new Map(db.prepare('SELECT chunk_id, source_id FROM chunks').all()
+  .map((r) => [r.chunk_id, r.source_id]));
+
+let routed = 0;
+for (const [i, r] of ROUTING.entries()) {
+  const kw = keywordSearchSqlite(db, buildFtsQuery(r.q), CANDIDATES).map((x) => ({ chunkId: x.chunkId, score: x.score }));
+  const sm = semantic(routeVecs[i], CANDIDATES);
+  const f = fuse({ keyword: kw, semantic: sm }, TOP_K);
+  const sources = f.results.map((x) => srcOf.get(x.chunkId));
+  const at = sources.indexOf(r.source);
+  if (at !== -1) routed += 1;
+  console.log(`  ${at === -1 ? 'MISS' : `@${at + 1}  `}  ${r.source.padEnd(16)} ${r.q}`);
+}
+console.log(`\n  routed ${routed}/${ROUTING.length}`);
 
 db.close();

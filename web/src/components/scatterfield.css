@@ -12,11 +12,11 @@
 
 .scatter__card {
   position: absolute;
+  background: transparent;
   will-change: transform;
   border-radius: var(--r-md);
   overflow: hidden;
   border: 1px solid var(--rule);
-  background: var(--paper-raised);
   animation: scatterIn 0.9s var(--ease) both;
 }
 
@@ -24,12 +24,15 @@
   display: block;
   width: 100%;
   height: auto;
-  /* No multiply here.
-     The art is hairline linework on cream; multiplied onto a near-white page
-     at reduced opacity, the lines vanished and every card rendered as an empty
-     white rectangle. Cosmos can use small faint tiles because theirs are dense
-     photographs — ours need to stay opaque to read at all. */
-  background: var(--paper-sunk);
+  /* The wide category plates are dark ink on cream, drawn for the old light
+     theme. Inverting turns them into light linework for the dark ground,
+     rather than regenerating eight large illustrations. */
+  /* Navy, not neutral grey.
+     invert() alone gives colourless light-on-dark linework. sepia() first
+     collapses the plate to a single warm hue (~40 degrees), then hue-rotate
+     swings it to ~220 — deep blue — and saturate pushes it far enough to read
+     as navy rather than slate against the near-black ground. */
+  filter: invert(1) sepia(1) hue-rotate(178deg) saturate(3.2) brightness(0.82);
 }
 
 @keyframes scatterIn {

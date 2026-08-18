@@ -132,6 +132,15 @@
    context's backdrop. Computed style read "multiply" while the tiles stayed
    opaque. Fixing the asset was simpler than defeating the stacking rules. */
 .cl__orbit .orbit-image { opacity: 0.96; }
+
+/* Feather each frame into the page so no panel edge is visible.
+   This works now in a way it could not before: the icons are drawn on a dark
+   ground and the page is dark, so a fading edge disappears. On the old light
+   page the same mask left a dark halo. */
+.cl__orbit .orbit-item {
+  -webkit-mask-image: radial-gradient(closest-side, #000 48%, rgba(0,0,0,0.5) 72%, transparent 97%);
+  mask-image: radial-gradient(closest-side, #000 48%, rgba(0,0,0,0.5) 72%, transparent 97%);
+}
 .cl__orbit .orbit-center-content { width: min(46rem, calc(100vw - 2 * var(--gutter))); }
 .cl__orbit .orbit-item { transition: opacity 0.3s var(--ease); }
 /* The form used to live inside the component's centre wrapper, which capped

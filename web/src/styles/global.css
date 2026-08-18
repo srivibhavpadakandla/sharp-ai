@@ -190,6 +190,10 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   align-items: baseline;
   gap: 1.5rem;
   width: 100%;
+  /* Full bleed. The shared .wrap caps at 74rem and centres, which parked the
+     wordmark well inside the page on wide screens while /browse ran to 96rem —
+     the header looked unmoored from the content beneath it. */
+  max-width: none;
 }
 .wordmark {
   font-family: var(--type-serif);

@@ -120,7 +120,7 @@ export async function planSearch(env, question, firstPassHeadings, history = [])
 const RERANK_SCHEMA = {
   type: 'object',
   properties: {
-    ranked: { type: 'array', items: { type: 'integer' }, minItems: 1, maxItems: 8 },
+    ranked: { type: 'array', items: { type: 'integer' }, minItems: 1, maxItems: 20 },
   },
   required: ['ranked'],
 };
@@ -128,7 +128,9 @@ const RERANK_SCHEMA = {
 const RERANK_SYSTEM = `You rank FTC documentation sections by how well they answer a specific question.
 
 You see each candidate's heading path and opening text. Return the numbers of the
-best sections, most useful first, at most 6.
+best sections, most useful first, at most 16. Include a section if it carries
+any evidence the question needs; the answer model is told to ignore sections
+that do not help, so recall matters more than precision at this stage.
 
 Judge by whether the section CONTAINS THE ANSWER, not by whether it shares words
 with the question. A section titled with the question's exact words but covering
@@ -140,7 +142,7 @@ explains the mechanism. Drop candidates that are merely adjacent to the topic.`;
  * precision — it cannot tell that "Gamepad Usage > Falling Edge Detector"
  * matched "falling" by accident. A model reading the candidates can.
  */
-export async function rerank(env, question, candidates, topK = 6) {
+export async function rerank(env, question, candidates, topK = 16) {
   const listing = candidates.map((c, i) =>
     `[${i + 1}] ${c.headingPath}\n${c.text.split('\n\n').slice(1).join(' ').replace(/\s+/g, ' ').slice(0, 260)}`,
   ).join('\n\n');

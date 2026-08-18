@@ -9,8 +9,12 @@ enabled = true
 
 [vars]
 # --- retrieval -------------------------------------------------------------
-TOP_K            = "6"
-CANDIDATES       = "24"
+# gemini-3.5-flash takes 1,048,576 input tokens. At TOP_K=6 we were sending
+# ~1,700 — 0.16% of the window — and refusing to answer questions whose
+# evidence sat at rank 7. Sixteen sections is ~4,400 tokens, still under half a
+# percent, and the model is instructed to ignore sections that do not help.
+TOP_K            = "16"
+CANDIDATES       = "48"
 # Relevance gate, tuned by ingest/src/eval.js against 10 real FTC questions and
 # 5 deliberately off-topic probes (0 false positives, 0 false negatives).
 MIN_COSINE       = "0.60"     # a confident embedding match passes on its own
@@ -20,7 +24,10 @@ MIN_OVERLAP      = "1"        # ... and both retrievers agreeing on a chunk ...
 MIN_COVERAGE     = "0.5"      # ... and half the question's terms present
 # --- abuse + quota ---------------------------------------------------------
 RATE_PER_MIN     = "10"
-RATE_PER_DAY     = "100"
+# Was 100. An escalated question costs 3 LLM calls, so a single IP at the old
+# limit could spend 300 — the entire global daily ceiling — and leave everyone
+# else on the degraded no-summary path. 25 questions caps one visitor at 75.
+RATE_PER_DAY     = "25"
 # Gemini free tier is the real ceiling; KV's 1000 writes/day sits just above the
 # ~3 writes each uncached question costs, so these two numbers move together.
 # Counts LLM CALLS, not questions. A confident question costs one call; an
@@ -34,7 +41,8 @@ GEMINI_MODEL     = "gemini-3.5-flash"
 GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"
 THINKING_LEVEL   = "medium"
 # Code needs far more room: thinking is billed from the same budget.
-MAX_OUTPUT_TOKENS_CODE = "24000"
+MAX_OUTPUT_TOKENS      = "16384"
+MAX_OUTPUT_TOKENS_CODE = "32000"
 AGENTIC          = "true"
 # --- site ------------------------------------------------------------------
 SITE_ORIGIN      = "https://sharp-ai-8a1.pages.dev"

@@ -26,9 +26,72 @@ import {
 import { MAX_QUESTION_CHARS } from './lib/query.js';
 import { CATEGORIES } from './lib/categories.js';
 
-const REFUSAL =
-  'I can only answer FTC documentation questions. That question does not match '
-  + 'anything in the indexed documentation.';
+/**
+ * Refusals used to say one thing for two very different situations, and the
+ * wrong thing for both.
+ *
+ * "what pedro pathing" is a real FTC question — Pedro Pathing is a widely used
+ * path-following library. Telling someone that is "not an FTC documentation
+ * question" is simply false, and it makes the tool look stupider than it is.
+ * The honest answer is that the corpus does not cover it yet.
+ */
+const OFF_TOPIC_REFUSAL =
+  'I only answer questions about building, wiring and programming FIRST Tech '
+  + 'Challenge robots, using documentation that has been indexed section by '
+  + 'section. That question is outside what this index covers.';
+
+/**
+ * Does the question use FTC or robotics vocabulary?
+ *
+ * Cosine cannot make this call. On a corpus this narrow, "write me a poem about
+ * the ocean" scores 0.52 and "what is pedro pathing" scores similarly — the
+ * embedding is measuring "is this English about a topic", not "is this FTC".
+ * A vocabulary check is cruder and far more accurate here, and it is
+ * inspectable, which a threshold is not.
+ */
+const FTC_VOCAB = new RegExp(
+  '\\b(' + [
+    'ftc', 'first tech', 'robot', 'robotics', 'drivetrain', 'mecanum', 'omni',
+    'tank drive', 'swerve', 'strafe', 'odometry', 'dead ?wheel', 'localiz',
+    'intake', 'outtake', 'transfer', 'claw', 'turret', 'linear slide', 'lift',
+    'arm', 'linkage', 'gear ?ratio', 'sprocket', 'belt', 'chain', 'servo',
+    'motor', 'encoder', 'imu', 'gyro', 'sensor', 'control hub', 'expansion hub',
+    'driver station', 'rev', 'gobilda', 'andymark', 'battery', 'wiring',
+    'opmode', 'teleop', 'autonomous', 'auton', 'hardwaremap', 'telemetry',
+    'sdk', 'android studio', 'pid', 'pidf', 'feedforward', 'kinematics',
+    'road ?runner', 'roadrunner', 'pedro', 'ftclib', 'pathing', 'trajectory',
+    'apriltag', 'vision', 'limelight', 'pinpoint', 'inspection', 'scrimmage',
+    'notebook', 'portfolio', 'judging', 'award', 'alliance', 'game manual',
+  ].join('|') + ')', 'i',
+);
+
+function uncoveredRefusal(question) {
+  return (
+    `That looks like a FIRST Tech Challenge question, but it is not covered by `
+    + `the documentation indexed so far.\n\n`
+    + `Right now Sharp AI indexes **Game Manual 0** only. Topics it does not `
+    + `reach — the FTC SDK javadocs, REV hardware documentation, CTRL ALT FTC, `
+    + `and third-party libraries such as Road Runner, Pedro Pathing and FTCLib — `
+    + `are not in the index yet, so there is nothing here I can cite.\n\n`
+    + `Rather than guess, here is where that answer actually lives:\n\n`
+    + `- [ftc-docs](https://ftc-docs.firstinspires.org) — official FTC documentation\n`
+    + `- [Game Manual 0](https://gm0.org) — the indexed source, for adjacent topics\n`
+    + `- [CTRL ALT FTC](https://www.ctrlaltftc.com) — control theory\n`
+    + `- [FTC Discord](https://discord.gg/first-tech-challenge) — library-specific help`
+  );
+}
+
+/**
+ * Greetings are not documentation questions, but answering them with a refusal
+ * is a bad way to meet someone. Handled before retrieval — no search, no LLM.
+ */
+const GREETING = /^\s*(h(ello|i|ey|iya)|yo|sup|good\s+(morning|afternoon|evening)|greetings|what\s*'?s\s+up|howdy|test|ping)\b[\s!.?]*$/i;
+
+const GREETING_REPLY =
+  "Hello. Ask me anything about building, wiring or programming an FTC robot — "
+  + "drivetrains, odometry, intakes, electronics, OpModes, the notebook — and I "
+  + "will answer from indexed documentation with the source shown beside every "
+  + "claim.\n\nIf you have an error, paste the stack trace and I will work through it.";
 
 // ---------------------------------------------------------------------------
 // HTTP helpers
@@ -97,6 +160,14 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     return json({ error: 'question-too-long', maxChars }, { status: 413 }, cors);
   }
 
+  // Greetings cost nothing: no retrieval, no LLM, no rate-limit budget.
+  if (GREETING.test(question)) {
+    return streamPrerendered(
+      { question, answerMd: GREETING_REPLY, citations: [], excerpts: [], slug: null },
+      cors, { greeting: true },
+    );
+  }
+
   // --- 2. Rate limit --------------------------------------------------------
   const rl = await checkRateLimit(env, request);
   if (!rl.ok) {
@@ -132,10 +203,20 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
       latencyMs: Date.now() - started,
     }));
+    // A middling cosine means the embedding recognised the domain even though
+    // nothing in the corpus answers it — that is a coverage gap, not junk.
+    // Both signals must agree: the embedding has to be in the neighbourhood
+    // AND the question has to actually use the vocabulary of the domain.
+    const looksFtc = (stats.bestCosine ?? 0) >= Number(env.UNCOVERED_COSINE || 0.5)
+      && FTC_VOCAB.test(question);
     return streamPrerendered(
-      { question, answerMd: REFUSAL, citations: [], excerpts: [], slug: null },
+      {
+        question,
+        answerMd: looksFtc ? uncoveredRefusal(question) : OFF_TOPIC_REFUSAL,
+        citations: [], excerpts: [], slug: null,
+      },
       cors,
-      { refused: true, gate },
+      { refused: true, uncovered: looksFtc, gate },
     );
   }
 

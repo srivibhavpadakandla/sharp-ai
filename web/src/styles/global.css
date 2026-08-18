@@ -588,17 +588,6 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   background: var(--paper-sunk); aspect-ratio: 16 / 9;
 }
 .film__v { width: 100%; height: 100%; object-fit: cover; display: block; }
-.film__cap {
-  /* Centred rather than sat on the bottom edge, where it collided with the
-     film's own x/y/heading readout. */
-  position: absolute; inset: 0;
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 0 clamp(1.5rem, 4vw, 3.5rem);
-  font-family: var(--type-serif); font-size: clamp(1.05rem, 2.2vw, 2rem); color: #fff;
-  text-shadow: 0 1px 24px rgba(11, 14, 18, 0.85);
-  background: radial-gradient(120% 90% at 50% 50%, rgba(11,14,18,0.52) 0%, rgba(11,14,18,0.12) 70%);
-  pointer-events: none;
-}
 .film__toggle {
   position: absolute; top: 1rem; right: 1rem;
   border: 1px solid rgba(255,255,255,0.28); background: rgba(11,14,18,0.55);

@@ -564,7 +564,14 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .pf-grid line { stroke: rgba(255,255,255,0.12); stroke-width: 0.6; }
 .pf-path { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; }
 .pf-pt { fill: var(--ink); }
-.pf-bot { fill: rgba(110,219,154,0.18); stroke: var(--accent); stroke-width: 1.4; }
+.pf-bot {
+  fill: rgba(110,219,154,0.18); stroke: var(--accent); stroke-width: 1.4;
+  /* The rect is centred on the origin, so rotating about the view-box origin
+     spins it about its own middle. Without transform-box the browser picks a
+     different origin and the robot swings around a corner. */
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
 .panel__copy h3 {
   font-family: var(--type-serif); font-size: 1.7rem; margin: 0 0 0.7rem; font-weight: 500;
 }

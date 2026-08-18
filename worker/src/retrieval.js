@@ -20,6 +20,7 @@ const CHUNK_COLUMNS = `
   c.category      AS category,
   c.license       AS license,
   c.can_excerpt   AS canExcerpt,
+  c.excerpt_mode  AS excerptMode,
   c.text          AS text`;
 
 export async function keywordSearch(env, question, limit) {

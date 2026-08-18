@@ -26,33 +26,31 @@ interface Card {
 
 const ART = ['drivetrains', 'odometry', 'intakes', 'electronics', 'programming', 'rules', 'errors', 'build'];
 
-// Hand-placed against a keep-out rule rather than taste: the hero text is
-// left-aligned, so the band from x 8% to 64% must stay empty at EVERY width.
-//
-// Widths are in vw, not rem. With rem widths the keep-out held at 1440 and
-// broke at 1280 — each card kept its pixel width while its percentage position
-// moved, so it crept into the text column. Sizing in the same unit family as
-// the position is what makes the geometry stable.
+// Hand-placed against a keep-out rule. The hero is CENTRED now, not
+// left-aligned, so the empty band moved from the left column to the middle:
+// nothing may sit between x 22% and 78%. Cards that sat at 14 and 76 still
+// clipped the lede at 1280, where a 46ch text block is a larger share of the
+// viewport than at 1440 — the keep-out has to be set by the narrow case.
+// Widths are in vw so the geometry holds at every viewport width.
 const LAYOUT: Omit<Card, 'src'>[] = [
-  // bleeding off the left edge
-  { x: -5, y: 4, w: 9, rot: -8, depth: 0.30, opacity: 0.98 },
-  { x: -4, y: 34, w: 7.5, rot: 6, depth: 0.14, opacity: 0.9 },
-  { x: -6, y: 62, w: 10, rot: -4, depth: 0.38, opacity: 0.97 },
-  { x: -3, y: 86, w: 6.5, rot: 9, depth: 0.20, opacity: 0.88 },
-  // top strip, above the eyebrow
-  { x: 22, y: -6, w: 6.5, rot: 12, depth: 0.24, opacity: 0.85 },
-  { x: 44, y: -3, w: 6, rot: -10, depth: 0.10, opacity: 0.8 },
+  // left field
+  { x: -4, y: 6,  w: 8,   rot: -8,  depth: 0.30, opacity: 0.95 },
+  { x: 3,  y: 30, w: 6.5, rot: 7,   depth: 0.16, opacity: 0.85 },
+  { x: -3, y: 56, w: 9,   rot: -5,  depth: 0.36, opacity: 0.95 },
+  { x: 6,  y: 78, w: 7,   rot: 10,  depth: 0.22, opacity: 0.88 },
+  { x: 9,  y: 12, w: 6,   rot: 13,  depth: 0.26, opacity: 0.8 },
+  { x: 7,  y: 64, w: 7.5, rot: -9,  depth: 0.12, opacity: 0.82 },
+  { x: 12, y: 94, w: 6,   rot: 5,   depth: 0.20, opacity: 0.78 },
+  // top and bottom strips, clear of the centred text
+  { x: 38, y: -13, w: 7,  rot: -6,  depth: 0.24, opacity: 0.85 },
+  { x: 57, y: -11, w: 6,  rot: 11,  depth: 0.14, opacity: 0.8 },
+  { x: 45, y: 101, w: 7,  rot: 8,   depth: 0.18, opacity: 0.8 },
   // right field
-  { x: 70, y: 2, w: 8.5, rot: -6, depth: 0.26, opacity: 0.95 },
-  { x: 80, y: 20, w: 10, rot: 5, depth: 0.30, opacity: 0.98 },
-  { x: 70, y: 44, w: 6.5, rot: 14, depth: 0.12, opacity: 0.86 },
-  { x: 84, y: 56, w: 9, rot: -7, depth: 0.34, opacity: 0.95 },
-  { x: 92, y: 34, w: 6.5, rot: -12, depth: 0.18, opacity: 0.84 },
-  { x: 72, y: 74, w: 7.5, rot: 8, depth: 0.22, opacity: 0.9 },
-  { x: 90, y: 88, w: 6.5, rot: -9, depth: 0.36, opacity: 0.86 },
-  // bottom strip, below the example chips
-  { x: 30, y: 94, w: 7.5, rot: -5, depth: 0.16, opacity: 0.82 },
-  { x: 52, y: 97, w: 6.5, rot: 10, depth: 0.28, opacity: 0.8 },
+  { x: 82, y: 8,  w: 8,   rot: -7,  depth: 0.28, opacity: 0.92 },
+  { x: 88, y: 30, w: 9,   rot: 6,   depth: 0.32, opacity: 0.95 },
+  { x: 85, y: 56, w: 6.5, rot: 14,  depth: 0.13, opacity: 0.84 },
+  { x: 90, y: 74, w: 8,   rot: -10, depth: 0.34, opacity: 0.9 },
+  { x: 82, y: 94, w: 6,   rot: 9,   depth: 0.20, opacity: 0.8 },
 ];
 
 const CARDS: Card[] = LAYOUT.map((l, i) => ({
@@ -72,6 +70,30 @@ export default function ScatterField() {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     const nodes = Array.from(root.querySelectorAll<HTMLElement>('.scatter__card'));
+
+    /**
+     * Hide any card that actually overlaps the hero text.
+     *
+     * Hand-placing cards against the copy does not converge: the text block is
+     * sized in ch and rem while the cards are sized in vw, so a layout tuned at
+     * 1440 collides at 1280 and tuning for 1280 collides somewhere else. Three
+     * rounds of moving coordinates by eye left more collisions than it started
+     * with. Measuring is exact and needs no tuning.
+     */
+    const TEXT = ['.hero__mark', '.hero__title', '.hero__lede', '.hero__actions'];
+    const declutter = () => {
+      const boxes = TEXT.map((sel) => document.querySelector(sel))
+        .filter(Boolean)
+        .map((el) => (el as HTMLElement).getBoundingClientRect());
+      if (!boxes.length) return;
+      for (const el of nodes) {
+        el.style.visibility = 'visible';
+        const c = el.getBoundingClientRect();
+        const clash = boxes.some((a) =>
+          !(a.right < c.left || a.left > c.right || a.bottom < c.top || a.top > c.bottom));
+        el.style.visibility = clash ? 'hidden' : 'visible';
+      }
+    };
     let raf = 0;
 
     const tick = () => {
@@ -89,8 +111,29 @@ export default function ScatterField() {
 
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(tick); };
     window.addEventListener('scroll', onScroll, { passive: true });
+    // after layout settles, and again whenever the box sizes change
+    const settle = setTimeout(declutter, 120);
+    // Fonts change the size of the text block. Measuring before Newsreader
+    // loads gives a smaller box, so a card judged clear at measure time ends up
+    // overlapping once the headline reflows wider.
+    if (document.fonts?.ready) document.fonts.ready.then(declutter).catch(() => {});
+    // The cards animate in from a 14px offset with up to 0.7s of stagger, so a
+    // measurement at 120ms reads positions that are still moving. Re-run once
+    // the entrance has settled — that, not the webfont, was what left a single
+    // card overlapping at 1440.
+    const settled = setTimeout(declutter, 1900);
+    const ro = new ResizeObserver(declutter);
+    for (const sel of TEXT) { const el = document.querySelector(sel); if (el) ro.observe(el); }
+    window.addEventListener('resize', declutter);
     tick();
-    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', declutter);
+      clearTimeout(settle);
+      clearTimeout(settled);
+      ro.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   return (

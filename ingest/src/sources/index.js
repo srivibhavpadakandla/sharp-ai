@@ -21,6 +21,7 @@ import {
   chiefdelphi, ftcCommunity, frczero, communityHubs,
 } from './link-sources.js';
 import { samples as sdkSamples, api as sdkApi } from './ftc-sdk.js';
+import * as firstManual from './first-manual.js';
 
 export const SOURCES = {
   gm0,
@@ -29,6 +30,7 @@ export const SOURCES = {
   'ftc-sdk-samples': sdkSamples,
   ctrlaltftc, ftclib, roadrunner, rev, pedropathing,
   'first-rules': firstRules,
+  'first-manual': firstManual,
   chiefdelphi,
   'ftc-community': ftcCommunity,
   frczero,

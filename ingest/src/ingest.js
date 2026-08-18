@@ -63,7 +63,8 @@ async function main() {
         + (linkOnly ? ' (link index, no text stored)' : ''));
       for (const c of direct) {
         if (linkOnly && c.canExcerpt) throw new Error(`${sourceId}: link-only source produced an excerptable chunk`);
-        if (!linkOnly && !c.canExcerpt && src.meta.canExcerpt) throw new Error(`${sourceId}: excerptable source produced a restricted chunk`);
+        if (src.meta.summarizeOnly && c.excerptMode !== 'summarize') throw new Error(`${sourceId}: summarize-only source produced a ${c.excerptMode} chunk`);
+        if (!linkOnly && !src.meta.summarizeOnly && !c.canExcerpt && src.meta.canExcerpt) throw new Error(`${sourceId}: excerptable source produced a restricted chunk`);
         chunks.push({
           ...c,
           chunkId: `${c.sourceId}:${sha(`${c.docPath}#link`).slice(0, 16)}`,
@@ -133,7 +134,7 @@ async function main() {
   ).join('');
   fs.writeFileSync(path.join(sqlDir, '000-source.sql'), sourceSql);
 
-  const cols = '(chunk_id, source_id, source_name, doc_path, page_title, section_title, heading_path, anchor, source_url, category, license, can_excerpt, text, char_len, ordinal, part, part_count, content_hash, updated_at)';
+  const cols = '(chunk_id, source_id, source_name, doc_path, page_title, section_title, heading_path, anchor, source_url, category, license, can_excerpt, excerpt_mode, text, char_len, ordinal, part, part_count, content_hash, updated_at)';
   let fileNo = 0;
   for (let i = 0; i < chunks.length; i += BATCH) {
     const slice = chunks.slice(i, i + BATCH);
@@ -142,7 +143,7 @@ async function main() {
     const stmts = slice.map((c) => `INSERT OR REPLACE INTO chunks ${cols} VALUES (${[
       q(c.chunkId), q(c.sourceId), q(c.sourceName), q(c.docPath), q(c.pageTitle),
       q(c.sectionTitle), q(c.headingPath), q(c.anchor), q(c.sourceUrl), q(c.category),
-      q(c.license), c.canExcerpt, q(c.text), c.charLen, c.ordinal, c.part, c.partCount,
+      q(c.license), c.canExcerpt, q(c.excerptMode || (c.canExcerpt ? 'full' : 'link')), q(c.text), c.charLen, c.ordinal, c.part, c.partCount,
       q(c.contentHash), q(c.updatedAt),
     ].join(', ')});`).join('\n');
     fileNo += 1;
@@ -155,11 +156,12 @@ async function main() {
   // ---- Local SQLite mirror -----------------------------------------------
   const db = openLocal({ fresh: true });
   db.exec(sourceSql);
-  const ins = db.prepare(`INSERT OR REPLACE INTO chunks ${cols} VALUES (${new Array(19).fill('?').join(',')})`);
+  const ins = db.prepare(`INSERT OR REPLACE INTO chunks ${cols} VALUES (${new Array(20).fill('?').join(',')})`);
   db.exec('BEGIN');
   for (const c of chunks) {
     ins.run(c.chunkId, c.sourceId, c.sourceName, c.docPath, c.pageTitle, c.sectionTitle,
-      c.headingPath, c.anchor, c.sourceUrl, c.category, c.license, c.canExcerpt, c.text,
+      c.headingPath, c.anchor, c.sourceUrl, c.category, c.license, c.canExcerpt,
+      c.excerptMode || (c.canExcerpt ? 'full' : 'link'), c.text,
       c.charLen, c.ordinal, c.part, c.partCount, c.contentHash, c.updatedAt);
   }
   db.exec('COMMIT');

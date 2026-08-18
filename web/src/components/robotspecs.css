@@ -1,0 +1,35 @@
+.rs { margin-bottom: 0.75rem; }
+
+.rs__toggle {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%;
+  background: transparent; border: 1px solid var(--rule);
+  border-radius: var(--r-pill); padding: 0.4rem 0.9rem;
+  font-family: var(--type-sans); font-size: 0.78rem; color: var(--ink-2);
+  cursor: pointer; transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+.rs__toggle:hover { border-color: var(--rule-strong); color: var(--ink); }
+.rs__chev { margin-left: auto; font-family: var(--type-mono); color: var(--ink-3); }
+.rs__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--rule-strong); flex: none;
+}
+.rs__dot[data-on='true'] { background: var(--accent); }
+
+.rs__body {
+  border: 1px solid var(--rule); border-radius: var(--r-md);
+  background: var(--paper-sunk); padding: 0.9rem 1rem 0.7rem; margin-top: 0.5rem;
+}
+.rs__why { margin: 0 0 0.9rem; font-size: 0.76rem; line-height: 1.5; color: var(--ink-3); }
+.rs__field { display: block; margin-bottom: 0.6rem; }
+.rs__field span {
+  display: block; font-size: 0.7rem; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 0.22rem;
+}
+.rs__field input {
+  width: 100%; background: var(--paper-raised);
+  border: 1px solid var(--rule); border-radius: var(--r-sm);
+  padding: 0.42rem 0.6rem; color: var(--ink);
+  font-family: var(--type-sans); font-size: 0.84rem;
+}
+.rs__field input:focus { outline: 0; border-color: var(--accent); }
+.rs__saved { margin: 0.3rem 0 0; font-size: 0.72rem; color: var(--ink-4); min-height: 1em; }

@@ -3,6 +3,8 @@ import { API_BASE } from '../lib/config';
 import { ask, type Citation, type Excerpt, type Validation, type CiteCheck } from '../lib/ask';
 import { renderMarkdown } from '../lib/markdown';
 import SourceCard from './SourceCard';
+import RobotSpecs from './RobotSpecs';
+import { loadSpecs, specsForPrompt } from '../lib/specs';
 import './sources.css';
 import './chat.css';
 
@@ -82,6 +84,7 @@ export default function ChatThread({
   const nextId = useRef(seed ? 1 : 0);
   const started = useRef(false);
   const lastCount = useRef(0);
+  const specsRef = useRef<string | null>(specsForPrompt(loadSpecs()));
 
   const busy = turns.some((t) => t.status === 'thinking' || t.status === 'streaming');
   const activeTurn = turns[active] || turns[turns.length - 1] || null;
@@ -138,7 +141,7 @@ export default function ChatThread({
         composerRef.current?.focus();
       },
       onError: (m) => { clearInterval(ticker); patch(id, () => ({ status: 'error', error: m })); },
-    }, { endpoint: id === 0 ? endpoint : '/api/ask', history } as any)
+    }, { endpoint: id === 0 ? endpoint : '/api/ask', history, specs: specsRef.current } as any)
       .catch((e) => {
         clearInterval(ticker);
         patch(id, () => ({
@@ -240,6 +243,8 @@ export default function ChatThread({
             </div>
           )}
         </div>
+
+        <RobotSpecs onChange={(s) => { specsRef.current = specsForPrompt(s); }} />
 
         <form
           className="composer"

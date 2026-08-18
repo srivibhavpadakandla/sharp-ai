@@ -46,8 +46,10 @@ export interface AskCallbacks {
 export async function ask(
   question: string,
   cb: AskCallbacks,
-  { endpoint = '/api/ask', signal, history = [] }: {
+  { endpoint = '/api/ask', signal, history = [], specs = null }: {
     endpoint?: string; signal?: AbortSignal;
+    /** The team's robot configuration, if they have entered one. */
+    specs?: string | null;
     /** Prior turns, for resolving what a follow-up refers to. */
     history?: Array<{ question: string; answer: string }>;
   } = {},
@@ -63,7 +65,7 @@ export async function ask(
   const res = await fetch(API_BASE + endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ question, turnstileToken, history }),
+    body: JSON.stringify({ question, turnstileToken, history, specs }),
     signal,
   });
 

@@ -32,9 +32,16 @@ Rules you must follow without exception:
 6. Some sections are marked RESTRICTED. Their text is not available to you —
    only their title and link. Tell the reader the topic is covered there and
    point them to the link; do not state or guess what those sections say.
-7. Be concise. Lead with the direct answer, give the detail that changes what
+7. Some sections are marked SUMMARISE ONLY — the Competition Manual. You may
+   use what they say, but every word of your answer must be your own. Never
+   quote a phrase from them, never follow their sentence structure, never
+   present their wording as a quotation. State what a rule REQUIRES, name its
+   code (for example "rule I101"), and tell the reader to check the manual for
+   the exact wording. Being precise about what a rule demands matters here:
+   getting it wrong costs a team a match.
+8. Be concise. Lead with the direct answer, give the detail that changes what
    someone does, and stop. Four short paragraphs is usually plenty.
-8. Write like a well-set reference document, not a chat message. No greetings,
+9. Write like a well-set reference document, not a chat message. No greetings,
    no sign-offs, no "great question". Use short paragraphs; use a list only when
    the content is genuinely a list. Markdown for structure, no headings above ###.
 
@@ -73,14 +80,15 @@ The user has pasted an FTC SDK stack trace or error message. Additionally:
 /**
  * @returns {{prompt: string, citations: Array, excerpts: Array}}
  */
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [] } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
 
   chunks.forEach((c, i) => {
     const n = i + 1;
-    const allowed = Number(c.canExcerpt) === 1;
+    // Three modes. See worker/sql/0002_excerpt_mode.sql.
+    const mode = c.excerptMode || (Number(c.canExcerpt) === 1 ? 'full' : 'link');
 
     citations.push({
       n,
@@ -92,23 +100,37 @@ export function buildPrompt(question, chunks, { isError = false, isCode = false,
       headingPath: c.headingPath,
       url: c.sourceUrl,
       license: c.license,
-      canExcerpt: allowed,
+      canExcerpt: mode === 'full',
+      mode,
     });
 
-    if (allowed) {
+    if (mode === 'full') {
+      // Quotable, and shown to the reader beside the answer.
       excerpts.push({ chunkId: c.chunkId, n, text: c.text });
       blocks.push(
-        `[${n}] ${c.sourceName} — ${c.headingPath}\n` +
-        `URL: ${c.sourceUrl}\n` +
-        `---\n${c.text}\n---`,
+        `[${n}] ${c.sourceName} — ${c.headingPath}\n`
+        + `URL: ${c.sourceUrl}\n`
+        + `---\n${c.text}\n---`,
+      );
+    } else if (mode === 'summarize') {
+      // The model sees the text. The reader never does: this is deliberately
+      // NOT pushed to `excerpts`, so it cannot reach the sources panel and is
+      // never persisted onto a /q/ page. The site explains the rule; it does
+      // not republish it.
+      blocks.push(
+        `[${n}] ${c.sourceName} — ${c.headingPath}  (SUMMARISE ONLY)\n`
+        + `URL: ${c.sourceUrl}\n`
+        + `--- You may use the facts below to answer, but you must express them\n`
+        + `--- ENTIRELY IN YOUR OWN WORDS. Do not quote any phrase from it, do not\n`
+        + `--- reproduce its sentence structure, and do not present it as a quotation.\n`
+        + `${c.text}\n---`,
       );
     } else {
-      // Licensed material we may point at but not reproduce.
       blocks.push(
-        `[${n}] ${c.sourceName} — ${c.headingPath}  (RESTRICTED)\n` +
-        `URL: ${c.sourceUrl}\n` +
-        `---\n(The text of this section is under ${c.license} and is not available. ` +
-        `You may reference its title and link only.)\n---`,
+        `[${n}] ${c.sourceName} — ${c.headingPath}  (RESTRICTED)\n`
+        + `URL: ${c.sourceUrl}\n`
+        + `---\n(The text of this section is under ${c.license} and is not available. `
+        + `You may reference its title and link only.)\n---`,
       );
     }
   });
@@ -123,7 +145,16 @@ export function buildPrompt(question, chunks, { isError = false, isCode = false,
       `\n\n`
     : '';
 
+  // The robot in front of them. Generated code that uses placeholder names is
+  // code someone has to hand-edit before it compiles, which is the step that
+  // goes wrong most often.
+  const robotBlock = specs
+    ? `THIS TEAM'S ROBOT\n\n${specs}\n\nUse these exact configuration names and this hardware in any code you write. `
+      + `If the question needs a detail they have not given, say which detail and ask for it rather than inventing a name.\n\n`
+    : '';
+
   const prompt =
+    robotBlock +
     priorBlock +
     `SECTIONS\n\n${blocks.join('\n\n')}\n\n` +
     `QUESTION\n\n${question}\n\n` +
@@ -143,8 +174,8 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [] }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {

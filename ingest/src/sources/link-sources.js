@@ -101,17 +101,64 @@ export const pedropathing = {
   meta: {
     sourceId: 'pedropathing', sourceName: 'Pedro Pathing',
     homepage: 'https://pedropathing.com',
-    license: 'All rights reserved (no licence published)',
+    license: 'No licence published — summarised, never reproduced',
     licenseUrl: null,
-    attribution: 'Pedro Pathing — https://pedropathing.com — indexed by title and link only',
-    canExcerpt: false, priority: 60, linkOnly: true,
+    attribution: 'Pedro Pathing — https://pedropathing.com — paraphrased, not reproduced',
+    canExcerpt: false,
+    summarizeOnly: true,
+    priority: 30,
     category: () => 'odometry',
   },
+
+  /**
+   * Promoted from link-only to SUMMARISE. Titles alone could route someone to
+   * the tuning page but could not tell them what tuning involves, and Pedro
+   * Pathing is the single most asked-about topic in the query log.
+   *
+   * The docs publish no licence, so the same rule as the Competition Manual
+   * applies: the text reaches the model and nothing else. It is never placed in
+   * excerpts, so it cannot appear in the sources panel or on a /q/ page — the
+   * answer explains the concept in its own words and links the page.
+   */
   async loadChunks() {
-    const entries = await cached('pedropathing', async () => {
-      throw new Error('run ingest/scripts/crawl-pedropathing.mjs to refresh this cache');
+    const pages = await cached('pedropathing-content', async () => {
+      throw new Error('run ingest/scripts/crawl-pedropathing-content.mjs first');
     });
-    return linkChunks(entries, this.meta);
+    const out = [];
+    for (const page of pages) {
+      const body = String(page.text || '').trim();
+      if (body.length < 200) continue;
+      // Split long pages on blank lines so a chunk is never cut mid-paragraph.
+      const parts = [];
+      let buf = [], len = 0;
+      for (const para of body.split(/\n\s*\n/)) {
+        if (len && len + para.length > 2400) { parts.push(buf.join('\n\n')); buf = []; len = 0; }
+        buf.push(para); len += para.length + 2;
+      }
+      if (buf.length) parts.push(buf.join('\n\n'));
+
+      parts.forEach((text, i) => {
+        out.push({
+          sourceId: this.meta.sourceId,
+          sourceName: this.meta.sourceName,
+          docPath: page.docPath + (parts.length > 1 ? `-${i + 1}` : ''),
+          pageTitle: page.title,
+          sectionTitle: page.title,
+          headingPath: `Pedro Pathing > ${page.title}`,
+          anchor: '',
+          sourceUrl: page.url,
+          category: 'odometry',
+          license: this.meta.license,
+          canExcerpt: 0,
+          excerptMode: 'summarize',
+          text: `# Pedro Pathing\n## ${page.title}\n\n${text}`,
+          ordinal: out.length,
+          part: parts.length > 1 ? i + 1 : 0,
+          partCount: parts.length,
+        });
+      });
+    }
+    return out;
   },
 };
 

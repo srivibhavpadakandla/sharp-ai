@@ -37,29 +37,18 @@ const jsonLd = {
   <section class="hero">
     <ScatterField client:idle />
     <div class="wrap">
-      <p class="eyebrow rise d1">FIRST Tech Challenge · documentation search</p>
+      <p class="hero__mark rise d1">Sharp AI</p>
       <h1 class="hero__title rise d2">
-        Every answer arrives<br /><em>with its source.</em>
+        The FTC documentation,<br /><em>searchable.</em>
       </h1>
-      <p class="serif-lede hero__lede rise d3">
-        Sharp AI reads the indexed FTC documentation and answers in plain
-        language — with the exact section it drew from open beside it, so you
-        can check the claim before you cut the metal.
+      <p class="hero__lede rise d3">
+        Game Manual 0, the official FTC Docs, the SDK reference, the Competition
+        Manual and Pedro Pathing — indexed section by section.
       </p>
-
-      <div class="hero__search rise d4">
-        <SearchBox client:load autofocus />
+      <div class="hero__actions rise d4">
+        <a class="btn btn--primary" href="/chat">Ask a question</a>
+        <a class="btn" href="/browse">Browse the index</a>
       </div>
-
-      <ul class="hero__examples rise d5">
-        {[
-          'How do I make my mecanum drive field centric?',
-          'Where should odometry pods be mounted?',
-          'What gear ratio makes an arm stronger?',
-        ].map((q) => (
-          <li><a href={`/ask?q=${encodeURIComponent(q)}`}>{q}</a></li>
-        ))}
-      </ul>
     </div>
   </section>
 
@@ -134,13 +123,64 @@ const jsonLd = {
 <style>
   .hero {
     position: relative;
-    padding: clamp(5rem, 12vw, 10rem) 0 clamp(6rem, 12vw, 11rem);
-    min-height: 88vh;
-    display: flex;
-    align-items: center;
+    min-height: calc(100dvh - var(--header-h));
+    display: grid;
+    place-items: center;
+    padding: clamp(3rem, 8vw, 6rem) 0;
+    text-align: center;
   }
   .hero > .wrap { position: relative; z-index: 1; width: 100%; }
-  .hero__title { margin: 0.9rem 0 0; max-width: 16ch; }
+  .hero__mark {
+    font-family: var(--type-sans);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 1.4rem;
+  }
+  .hero__title {
+    margin: 0 auto;
+    max-width: 14ch;
+    font-size: clamp(2.8rem, 7.5vw, 5.4rem);
+    line-height: 1.03;
+  }
+  .hero__lede {
+    max-width: 46ch;
+    margin: 1.6rem auto 0;
+    font-family: var(--type-sans);
+    font-size: clamp(0.95rem, 1.6vw, 1.06rem);
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .hero__actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.65rem;
+    margin-top: 2.4rem;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    border-radius: var(--r-pill);
+    padding: 0.72rem 1.5rem;
+    font-family: var(--type-sans);
+    font-size: 0.92rem;
+    font-weight: 500;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink);
+    transition: border-color 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+  }
+  .btn:hover { border-color: var(--ink-3); background: var(--paper-raised); }
+  .btn--primary {
+    border-color: transparent;
+    background: var(--grad-warm);
+    color: #08121a;
+    font-weight: 600;
+  }
+  .btn--primary:hover { filter: brightness(1.08); background: var(--grad-warm); }
+
   .hero__title em {
     font-style: italic;
     background: var(--grad-warm);
@@ -148,36 +188,7 @@ const jsonLd = {
     background-clip: text;
     color: transparent;
   }
-  .hero__lede { max-width: 40ch; margin: 1.5rem 0 0; }
-  .hero__search { max-width: 39rem; margin-top: 2.4rem; }
 
-  .hero__examples {
-    list-style: none;
-    margin: 1.5rem 0 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    /* Bounded so the chip row cannot run under the scatter field on the right.
-       Unconstrained it reached ~82% of the viewport and collided with cards
-       that the headline and search box cleared comfortably. */
-    max-width: 38rem;
-  }
-  .hero__examples a {
-    display: inline-block;
-    background: var(--paper-raised);
-    border: 1px solid var(--rule);
-    border-radius: 999px;
-    padding: 0.28rem 0.8rem;
-    font-size: 0.81rem;
-    color: var(--ink-2);
-    transition: border-color 0.2s var(--ease), color 0.2s var(--ease), background 0.2s var(--ease);
-  }
-  .hero__examples a:hover {
-    color: var(--accent);
-    border-color: var(--accent);
-    background: var(--accent-wash);
-  }
 
   /* --- cosmos-style index: near-zero chrome, dense, content forward ------- */
   .browse { padding: clamp(3rem, 6vw, 4.5rem) 0 1rem; }

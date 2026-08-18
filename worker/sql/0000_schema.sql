@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS chunks (
   -- LOAD-BEARING: 0 means the Worker may cite the URL but must never place the
   -- body text in an LLM prompt or persist it in a public /q/ page.
   can_excerpt   INTEGER NOT NULL CHECK (can_excerpt IN (0,1)),
+  -- full | summarize | link — see sql/0002_excerpt_mode.sql
+  excerpt_mode  TEXT NOT NULL DEFAULT 'link',
   text          TEXT NOT NULL,             -- page title + heading path + body
   char_len      INTEGER NOT NULL,
   ordinal       INTEGER NOT NULL,          -- position of the chunk within its page

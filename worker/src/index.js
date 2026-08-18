@@ -175,6 +175,8 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       })).filter((h) => h.question)
     : [];
   const isFollowUp = history.length > 0;
+  // The team's robot configuration, if they filled it in. Never stored.
+  const specs = String(body.specs || '').slice(0, 1200) || null;
   const isCode = isCodeRequest(question);
 
   // --- 1. Turnstile ---------------------------------------------------------
@@ -303,7 +305,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -362,7 +364,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());

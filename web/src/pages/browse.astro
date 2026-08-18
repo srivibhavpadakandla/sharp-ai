@@ -1,7 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
 import { CATEGORIES, SEED_QUESTIONS, API_BASE } from '../lib/config';
-import VisualIndex from '../components/VisualIndex.tsx';
 import CorpusCount from '../components/CorpusCount.tsx';
 import { CORPUS_SECTIONS } from '../lib/config';
 export const prerender = true;
@@ -72,10 +71,8 @@ for (const cat of CATEGORIES) {
       </p>
     </header>
 
-    <VisualIndex client:visible />
-
     <div class="mosaic">
-      {tiles.filter((t) => t.kind === 'q').map((t) => t.kind === 'art' ? (
+      {tiles.map((t) => t.kind === 'art' ? (
         <a class="tile tile--art" href={`/ask?q=${encodeURIComponent(t.cat.blurb)}`} data-cat={t.cat.id}>
           <img src={`/art/cat-${t.cat.id}.webp`} alt="" loading="lazy" decoding="async" width="900" height="657" />
           <div class="tile__over">

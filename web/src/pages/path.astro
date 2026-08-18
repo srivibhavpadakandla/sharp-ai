@@ -6,20 +6,32 @@ export const prerender = true;
 <Base
   title="Path planner — Sharp AI"
   description="Draw a Pedro Pathing route on the field, watch it run, and take the Java with you."
+  bare={true}
 >
-  <section class="wrap plan">
-    <p class="eyebrow">Path planner</p>
-    <h1>Draw the route. Take the Java.</h1>
-    <p class="plan__lede">
-      Drag the waypoints to lay out a path. The robot runs it at roughly 40 in/s so you
-      can see where the heading lands, and the code underneath rewrites itself as you move.
-    </p>
-    <p class="plan__note">
-      x runs right, y runs up the field, heading 0 faces +x and turns counter-clockwise —
-      Pedro's convention, not the SDK's. Squares are 24&quot; tiles. This is geometry
-      only: nothing here knows your motors, your weight, or how much traction you have,
-      so read the timing as a sketch.
-    </p>
+  <section class="plan">
+    <header class="plan__bar">
+      <span class="plan__tag">Draw the route. Take the Java.</span>
+      <details class="plan__help">
+        <summary>How this works</summary>
+        <div>
+          <p>
+            Drag the waypoints, or click anywhere on the field to add one. Arrow keys
+            nudge the selection, shift for 5&Prime;, delete removes it, space plays and
+            {'\u2318'}Z steps back.
+          </p>
+          <p>
+            x runs right, y runs up the field, heading 0 faces +x and turns
+            counter-clockwise &mdash; Pedro&rsquo;s convention, not the SDK&rsquo;s.
+            Squares are 24&Prime; tiles.
+          </p>
+          <p>
+            The clock is an estimate from distance and your speed limit alone. It does
+            not know your motors, your weight or how much traction you have, so a real
+            robot will be slower.
+          </p>
+        </div>
+      </details>
+    </header>
     <PathSim client:load />
   </section>
 </Base>

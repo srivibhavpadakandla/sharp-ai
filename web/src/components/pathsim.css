@@ -1,15 +1,23 @@
 .sim {
+  /* Workspace, not page flow: the field holds still and only the control
+     column scrolls, the way a planner should behave. */
+  flex: 1; min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 25rem;
-  gap: 1.75rem;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) 26rem;
+  gap: 1.25rem;
+  align-items: stretch;
+  padding: 1rem clamp(0.75rem, 2vw, 1.4rem) 1rem;
 }
-.sim__stage { position: sticky; top: 5rem; }
+.sim__stage {
+  min-height: 0; display: flex; flex-direction: column; justify-content: center;
+}
+.sim__side { overflow-y: auto; padding-right: 0.35rem; }
+.sim__side::-webkit-scrollbar { width: 8px; }
+.sim__side::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
 .sim__canvas {
-  /* Square, but never taller than the window: at 1440x950 the column is wide
-     enough to render a 1012px field, which put the bottom two tiles below the
-     fold and made waypoints down there undraggable without scrolling. */
-  width: 100%; max-width: min(100%, calc(100dvh - 9rem));
+  /* Square, and bounded by the height of its column so the whole field is
+     always reachable without scrolling. */
+  width: 100%; max-width: min(100%, calc(100dvh - 12rem));
   aspect-ratio: 1; display: block; margin: 0 auto;
   border: 1px solid var(--rule); border-radius: var(--r-lg);
   background: var(--paper-sunk); touch-action: none; cursor: crosshair;
@@ -109,8 +117,9 @@
 }
 
 @media (max-width: 62rem) {
-  .sim { grid-template-columns: minmax(0, 1fr); }
-  .sim__stage { position: static; }
+  .sim { grid-template-columns: minmax(0, 1fr); padding-bottom: 2rem; }
+  .sim__stage { min-height: auto; }
+  .sim__side { overflow: visible; }
 }
 
 .sim__share {

@@ -503,7 +503,43 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 /* Wider than the 74rem reading column because the field and its controls sit
    side by side, but never wider than the window: a flat 92rem pushed the
    waypoint table's last columns off the right edge at 1440px. */
-.plan { padding-block: 3.2rem 5rem; max-width: min(92rem, 100%); }
+/* The planner is a workspace, not an article: a thin toolbar, then the field
+   and its controls filling what is left of the window. */
+.plan {
+  max-width: none; padding: 0;
+  /* Fill what the site header leaves. */
+  height: calc(100dvh - var(--header-h));
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.plan__bar {
+  flex: none; display: flex; align-items: center; gap: 1.2rem;
+  padding: 0.55rem clamp(0.75rem, 2vw, 1.4rem);
+  border-bottom: 1px solid var(--rule); background: var(--paper-raised);
+}
+.plan__id { display: flex; align-items: baseline; gap: 0.7rem; min-width: 0; }
+.plan__tag {
+  font-family: var(--type-serif); font-size: 0.95rem; color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.plan__help { position: relative; font-size: 0.8rem; margin-left: auto; }
+.plan__help > summary {
+  cursor: pointer; color: var(--ink-3); list-style: none;
+  border: 1px solid var(--rule); border-radius: var(--r-pill); padding: 0.16rem 0.7rem;
+}
+.plan__help > summary::-webkit-details-marker { display: none; }
+.plan__help[open] > summary { border-color: var(--accent); color: var(--accent); }
+.plan__help > div {
+  position: absolute; z-index: 30; top: calc(100% + 0.5rem); left: 0;
+  width: min(30rem, 84vw); padding: 1rem 1.1rem;
+  background: var(--paper-raised); border: 1px solid var(--rule); border-radius: var(--r-lg);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.5);
+}
+.plan__help p { margin: 0 0 0.65rem; color: var(--ink-2); line-height: 1.55; font-size: 0.83rem; }
+.plan__help p:last-child { margin-bottom: 0; color: var(--ink-3); }
+
+@media (max-width: 62rem) {
+  .plan { height: auto; overflow: visible; }
+}
 .plan h1 { font-family: var(--type-serif); font-size: clamp(2rem, 4vw, 3rem); margin: 0.4rem 0 0.9rem; }
 .plan__lede { max-width: 46rem; color: var(--ink-2); font-size: 1.02rem; line-height: 1.6; margin: 0 0 0.7rem; }
 .plan__note { max-width: 46rem; color: var(--ink-3); font-size: 0.86rem; line-height: 1.6; margin: 0 0 2rem; }

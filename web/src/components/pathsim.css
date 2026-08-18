@@ -120,3 +120,12 @@
   transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
 }
 .sim__share:hover { border-color: var(--accent); color: var(--accent); }
+
+.sim__paste {
+  width: 100%; min-height: 7rem; resize: vertical;
+  background: var(--paper-sunk); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 9px;
+  padding: 0.6rem 0.7rem; font-family: var(--type-mono); font-size: 0.72rem; line-height: 1.5;
+}
+.sim__paste:focus { outline: none; border-color: var(--accent); }
+.sim__paste::placeholder { color: var(--ink-4); }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
-  sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath,
+  sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath, parseJava,
   type Interp, type PathModel, type Pt,
 } from '../lib/pedro';
 import './pathsim.css';
@@ -21,6 +21,8 @@ export default function PathSim() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [model, setModel] = useState<PathModel>(starterPath);
   const [copied, setCopied] = useState('');
+  const [paste, setPaste] = useState('');
+  const [importNote, setImportNote] = useState('');
 
   /**
    * Only report success if the write actually succeeded. clipboard.writeText
@@ -480,6 +482,23 @@ export default function PathSim() {
             </ul>
           </section>
         )}
+
+        <section className="sim__card">
+          <h2>Import existing Java</h2>
+          <textarea
+            className="sim__paste"
+            value={paste}
+            placeholder={'Paste a buildPaths method or a pathBuilder chain\u2026'}
+            spellCheck={false}
+            onChange={(e) => setPaste(e.target.value)}
+          />
+          <button type="button" className="sim__share" onClick={() => {
+            const res = parseJava(paste);
+            setImportNote(res.note);
+            if (res.model) { remember(model); setModel(res.model); setSel({ kind: 'point', i: 0 }); }
+          }}>Read it onto the field</button>
+          {importNote && <p className="sim__hint">{importNote}</p>}
+        </section>
 
         <section className="sim__card">
           <div className="sim__codehead">

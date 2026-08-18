@@ -64,3 +64,48 @@ import { encodePath, decodePath } from '../src/lib/pedro';
   ok2(decodePath('#nonsense') === null, 'garbage rejected');
   console.log(f2 ? `${f2} SHARE FAILED` : 'sharing ok');
 }
+
+// --- java import ------------------------------------------------------------
+import { parseJava } from '../src/lib/pedro';
+{
+  let f3 = 0;
+  const ok3 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f3++; } else console.log('ok  ', m); };
+
+  // Round-trip: generate from a model, parse it back, expect the same geometry.
+  const src = starterPath();
+  const back = parseJava(generateJava(src));
+  ok3(!!back.model, 'round-trips generated code: ' + back.note);
+  const m2 = back.model!;
+  ok3(m2.points.length === 3, `3 waypoints, got ${m2.points.length}`);
+  ok3(Math.abs(m2.points[1].x - 60) < 0.01 && Math.abs(m2.points[1].y - 84) < 0.01, 'waypoint 2 coords');
+  ok3(Math.abs(m2.points[1].heading - 90) < 0.01, `heading converted from radians, got ${m2.points[1].heading}`);
+  ok3(m2.segments[1].control.length === 1 && m2.segments[1].control[0].x === 84, 'curve control point read');
+  ok3(Math.abs(m2.segments[0].endTime - 0.8) < 0.01, 'endTime read');
+
+  // The shape from Pedro's own example page.
+  const example = `
+    private final Pose startPose = new Pose(9, 60, Math.toRadians(0));
+    private final Pose scorePose = new Pose(37, 65, Math.toRadians(180));
+    pathChain = follower.pathBuilder()
+        .addPath(new BezierLine(startPose, scorePose))
+        .setLinearHeadingInterpolation(startPose.getHeading(), scorePose.getHeading())
+        .addPath(new BezierCurve(scorePose, new Pose(60, 54), startPose))
+        .setConstantHeadingInterpolation(scorePose.getHeading())
+        .build();`;
+  const ex = parseJava(example);
+  ok3(!!ex.model, 'parses the documented example shape');
+  ok3(ex.model!.segments.length === 2, `2 legs, got ${ex.model!.segments.length}`);
+  ok3(ex.model!.segments[1].interp === 'constant', 'constant interpolation detected');
+  ok3(ex.model!.segments[1].control.length === 1, 'inline control Pose read');
+  ok3(ex.model!.points.some(p => Math.abs(p.heading - 180) < 0.01), '180 degree heading read');
+
+  // Tangent + failure reporting
+  ok3(parseJava('.addPath(new BezierLine(a,b)).setTangentHeadingInterpolation()').model === null,
+      'undefined poses are not invented');
+  ok3(/no pathBuilder chain|no .addPath/i.test(parseJava('int x = 3;').note), 'says why it failed');
+  ok3(parseJava('').note.length > 0, 'empty input handled');
+  // out-of-field coordinates get clamped, not trusted
+  const wild = parseJava('p = new Pose(9999, -40, Math.toRadians(0)); q = new Pose(10,10);\n.addPath(new BezierLine(p, q))');
+  ok3(!wild.model || wild.model.points.every(pt => pt.x <= 144 && pt.x >= 0 && pt.y >= 0), 'imported coords clamped');
+  console.log(f3 ? `${f3} IMPORT FAILED` : 'import ok');
+}

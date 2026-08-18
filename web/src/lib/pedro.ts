@@ -379,3 +379,144 @@ export function decodePath(hash: string): PathModel | null {
     return null;
   }
 }
+
+/* --- Importing existing Java --------------------------------------------- */
+
+const NUM = String.raw`[-+]?\d*\.?\d+`;
+/* A heading argument is either Math.toRadians(n) or a bare number. Matching it
+   with [^)]* fails: the class stops at the inner paren of toRadians, so the
+   captured text lost its ")" and every imported heading silently became 0. */
+const ANGLE = String.raw`(?:Math\.toRadians\s*\(\s*${NUM}\s*\)|${NUM})`;
+
+/** `Math.toRadians(90)` -> 90 degrees; a bare number is treated as radians. */
+function angleToDegrees(raw: string): number {
+  const rad = raw.match(new RegExp(String.raw`Math\.toRadians\(\s*(${NUM})\s*\)`));
+  if (rad) return Number(rad[1]);
+  const bare = Number(raw.trim());
+  return Number.isFinite(bare) ? (bare * 180) / Math.PI : 0;
+}
+
+export interface ImportResult {
+  model: PathModel | null;
+  note: string;
+}
+
+/**
+ * Read a PathChain back out of Java.
+ *
+ * Teams already have autos written; being able to see an existing one on the
+ * field is more useful than only ever generating new code. This reads the
+ * shapes Pedro's own examples use — named Pose constants, BezierLine and
+ * BezierCurve in a pathBuilder chain — and reports plainly when it cannot,
+ * rather than silently producing a path that is not the one in the file.
+ */
+export function parseJava(src: string): ImportResult {
+  if (!src.trim()) return { model: null, note: 'Paste some Java to import.' };
+
+  // Named poses: `Pose scorePose = new Pose(60, 84, Math.toRadians(90));`
+  const poses = new Map<string, Waypoint>();
+  const poseRe = new RegExp(
+    String.raw`(\w+)\s*=\s*new\s+Pose\s*\(\s*(${NUM})\s*,\s*(${NUM})\s*(?:,\s*(${ANGLE}))?\s*\)`, 'g');
+  for (const m of src.matchAll(poseRe)) {
+    poses.set(m[1], {
+      x: clampField(Number(m[2])),
+      y: clampField(Number(m[3])),
+      heading: m[4] ? angleToDegrees(m[4]) : 0,
+      name: m[1],
+    });
+  }
+
+  // Legs, in source order, with whatever interpolation call follows each.
+  const legRe = new RegExp(
+    String.raw`\.addPath\s*\(\s*new\s+(BezierLine|BezierCurve)\s*\(([\s\S]*?)\)\s*\)([\s\S]*?)(?=\.addPath|\.build|$)`, 'g');
+
+  const points: Waypoint[] = [];
+  const segments: Segment[] = [];
+  let unresolved = 0;
+
+  const resolve = (token: string): Waypoint | null => {
+    const t = token.trim();
+    const named = poses.get(t);
+    if (named) return { ...named };
+    const inline = t.match(new RegExp(String.raw`^new\s+Pose\s*\(\s*(${NUM})\s*,\s*(${NUM})\s*(?:,\s*(${ANGLE}))?\s*\)$`));
+    if (inline) {
+      return {
+        x: clampField(Number(inline[1])),
+        y: clampField(Number(inline[2])),
+        heading: inline[3] ? angleToDegrees(inline[3]) : 0,
+      };
+    }
+    return null;
+  };
+
+  for (const m of src.matchAll(legRe)) {
+    const kind = m[1];
+    // Split the constructor arguments on top-level commas only, so a nested
+    // `new Pose(84, 96)` stays in one piece.
+    const args: string[] = [];
+    let depth = 0;
+    let cur = '';
+    for (const ch of m[2]) {
+      if (ch === '(') depth += 1;
+      if (ch === ')') depth -= 1;
+      if (ch === ',' && depth === 0) { args.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    args.push(cur);
+    if (args.length < 2) continue;
+
+    const start = resolve(args[0]);
+    const end = resolve(args[args.length - 1]);
+    if (!start || !end) { unresolved += 1; continue; }
+
+    const control: Pt[] = [];
+    if (kind === 'BezierCurve') {
+      for (const a of args.slice(1, -1)) {
+        const c = resolve(a);
+        if (c && control.length < 2) control.push({ x: c.x, y: c.y });
+      }
+    }
+
+    const tail = m[3] || '';
+    let interp: Interp = 'linear';
+    let endTime = 1;
+    if (/setConstantHeadingInterpolation/.test(tail)) interp = 'constant';
+    else if (/setTangentHeadingInterpolation/.test(tail)) interp = 'tangent';
+    else {
+      const lin = tail.match(/setLinearHeadingInterpolation\s*\(([\s\S]*?)\)\s*(?:;|\.|$)/);
+      if (lin) {
+        const parts = lin[1].split(',');
+        if (parts.length >= 3) {
+          const t = Number(parts[parts.length - 1]);
+          if (Number.isFinite(t)) endTime = Math.min(1, Math.max(0.1, t));
+        }
+      }
+    }
+
+    // Chain them: the end of one leg is the start of the next.
+    if (!points.length) points.push(start);
+    else {
+      const last = points[points.length - 1];
+      if (Math.hypot(last.x - start.x, last.y - start.y) > 0.5) points.push(start);
+    }
+    points.push(end);
+    segments.push({ control, interp, endTime });
+  }
+
+  if (points.length < 2) {
+    return {
+      model: null,
+      note: poses.size
+        ? 'Found Pose declarations but no .addPath chain to read.'
+        : 'No pathBuilder chain found. Paste the buildPaths method or the chain itself.',
+    };
+  }
+  // A leg per gap, or the model is inconsistent.
+  while (segments.length > points.length - 1) segments.pop();
+  while (segments.length < points.length - 1) segments.push({ control: [], interp: 'linear', endTime: 1 });
+
+  const note = unresolved
+    ? `Imported ${segments.length} legs. Skipped ${unresolved} that referenced a pose defined elsewhere.`
+    : `Imported ${segments.length} legs.`;
+  return { model: { points, segments }, note };
+}

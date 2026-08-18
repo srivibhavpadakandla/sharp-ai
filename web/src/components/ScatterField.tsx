@@ -25,7 +25,6 @@ interface Card {
 }
 
 const ART = ['drivetrains', 'odometry', 'intakes', 'electronics', 'programming', 'rules', 'errors', 'build'];
-const SHOTS = ['drivetrains', 'odometry', 'intakes', 'electronics', 'programming', 'rules', 'build'];
 
 // Hand-placed against a keep-out rule rather than taste: the hero text is
 // left-aligned, so the band from x 8% to 64% must stay empty at EVERY width.
@@ -58,9 +57,10 @@ const LAYOUT: Omit<Card, 'src'>[] = [
 
 const CARDS: Card[] = LAYOUT.map((l, i) => ({
   ...l,
-  src: i % 3 === 2
-    ? `/shots/doc-${SHOTS[i % SHOTS.length]}.webp`
-    : `/art/cat-${ART[i % ART.length]}.webp`,
+  // Blueprint art only. The documentation screenshots read as grey text noise
+  // at this size and rotation, and their blue admonition boxes fight the
+  // palette — a photograph of a text page is not an image.
+  src: `/art/cat-${ART[i % ART.length]}.webp`,
 }));
 
 export default function ScatterField() {

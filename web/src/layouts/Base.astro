@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css';
-import { SITE_NAME } from '../lib/config';
+import { SITE_NAME, SDK_VERSION } from '../lib/config';
 
 interface Props {
   title: string;
@@ -8,8 +8,10 @@ interface Props {
   canonical?: string;
   noindex?: boolean;
   jsonLd?: Record<string, unknown>;
+  /** Chat surfaces own the full viewport and carry their own footer copy. */
+  bare?: boolean;
 }
-const { title, description, canonical, noindex = false, jsonLd } = Astro.props;
+const { title, description, canonical, noindex = false, jsonLd, bare = false } = Astro.props;
 const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://sharp-ai-8a1.pages.dev').href;
 ---
 <!doctype html>
@@ -46,16 +48,17 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
 
   <main><slot /></main>
 
-  <footer class="site-foot">
+  {!bare && <footer class="site-foot">
     <div class="wrap">
       <div class="cols">
         <div>
           <p style="margin-bottom:0.6em">
-            Sharp AI answers from indexed FIRST Tech Challenge documentation.
-            Documentation text is quoted from
-            <a href="https://gm0.org" rel="noopener">Game Manual 0</a>,
-            used under
-            <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license noopener">CC BY-NC 4.0</a>.
+            Sharp AI answers from indexed FIRST Tech Challenge documentation:
+            <a href="https://gm0.org" rel="noopener">Game Manual 0</a>, used under
+            <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license noopener">CC BY-NC 4.0</a>,
+            and the official
+            <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a>,
+            used under BSD 3-Clause.
           </p>
           <p style="margin:0;color:var(--ink-3)">
             Because Game Manual 0 is licensed non-commercially, this site carries
@@ -66,7 +69,9 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
           <p class="eyebrow" style="margin-bottom:0.7em">Indexed sources</p>
           <p style="margin:0">
             <a href="https://gm0.org" rel="noopener">Game Manual 0</a><br />
-            <span style="color:var(--ink-4)">ftc-docs, REV, CTRL ALT FTC, SDK javadocs — planned</span>
+            <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a> (official)<br />
+            <span style="color:var(--ink-4)">FTC SDK {SDK_VERSION} — API surface, for code checking</span><br />
+            <span style="color:var(--ink-4)">REV, CTRL ALT FTC — planned</span>
           </p>
         </div>
       </div>
@@ -78,6 +83,6 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
         for anything rules-related before you act on it.
       </p>
     </div>
-  </footer>
+  </footer>}
 </body>
 </html>

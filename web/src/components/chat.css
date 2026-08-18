@@ -216,3 +216,16 @@
   padding: 0.04em 0.3em;
   font-size: 0.94em;
 }
+
+/* No citations anywhere in the thread — a refusal, or a greeting. Drop the
+   rail rather than leaving a tall empty panel beside a two-line answer. */
+.chat--norail { grid-template-columns: minmax(0, 1fr); }
+.chat--norail .chat__thread { border-right: 0; }
+.chat--norail .chat__turns { max-width: 52rem; margin-inline: auto; width: 100%; }
+.chat--norail .composer { max-width: 52rem; margin-inline: auto; width: 100%; }
+
+.composer__note a { color: var(--ink-3); border-bottom: 1px solid var(--rule-strong); }
+.composer__note a:hover { color: var(--accent); }
+
+/* Room for the last line to clear the composer. */
+.chat__turns { padding-bottom: 2rem; }

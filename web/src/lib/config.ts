@@ -14,6 +14,8 @@ export const SITE_URL =
   (import.meta.env.PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '')
   || 'https://sharp-ai-8a1.pages.dev';
 
+export const SDK_VERSION = '11.2.1';
+
 export const SITE_NAME = 'Sharp AI';
 export const SITE_TAGLINE = 'Answers from the FTC documentation, with the source next to them.';
 

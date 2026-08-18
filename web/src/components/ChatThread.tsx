@@ -55,6 +55,7 @@ export default function ChatThread({
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(0);
   const started = useRef(false);
+  const lastCount = useRef(0);
 
   const busy = turns.some((t) => t.status === 'thinking' || t.status === 'streaming');
   const activeTurn = turns[active] || turns[turns.length - 1] || null;
@@ -130,11 +131,20 @@ export default function ChatThread({
   }, [initialQuestion, send]);
 
   // Follow the conversation down as it grows, the way a chat surface should.
+  //
+  // Keyed on streamed length, not just turn count: the earlier version scrolled
+  // once when a turn was appended, then the answer streamed in underneath and
+  // ended up hidden behind the composer. Only auto-follows when the reader is
+  // already near the bottom, so scrolling up to re-read is not yanked back.
+  const streamedChars = turns.reduce((n, t) => n + t.answer.length + t.beyond.length, 0);
   useEffect(() => {
     const el = threadRef.current;
     if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 220;
+    if (!nearBottom && turns.length === lastCount.current) return;
+    lastCount.current = turns.length;
     el.scrollTo({ top: el.scrollHeight, behavior: turns.length > 1 ? 'smooth' : 'auto' });
-  }, [turns.length]);
+  }, [turns.length, streamedChars]);
 
   useEffect(() => { setActive(Math.max(0, turns.length - 1)); }, [turns.length]);
 
@@ -172,8 +182,10 @@ export default function ChatThread({
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   };
 
+  const anyCitations = turns.some((t) => t.citations.length > 0);
+
   return (
-    <div className="chat">
+    <div className={`chat${anyCitations ? '' : ' chat--norail'}`}>
       <div className="chat__thread" ref={threadRef}>
         <div className="chat__turns">
           {turns.map((t, i) => (
@@ -230,13 +242,18 @@ export default function ChatThread({
             </button>
           </div>
           <p className="composer__note">
-            Answers are generated from indexed documentation and can be wrong —
-            check the source beside each claim. Follow-ups are not saved.
+            Generated from indexed documentation and can be wrong — check the
+            source beside each claim. Follow-ups are not saved. Unofficial, not
+            affiliated with <em>FIRST</em>. Quotes{' '}
+            <a href="https://gm0.org" target="_blank" rel="noopener">Game Manual 0</a>{' '}
+            (CC BY-NC 4.0) and{' '}
+            <a href="https://ftc-docs.firstinspires.org" target="_blank" rel="noopener">FTC Docs</a>{' '}
+            (BSD 3-Clause).
           </p>
         </form>
       </div>
 
-      <aside className="chat__rail" ref={railRef}>
+      {anyCitations && <aside className="chat__rail" ref={railRef}>
         <div className="chat__railhead">
           <span className="eyebrow">Sources</span>
           {activeTurn?.citations.length ? (
@@ -257,7 +274,7 @@ export default function ChatThread({
             Documentation sections appear here as questions are answered.
           </p>
         )}
-      </aside>
+      </aside>}
     </div>
   );
 }

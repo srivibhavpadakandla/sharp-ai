@@ -7,7 +7,7 @@
    arrival, and then gets out of the way.
    =========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
   /* Sharp Face Robotics brand: near-black ground with the logo's blue-to-green
@@ -51,7 +51,9 @@
   --r-xl: 32px;
   --r-pill: 999px;
 
-  --type-serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  /* Archivo, not the previous editorial serif. A magazine serif read as a
+     design-blog masthead; a technical grotesque suits a robotics team. */
+  --type-serif: 'Archivo', 'Helvetica Neue', Helvetica, sans-serif;
   --type-sans:  'Hanken Grotesk', 'Helvetica Neue', Helvetica, sans-serif;
   --type-mono:  'IBM Plex Mono', ui-monospace, Menlo, monospace;
 
@@ -117,15 +119,15 @@ body > * { position: relative; z-index: 1; }
 
 h1, h2, h3, h4 {
   font-family: var(--type-serif);
-  font-weight: 400;
-  letter-spacing: -0.021em;
+  font-weight: 600;
+  letter-spacing: -0.035em;
   line-height: 1.12;
   margin: 0;
   text-wrap: balance;
 }
 
-h1 { font-size: clamp(2.6rem, 6.6vw, 4.6rem); font-weight: 300; letter-spacing: -0.03em; }
-h2 { font-size: clamp(1.7rem, 3.2vw, 2.35rem); font-weight: 300; }
+h1 { font-size: clamp(2.6rem, 6.6vw, 4.6rem); font-weight: 600; letter-spacing: -0.04em; }
+h2 { font-size: clamp(1.7rem, 3.2vw, 2.35rem); font-weight: 600; }
 h3 { font-size: 1.22rem; letter-spacing: -0.012em; }
 
 p { margin: 0 0 1.05em; }
@@ -303,3 +305,160 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   background-clip: text;
   color: transparent;
 }
+
+/* ---------------------------------------------------------------------------
+   Home hero.
+   These live here rather than in the page's scoped <style> block. In that
+   block the browser parsed only the first five rules and silently dropped
+   everything from .hero__actions onward, so the buttons rendered as bare text.
+   The rules, the scope attribute and the served file were all correct, and a
+   new content hash did not change it — moving them to the global sheet did.
+   --------------------------------------------------------------------------- */
+.hero__mark {
+  font-family: var(--type-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 1.4rem;
+}
+.hero__title {
+  margin: 0 auto;
+  max-width: 14ch;
+  font-size: clamp(2.8rem, 7.5vw, 5.4rem);
+  line-height: 1.03;
+}
+.hero__title em {
+  font-style: italic;
+  background: var(--grad-warm);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero__lede {
+  max-width: 46ch;
+  margin: 1.6rem auto 0;
+  font-family: var(--type-sans);
+  font-size: clamp(0.95rem, 1.6vw, 1.06rem);
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.hero__actions { --hero-rev: 2; }
+.hero__actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 2.4rem;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-pill);
+  padding: 0.72rem 1.5rem;
+  font-family: var(--type-sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  border: 1px solid var(--rule-strong);
+  color: var(--ink);
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.btn:hover { border-color: var(--ink-3); background: var(--paper-raised); }
+.btn--primary {
+  border-color: transparent;
+  background: var(--grad-warm);
+  color: #08121a;
+  font-weight: 600;
+}
+.btn--primary:hover { filter: brightness(1.08); background: var(--grad-warm); }
+
+/* ---------------------------------------------------------------------------
+   Home page.
+   Moved out of the page's scoped <style> block wholesale. The browser was
+   parsing only the first five rules of that block and silently dropping the
+   rest — first the buttons, then the browse grid. The rules, the scope
+   attribute and the served file were all verifiably correct, and forcing a new
+   content hash changed nothing; relocating them did. These selectors are
+   specific enough that page scoping bought nothing anyway.
+   --------------------------------------------------------------------------- */
+/* cache-bust: Cloudflare served a stale copy of the page stylesheet under an
+   unchanged content hash, so the browser had a 5-rule version while the
+   origin had the full one — the hero buttons rendered unstyled. Changing the
+   content changes the hash and therefore the filename. */
+.hero {
+  position: relative;
+  min-height: calc(100dvh - var(--header-h));
+  display: grid;
+  place-items: center;
+  padding: clamp(3rem, 8vw, 6rem) 0;
+  text-align: center;
+}
+.hero > .wrap { position: relative; z-index: 1; width: 100%; }
+/* A real declaration, not a comment: Vite strips comments before hashing, so
+   a comment-only change left the filename identical and the stale copy in
+   place. */
+
+
+
+/* --- cosmos-style index: near-zero chrome, dense, content forward ------- */
+.browse { padding: clamp(3rem, 6vw, 4.5rem) 0 1rem; }
+.browse__head { max-width: 44rem; margin-bottom: 2.4rem; }
+.browse__head p { color: var(--ink-3); font-size: 0.92rem; margin: 0.5rem 0 0; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  gap: 0.6rem;
+}
+.cell {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: 1.3rem 1.4rem 1.5rem;
+  transition: background 0.24s var(--ease);
+}
+.cell:hover { background: var(--paper-raised); }
+.cell__head { display: flex; align-items: baseline; gap: 0.6rem; }
+.cell__head h3 { flex: 1; }
+.cell__n { font-family: var(--type-mono); font-size: 0.68rem; color: var(--ink-4); }
+.cell__blurb { font-size: 0.79rem; color: var(--ink-3); margin: 0.35rem 0 0.95rem; line-height: 1.5; }
+.cell__list { list-style: none; margin: 0; padding: 0; }
+.cell__list li { border-top: 1px solid var(--rule); }
+.cell__list a {
+  display: block;
+  padding: 0.5rem 0;
+  font-size: 0.845rem;
+  line-height: 1.42;
+  color: var(--ink-2);
+  text-wrap: pretty;
+  transition: color 0.16s var(--ease), padding-left 0.2s var(--ease);
+}
+.cell__list a:hover { color: var(--accent); padding-left: 0.3rem; }
+
+/* --- how it works ------------------------------------------------------ */
+.how { padding: clamp(3.5rem, 7vw, 6rem) 0 1rem; }
+.how__grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
+@media (max-width: 52rem) { .how__grid { grid-template-columns: 1fr; } }
+.how__title { margin-top: 0.6rem; max-width: 12ch; }
+.how__steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.how__steps li {
+  counter-increment: step;
+  border-top: 1px solid var(--rule);
+  padding: 1.05rem 0 1.05rem 2.6rem;
+  position: relative;
+  font-size: 0.94rem;
+  color: var(--ink-2);
+  max-width: 46rem;
+}
+.how__steps li::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 1.15rem;
+  font-family: var(--type-mono);
+  font-size: 0.7rem;
+  color: var(--ink-4);
+}
+.how__steps strong { color: var(--ink); font-weight: 600; }
+.how__steps li:last-child { border-bottom: 1px solid var(--rule); }

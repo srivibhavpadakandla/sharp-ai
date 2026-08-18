@@ -53,9 +53,13 @@ const jsonLd = {
     </div>
   </section>
 
-  <section class="film reveal">
+  <!-- The film plays at full size, then collapses into the chat bar as you keep
+       scrolling. Tall section, sticky stage: the scroll distance is what drives
+       the morph. -->
+  <section class="film" data-film-stage>
+    <div class="film__rail">
     <div class="wrap">
-      <figure class="film__box">
+      <figure class="film__box" data-morph>
         <video
           class="film__v"
           poster="/planner-film-poster.png"
@@ -66,7 +70,24 @@ const jsonLd = {
           <source src="/planner-film.webm" type="video/webm" />
         </video>
         <button type="button" class="film__toggle" data-film-toggle aria-label="Play the film">Play</button>
+
+        <a class="film__bar" data-morph-bar href="/chat" aria-label="Open the chat">
+          <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <path d="M13.5 13.5 17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+          <span data-morph-ph>Ask it anything about FTC</span>
+          <span class="film__send" data-morph-send>
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M7 11.5V2.5M3 6.5 7 2.5l4 4" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </a>
       </figure>
+      <p class="film__cue" data-morph-cue>Keep scrolling</p>
+      <p class="film__prompt" data-morph-prompt>Now ask it something.</p>
+    </div>
     </div>
   </section>
 
@@ -208,6 +229,106 @@ const jsonLd = {
     </div>
   </section>
 </Base>
+
+<script>
+  // The film collapsing into the chat bar, scrubbed by scroll position rather
+  // than played on a timer, so the user drives it.
+  //
+  // One scroll-linked value feeds an explicit paint(), instead of several
+  // timeline tracks at hand-placed offsets: with tracks the morph finished in
+  // the first third of the section and the remaining 150vh scrolled past a
+  // frozen bar.
+  import { animate, onScroll, eases, utils } from 'animejs';
+
+  const stage = document.querySelector('[data-film-stage]');
+  const box = document.querySelector('[data-morph]');
+  const bar = document.querySelector('[data-morph-bar]');
+  const send = document.querySelector('[data-morph-send]');
+  const cue = document.querySelector('[data-morph-cue]');
+  const prompt = document.querySelector('[data-morph-prompt]');
+  const video = document.querySelector('.film__v');
+  const toggle = document.querySelector('[data-film-toggle]');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (stage && box && bar && !reduced) {
+    let full = { w: 0, h: 0 };
+    let target = { w: 0, h: 60 };
+
+    /** Progress within [a,b], 0 outside it. */
+    const span = (p, a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
+    const mix = (from, to, t) => from + (to - from) * t;
+
+    const paint = (p) => {
+      const morph = eases.inOut(2)(span(p, 0.30, 0.78));
+      box.classList.toggle('is-morphing', p > 0.30);
+      box.classList.toggle('is-bar', p > 0.95);
+
+      box.style.width = mix(full.w, target.w, morph) + 'px';
+      box.style.height = mix(full.h, target.h, morph) + 'px';
+      box.style.borderRadius = mix(32, 999, morph) + 'px';
+
+      const fade = span(p, 0.60, 0.78);
+      if (video) {
+        video.style.opacity = String(1 - fade);
+        if (fade > 0.5 && !video.paused) video.pause();
+      }
+      if (toggle) toggle.style.opacity = String(1 - span(p, 0.30, 0.45));
+      if (cue) {
+        cue.style.opacity = String(1 - span(p, 0.20, 0.34));
+        cue.style.transform = `translateY(${-8 * span(p, 0.20, 0.34)}px)`;
+      }
+      bar.style.opacity = String(eases.out(2)(span(p, 0.70, 0.86)));
+      if (prompt) {
+        const pr = eases.out(2)(span(p, 0.76, 0.94));
+        prompt.style.opacity = String(pr);
+        prompt.style.transform = `translateY(${(1 - pr) * 14}px)`;
+      }
+      if (send) {
+        const s = eases.outBack(1.7)(span(p, 0.78, 0.96));
+        send.style.transform = `scale(${mix(0.3, 1, s)})`;
+      }
+    };
+
+    const measure = () => {
+      // Clear the animated values first, or a resize measures whatever the last
+      // frame left behind instead of the real resting layout.
+      box.style.width = '';
+      box.style.height = '';
+      box.style.borderRadius = '';
+      box.classList.remove('is-morphing', 'is-bar');
+      const r = box.getBoundingClientRect();
+      full = { w: r.width, h: r.height };
+      target = { w: Math.min(560, window.innerWidth * 0.86), h: 60 };
+    };
+
+    const state = { p: 0 };
+    measure();
+
+    animate(state, {
+      p: 1,
+      duration: 1000,
+      ease: 'linear',
+      autoplay: onScroll({
+        target: stage,
+        enter: 'top top',
+        leave: 'bottom bottom',
+        sync: 0.4,
+      }),
+      onUpdate: () => paint(state.p),
+    });
+
+    // Width only: a mobile URL bar collapsing changes height on every scroll,
+    // and re-measuring mid-morph would read the animated size as the resting one.
+    let lastW = window.innerWidth;
+    addEventListener('resize', () => {
+      if (window.innerWidth === lastW) return;
+      lastW = window.innerWidth;
+      const p = state.p;
+      measure();
+      paint(p);
+    });
+  }
+</script>
 
 <script>
   // Reveal on scroll. Everything starts visible in the markup and is only

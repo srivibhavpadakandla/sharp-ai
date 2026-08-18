@@ -581,11 +581,62 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 }
 
 /* Film ---------------------------------------------------------------------- */
+/* Tall enough to give the morph somewhere to happen. The stage inside is
+   sticky, so the card holds still while the page scrolls past it. */
 .film { padding: 4.5rem 0 1rem; }
+[data-film-stage] { height: 300vh; padding-top: 4.5rem; }
+.film__rail {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.film__rail > .wrap { width: 100%; }
 .film__box {
-  position: relative; margin: 0; overflow: hidden;
+  position: relative; margin: 0 auto; overflow: hidden;
   border-radius: var(--r-xl); border: 1px solid var(--rule);
   background: var(--paper-sunk); aspect-ratio: 16 / 9;
+  will-change: width, height, border-radius;
+}
+/* Once the box is collapsing, aspect-ratio would fight the animated height. */
+.film__box.is-morphing { aspect-ratio: auto; }
+
+.film__bar {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0 1.35rem;
+  color: var(--ink-3); text-decoration: none;
+  opacity: 0; pointer-events: none;
+  font-size: 0.95rem;
+}
+.film__box.is-bar .film__bar { pointer-events: auto; }
+.film__box.is-bar { background: var(--paper-raised); }
+.film__bar:hover { color: var(--ink); }
+.film__send {
+  margin-left: auto; display: grid; place-items: center;
+  width: 1.85rem; height: 1.85rem; border-radius: 50%;
+  background: var(--grad-warm); color: #0b0e12;
+}
+.film__prompt {
+  /* Sits above the bar in the same stacking flow; the morph fades it in as the
+     bar lands, so the end of the scroll reads as a destination. */
+  position: absolute; left: 0; right: 0;
+  margin: 0; text-align: center; opacity: 0;
+  transform: translateY(14px);
+  font-family: var(--type-serif); font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-weight: 500; letter-spacing: -0.015em; color: var(--ink);
+}
+.film__rail .wrap { position: relative; }
+.film__prompt { top: -5.5rem; }
+
+.film__cue {
+  margin: 1.4rem 0 0; text-align: center;
+  font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No pinning and no morph: the film and a plain link, stacked. */
+  [data-film-stage] { height: auto; }
+  .film__rail { position: static; height: auto; }
 }
 .film__v { width: 100%; height: 100%; object-fit: cover; display: block; }
 .film__toggle {

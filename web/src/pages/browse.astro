@@ -1,0 +1,180 @@
+---
+import Base from '../layouts/Base.astro';
+import { CATEGORIES, SEED_QUESTIONS, API_BASE } from '../lib/config';
+export const prerender = true;
+
+// Near-zero chrome, content forward, dense enough to scan in one pass — the
+// browsable index reads as a board of what the corpus actually covers, not as
+// a page of navigation.
+type Q = { slug: string; question: string; category: string };
+let live: Record<string, Q[]> = {};
+try {
+  const res = await fetch(`${API_BASE}/api/categories`, { signal: AbortSignal.timeout(5000) });
+  if (res.ok) {
+    const d = await res.json() as { categories: Array<{ id: string; questions: Q[] }> };
+    live = Object.fromEntries(d.categories.map((c) => [c.id, c.questions || []]));
+  }
+} catch { /* seeds carry the page when the API is unreachable at build time */ }
+
+const SOURCE_PAGE: Record<string, string> = {
+  drivetrains: 'common-mechanisms/drivetrains/holonomic',
+  odometry:    'common-mechanisms/dead-wheels',
+  intakes:     'common-mechanisms/active-intake/types-of-intakes',
+  electronics: 'power-and-electronics/servo-guide/choosing-servo',
+  programming: 'software/concepts/control-loops',
+  rules:       'awards/award-types',
+  build:       'common-mechanisms/linear-motion-guide/rigging',
+};
+
+// Interleave art tiles, question tiles and source-screenshot tiles so the grid
+// reads as a mosaic rather than as eight identical rows.
+type Tile =
+  | { kind: 'art'; cat: typeof CATEGORIES[number]; count: number }
+  | { kind: 'q'; question: string; href: string; cat: string }
+  | { kind: 'shot'; cat: string; label: string; url: string };
+
+const tiles: Tile[] = [];
+for (const cat of CATEGORIES) {
+  const answered = live[cat.id] || [];
+  const seeds = SEED_QUESTIONS[cat.id] || [];
+  tiles.push({ kind: 'art', cat, count: answered.length || seeds.length });
+
+  const qs: Tile[] = answered.length
+    ? answered.slice(0, 3).map((q) => ({ kind: 'q' as const, question: q.question, href: `/q/${q.slug}`, cat: cat.id }))
+    : seeds.slice(0, 3).map((q) => ({ kind: 'q' as const, question: q, href: `/ask?q=${encodeURIComponent(q)}`, cat: cat.id }));
+  tiles.push(...qs);
+
+  if (SOURCE_PAGE[cat.id]) {
+    tiles.push({
+      kind: 'shot', cat: cat.id, label: cat.label,
+      url: `https://gm0.org/en/latest/docs/${SOURCE_PAGE[cat.id]}.html`,
+    });
+  }
+}
+---
+<Base
+  title="Browse the FTC documentation index — Sharp AI"
+  description="Every part of the FIRST Tech Challenge documentation Sharp AI has indexed, by robot system: drivetrains, odometry, intakes, electronics, programming, rules and build."
+>
+  <section class="bindex">
+    <header class="bindex__head">
+      <p class="eyebrow">Index</p>
+      <h1>Everything indexed, at a glance.</h1>
+      <p>
+        649 documentation sections from
+        <a href="https://gm0.org" rel="noopener">Game Manual 0</a>, grouped by the
+        part of the robot they touch. Tiles link to answers; the screenshots link
+        to the source page they were drawn from.
+      </p>
+    </header>
+
+    <div class="mosaic">
+      {tiles.map((t) => t.kind === 'art' ? (
+        <a class="tile tile--art" href={`/ask?q=${encodeURIComponent(t.cat.blurb)}`} data-cat={t.cat.id}>
+          <img src={`/art/cat-${t.cat.id}.webp`} alt="" loading="lazy" decoding="async" width="900" height="657" />
+          <div class="tile__over">
+            <h2>{t.cat.label}</h2>
+            <p>{t.cat.blurb}</p>
+          </div>
+          <span class="tile__n">{t.count}</span>
+        </a>
+      ) : t.kind === 'shot' ? (
+        <a class="tile tile--shot" href={t.url} target="_blank" rel="noopener noreferrer">
+          <img src={`/shots/doc-${t.cat}.webp`} alt={`Screenshot of the Game Manual 0 page on ${t.label}`} loading="lazy" decoding="async" width="800" height="500" />
+          <div class="tile__src">
+            <span class="eyebrow">Source</span>
+            <p>gm0.org — {t.label}</p>
+          </div>
+        </a>
+      ) : (
+        <a class="tile tile--q" href={t.href}>
+          <p>{t.question}</p>
+          <span class="tile__cat">{t.cat}</span>
+        </a>
+      ))}
+    </div>
+  </section>
+</Base>
+
+<style>
+  .bindex { padding: clamp(2rem, 5vw, 3.5rem) var(--gutter) 3rem; max-width: 96rem; margin-inline: auto; }
+  .bindex__head { max-width: 46rem; margin-bottom: 2.4rem; }
+  .bindex__head h1 { margin: 0.7rem 0 0.9rem; max-width: 16ch; }
+  .bindex__head p { font-size: 0.92rem; color: var(--ink-3); margin: 0; }
+  .bindex__head a { color: var(--accent); border-bottom: 1px solid rgba(176,82,44,0.3); }
+
+  .mosaic {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14.5rem, 1fr));
+    grid-auto-rows: 11.5rem;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .tile {
+    position: relative;
+    overflow: hidden;
+    background: var(--paper);
+    display: flex;
+    transition: background 0.25s var(--ease);
+  }
+  .tile img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform 0.5s var(--ease), opacity 0.3s var(--ease);
+  }
+  .tile:hover img { transform: scale(1.035); }
+
+  /* Art tiles carry the weight: two columns wide, two rows tall. */
+  .tile--art { grid-column: span 2; grid-row: span 2; }
+  /* The generated art is line work on its own cream paper, a shade off ours.
+     Multiply drops its background out so the drawing sits on the page's paper
+     instead of on a slightly wrong rectangle. */
+  .tile--art img { mix-blend-mode: multiply; }
+  .tile__over {
+    position: absolute; inset: auto 0 0 0;
+    padding: 1rem 1.1rem;
+    background: linear-gradient(transparent, var(--paper) 55%);
+  }
+  .tile__over h2 { font-size: 1.32rem; }
+  .tile__over p { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--ink-3); line-height: 1.45; max-width: 30ch; }
+  .tile__n {
+    position: absolute; top: 0.7rem; right: 0.85rem;
+    font-family: var(--type-mono); font-size: 0.66rem; color: var(--ink-4);
+  }
+
+  /* Screenshot tiles: the actual page a citation points at. */
+  .tile--shot { grid-row: span 2; }
+  .tile--shot img { object-position: top left; filter: saturate(0.25) contrast(0.92); opacity: 0.55; }
+  .tile--shot:hover img { filter: saturate(0.9); opacity: 0.95; }
+  /* A taller scrim: the label must not land in the middle of a paragraph. */
+  .tile__src {
+    position: absolute; inset: 40% 0 0 0;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0.75rem 0.9rem;
+    background: linear-gradient(transparent, var(--paper) 58%);
+  }
+  .tile__src p { margin: 0.15rem 0 0; font-size: 0.78rem; color: var(--ink-2); }
+
+  .tile--q {
+    flex-direction: column; justify-content: space-between;
+    padding: 0.95rem 1rem 0.8rem;
+  }
+  .tile--q:hover { background: var(--paper-raised); }
+  .tile--q p {
+    margin: 0; font-size: 0.875rem; line-height: 1.42;
+    color: var(--ink); text-wrap: pretty;
+    transition: color 0.16s var(--ease);
+  }
+  .tile--q:hover p { color: var(--accent); }
+  .tile__cat {
+    font-family: var(--type-mono); font-size: 0.62rem;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-4);
+  }
+
+  @media (max-width: 44rem) {
+    .mosaic { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 9.5rem; }
+    .tile--art { grid-column: span 2; grid-row: span 2; }
+    .tile__over h2 { font-size: 1.1rem; }
+  }
+</style>

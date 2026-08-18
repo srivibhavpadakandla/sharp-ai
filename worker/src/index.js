@@ -73,6 +73,17 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const question = String(body.question ?? body.q ?? '').trim();
   const token = body.turnstileToken || body['cf-turnstile-response'];
 
+  // Conversation context. Bounded hard: the last two turns, abridged. This is
+  // context for resolving what a follow-up refers to, not memory — the Worker
+  // stores none of it, the client owns the thread.
+  const history = Array.isArray(body.history)
+    ? body.history.slice(-2).map((h) => ({
+        question: String(h?.question || '').slice(0, 500),
+        answer: String(h?.answer || '').slice(0, 1200),
+      })).filter((h) => h.question)
+    : [];
+  const isFollowUp = history.length > 0;
+
   // --- 1. Turnstile ---------------------------------------------------------
   const ts = await verifyTurnstile(env, token, request);
   if (!ts.ok) {
@@ -99,7 +110,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // --- 4. Cache -------------------------------------------------------------
   const { norm } = await cacheKeyFor(question);
   const questionHash = await sha256hex(norm);
-  const cached = await readCache(env, question);
+  const cached = isFollowUp ? null : await readCache(env, question);
   if (cached) {
     ctx.waitUntil(logQuery(env, {
       question, questionHash, cacheHit: true, llmCalled: false,
@@ -137,11 +148,12 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   let finalChunks = chunks;
   const agent = { escalated: false, queries: null, interpretation: null, reranked: false };
 
-  if (String(env.AGENTIC ?? 'true') !== 'false' && needsEscalation(question, stats, gate)) {
+  if (String(env.AGENTIC ?? 'true') !== 'false'
+      && (isFollowUp || needsEscalation(question, stats, gate))) {
     try {
       const planBudget = await reserveLlmCall(env);
       if (planBudget.granted) {
-        const plan = await planSearch(env, question, chunks.map((c) => c.headingPath));
+        const plan = await planSearch(env, question, chunks.map((c) => c.headingPath), history);
         const queries = [question, ...(plan.queries || [])].slice(0, 5);
         agent.escalated = true;
         agent.queries = plan.queries || [];
@@ -165,7 +177,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, history });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -224,13 +236,15 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, history })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());
 
       let slug = null;
-      if (grounded.trim()) {
+      // Follow-ups get no permanent URL. "Why?" makes a terrible page title and
+      // a worse search result, and the answer is meaningless without its thread.
+      if (grounded.trim() && !isFollowUp) {
         const saved = await writeAnswer(env, {
           // Grounded only. Persisting the ungrounded half would put uncited
           // claims on a permanent, crawlable URL.

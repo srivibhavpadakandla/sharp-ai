@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ask, type Citation, type Excerpt } from '../lib/ask';
 import { renderMarkdown } from '../lib/markdown';
+import SourceCard from './SourceCard';
 import './answer.css';
 
 type Status = 'idle' | 'retrieving' | 'streaming' | 'done' | 'refused' | 'error';
@@ -227,59 +228,19 @@ export default function AnswerView({ question, initial = null, endpoint = '/api/
             <p className="av__empty">No documentation sections matched this question.</p>
           )}
 
-          {citations.map((c) => {
-            const text = excerptFor.get(c.chunkId);
-            return (
-              <article
-                key={c.chunkId}
-                id={`src-${c.n}`}
-                className={`src${active === c.n ? ' src--active' : ''}`}
-                onMouseEnter={() => setActive(c.n)}
-              >
-                <header className="src__head">
-                  <span className="src__n">{c.n}</span>
-                  <div>
-                    <p className="src__path">{c.headingPath}</p>
-                    <p className="src__meta">
-                      {c.sourceName}
-                      <span className="src__dot">·</span>
-                      {c.license}
-                    </p>
-                  </div>
-                </header>
-
-                {text ? (
-                  <div
-                    className="src__body prose"
-                    // Chunk bodies carry light markdown from the ingest parser
-                    // (admonition prefixes, code fences, lists). Rendering it
-                    // makes the pane read like the documentation it came from.
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(stripHeader(text), 0) }}
-                  />
-                ) : (
-                  <p className="src__restricted">
-                    This section is under {c.license} and cannot be quoted here.
-                    Open the source to read it.
-                  </p>
-                )}
-
-                <a className="src__link" href={c.url} target="_blank" rel="noopener noreferrer">
-                  Open {c.sourceName}
-                  <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
-                    <path d="M2.5 8.5 8.5 2.5M4 2.5h4.5V7" fill="none" stroke="currentColor"
-                      strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </a>
-              </article>
-            );
-          })}
+          {citations.map((c) => (
+            <SourceCard
+              key={c.chunkId}
+              citation={c}
+              text={excerptFor.get(c.chunkId)}
+              active={active === c.n}
+              onEnter={() => setActive(c.n)}
+            />
+          ))}
         </aside>
       </div>
     </div>
   );
 }
 
-/** Chunks carry a `# Page \n ## Path` header for retrieval; the pane already shows it. */
-function stripHeader(text: string) {
-  return text.split('\n\n').slice(1).join('\n\n').trim() || text;
-}
+

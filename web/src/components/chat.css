@@ -1,0 +1,183 @@
+/* Chat surface. The interaction model is a messaging app — composer pinned at
+   the bottom, thread scrolling above it, follow-ups in place. The *answer*
+   deliberately is not: only the person's message gets a container, so the
+   reply stays a set document with its sources readable beside it. */
+
+.chat {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  height: calc(100dvh - var(--header-h));
+  border-top: 1px solid var(--rule);
+}
+
+.chat__thread {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--rule);
+  overflow: hidden;
+}
+
+.chat__turns {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2rem var(--gutter) 1rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
+}
+
+.chat__rail {
+  background: var(--paper-sunk);
+  padding: 0 var(--gutter) 2rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
+}
+.chat__railhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1.6rem 0 1rem;
+  background: linear-gradient(var(--paper-sunk) 74%, transparent);
+}
+.chat__count {
+  font-size: 0.7rem; color: var(--ink-3);
+  border: 1px solid var(--rule-strong); border-radius: 999px;
+  padding: 0 0.42rem; line-height: 1.5;
+}
+.chat__railempty { font-size: 0.84rem; color: var(--ink-3); max-width: 26ch; }
+
+@media (max-width: 62rem) {
+  .chat { grid-template-columns: 1fr; height: auto; }
+  .chat__thread { border-right: 0; }
+  .chat__turns { overflow: visible; }
+  .chat__rail { border-top: 1px solid var(--rule); padding-top: 0.5rem; }
+}
+
+/* --- empty state --------------------------------------------------------- */
+.chat__empty { max-width: 34rem; padding: 3rem 0 1rem; }
+.chat__empty h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); margin-bottom: 1rem; }
+.chat__starters { list-style: none; margin: 1.8rem 0 0; padding: 0; }
+.chat__starters li { border-top: 1px solid var(--rule); }
+.chat__starters li:last-child { border-bottom: 1px solid var(--rule); }
+.chat__starters button {
+  display: block; width: 100%; text-align: left;
+  background: none; border: 0; cursor: pointer;
+  font-family: var(--type-sans); font-size: 0.9rem; color: var(--ink-2);
+  padding: 0.72rem 0;
+  transition: color 0.16s var(--ease), padding-left 0.2s var(--ease);
+}
+.chat__starters button:hover { color: var(--accent); padding-left: 0.35rem; }
+
+/* --- a turn -------------------------------------------------------------- */
+.turn { padding-bottom: 2.2rem; margin-bottom: 2.2rem; border-bottom: 1px solid var(--rule); }
+.turn:last-child { border-bottom: 0; }
+
+.turn__you { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+.turn__you p {
+  margin: 0;
+  max-width: 34ch;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px 14px 3px 14px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.turn__reply { max-width: var(--measure); }
+.turn__prose { min-height: 1px; }
+
+.turn__notice {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rule-strong);
+  border-left: 2px solid var(--accent);
+  background: var(--accent-wash);
+  font-size: 0.82rem; color: var(--ink-2);
+}
+
+.turn__agent {
+  margin: 0 0 1.1rem;
+  font-size: 0.76rem;
+  color: var(--ink-3);
+  cursor: help;
+}
+.turn__agent em { font-style: normal; color: var(--ink-2); border-bottom: 1px dotted var(--rule-strong); }
+
+.turn__loading p { color: var(--ink-3); font-size: 0.87rem; margin: 0.7rem 0 0; }
+.turn__bar {
+  display: block; height: 1px; width: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 42% 100%; background-repeat: no-repeat;
+  animation: sweep 1.5s var(--ease) infinite;
+}
+
+.turn__error {
+  border: 1px solid var(--rule-strong); border-left: 2px solid var(--accent);
+  padding: 0.8rem 0.9rem; font-size: 0.88rem;
+}
+
+/* --- composer ------------------------------------------------------------ */
+.composer {
+  flex: none;
+  border-top: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(8px);
+  padding: 0.9rem var(--gutter) 1rem;
+}
+.composer__field {
+  position: relative;
+  display: flex; align-items: flex-end; gap: 0.5rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 0.7rem 0.7rem 0.7rem 1rem;
+  transition: border-color 0.24s var(--ease);
+}
+/* The one borrowed gradient, reused here so the site has exactly one of them. */
+.composer__field::after {
+  content: ''; position: absolute; inset: -1px; border-radius: 4px; padding: 1px;
+  background: linear-gradient(102deg, rgba(176,82,44,0.85) 0%, rgba(196,132,76,0.55) 34%,
+    rgba(120,128,112,0.45) 66%, rgba(176,82,44,0.75) 100%);
+  background-size: 220% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0; transition: opacity 0.3s var(--ease); pointer-events: none;
+}
+.composer__field:focus-within { border-color: transparent; }
+.composer__field:focus-within::after { opacity: 1; animation: sbdrift 7s linear infinite; }
+
+.composer textarea {
+  flex: 1; border: 0; outline: 0; resize: none; background: transparent;
+  font-family: var(--type-sans); font-size: 0.98rem; line-height: 1.5;
+  color: var(--ink); padding: 0; max-height: 200px; overflow-y: auto;
+}
+.composer textarea::placeholder { color: var(--ink-4); }
+.composer textarea:disabled { opacity: 0.55; }
+
+.composer button {
+  flex: none; display: grid; place-items: center;
+  width: 1.9rem; height: 1.9rem;
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+  border-radius: 3px; cursor: pointer;
+  transition: background 0.18s var(--ease), opacity 0.18s var(--ease);
+}
+.composer button:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
+.composer button:disabled { opacity: 0.28; cursor: default; }
+
+.composer__note {
+  margin: 0.55rem 0 0;
+  font-size: 0.72rem;
+  color: var(--ink-4);
+  text-align: center;
+}

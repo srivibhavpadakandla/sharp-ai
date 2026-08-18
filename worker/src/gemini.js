@@ -71,7 +71,7 @@ The user has pasted an FTC SDK stack trace or error message. Additionally:
 /**
  * @returns {{prompt: string, citations: Array, excerpts: Array}}
  */
-export function buildPrompt(question, chunks, { isError = false } = {}) {
+export function buildPrompt(question, chunks, { isError = false, history = [] } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -111,10 +111,23 @@ export function buildPrompt(question, chunks, { isError = false } = {}) {
     }
   });
 
+  // Prior turns are context for resolving what the question refers to. They are
+  // NOT a source: nothing in them may be cited, and a claim that appeared in an
+  // earlier answer still has to be supported by a section here.
+  const priorBlock = history.length
+    ? `EARLIER IN THIS CONVERSATION (context only — never cite this, never treat it as a source)\n\n` +
+      history.map((h, i) =>
+        `Q${i + 1}: ${h.question}\nA${i + 1}: ${String(h.answer || '').slice(0, 700)}`).join('\n\n') +
+      `\n\n`
+    : '';
+
   const prompt =
+    priorBlock +
     `SECTIONS\n\n${blocks.join('\n\n')}\n\n` +
     `QUESTION\n\n${question}\n\n` +
-    `Answer using only the sections above, citing them by bracket number.`;
+    (history.length
+      ? `This is a follow-up. Resolve what it refers to from the earlier turns, then answer it using only the sections above, citing them by bracket number. Do not repeat the earlier answer.`
+      : `Answer using only the sections above, citing them by bracket number.`);
 
   return { prompt, citations, excerpts };
 }
@@ -125,8 +138,8 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false }) {
-  const { prompt } = buildPrompt(question, chunks, { isError });
+export async function* streamGemini(env, { question, chunks, isError = false, history = [] }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, history });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {
@@ -211,6 +224,30 @@ export const BEYOND_MARKER = '===BEYOND===';
 export function createAnswerSplitter() {
   let buffer = '';
   let inBeyond = false;
+  let headerDone = false;
+
+  /**
+   * Consume a leading ===GROUNDED=== if one is there.
+   * @returns {boolean} false when we must wait for more input to decide.
+   *
+   * Stripping it with a plain replace() on each emitted slice is not enough:
+   * the model streams the marker across chunk boundaries ("===GROUNDED" then
+   * "==="), so neither slice ever contains the whole string and it leaks into
+   * the answer. The decision has to be made on the accumulated buffer.
+   */
+  function consumeHeader() {
+    if (headerDone) return true;
+    const lead = buffer.replace(/^\s+/, '');
+    if (lead.startsWith(GROUNDED_MARKER)) {
+      buffer = lead.slice(GROUNDED_MARKER.length).replace(/^\n/, '');
+      headerDone = true;
+      return true;
+    }
+    // Still might become the marker once more arrives.
+    if (lead.length < GROUNDED_MARKER.length && GROUNDED_MARKER.startsWith(lead)) return false;
+    headerDone = true;      // the model simply did not emit it
+    return true;
+  }
 
   return {
     /** @returns {{grounded: string, beyond: string}} newly completed text */
@@ -218,6 +255,8 @@ export function createAnswerSplitter() {
       buffer += delta;
       let grounded = '';
       let beyond = '';
+
+      if (!inBeyond && !consumeHeader()) return { grounded: '', beyond: '' };
 
       if (!inBeyond) {
         const idx = buffer.indexOf(BEYOND_MARKER);
@@ -243,6 +282,7 @@ export function createAnswerSplitter() {
     },
     /** Flush whatever is still held back. */
     end() {
+      if (!inBeyond) consumeHeader();
       const rest = buffer;
       buffer = '';
       return inBeyond
@@ -254,7 +294,9 @@ export function createAnswerSplitter() {
 }
 
 function stripGroundedMarker(text) {
-  return text.replace(GROUNDED_MARKER, '');
+  // Belt and braces: consumeHeader handles the leading marker, this catches a
+  // stray repeat anywhere in the body.
+  return text.split(GROUNDED_MARKER).join('');
 }
 
 /**

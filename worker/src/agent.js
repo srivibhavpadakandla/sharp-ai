@@ -97,10 +97,20 @@ Rules:
 - Each query is a short noun-phrase search string, not a sentence and not a
   question. 3 to 8 words.
 - Between 1 and 4 queries. Prefer fewer if the question is simple.
-- Cover different angles rather than rewording the same angle four times.`;
+- Cover different angles rather than rewording the same angle four times.
+- If earlier conversation is shown, the question is probably a follow-up and
+  will not stand on its own. "Why?", "what about the other one", "how do I tune
+  it" only mean something in context. Resolve every pronoun and every implied
+  subject from the earlier turns, and write queries that would work with no
+  conversation attached.`;
 
-export async function planSearch(env, question, firstPassHeadings) {
+export async function planSearch(env, question, firstPassHeadings, history = []) {
+  const priorBlock = history.length
+    ? `EARLIER IN THIS CONVERSATION\n${history.map((h, i) =>
+        `Q${i + 1}: ${h.question}\nA${i + 1} (abridged): ${String(h.answer || '').slice(0, 400)}`).join('\n\n')}\n\n`
+    : '';
   const user =
+    priorBlock +
     `TEAM'S QUESTION\n${question}\n\n` +
     `WHAT A NAIVE SEARCH RETURNED\n${firstPassHeadings.map((h, i) => `${i + 1}. ${h}`).join('\n') || '(nothing useful)'}\n\n` +
     `Write the search queries that will actually find the answer.`;

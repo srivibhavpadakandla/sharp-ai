@@ -1,0 +1,114 @@
+.sim {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 25rem;
+  gap: 1.75rem;
+  align-items: start;
+}
+.sim__stage { position: sticky; top: 5rem; }
+.sim__canvas {
+  /* Square, but never taller than the window: at 1440x950 the column is wide
+     enough to render a 1012px field, which put the bottom two tiles below the
+     fold and made waypoints down there undraggable without scrolling. */
+  width: 100%; max-width: min(100%, calc(100dvh - 9rem));
+  aspect-ratio: 1; display: block; margin: 0 auto;
+  border: 1px solid var(--rule); border-radius: var(--r-lg);
+  background: var(--paper-sunk); touch-action: none; cursor: crosshair;
+}
+.sim__transport {
+  display: flex; align-items: center; gap: 0.85rem; margin-top: 0.85rem;
+}
+.sim__transport input[type='range'] { flex: 1; accent-color: var(--accent); }
+.sim__play {
+  border: 1px solid var(--rule); background: var(--paper-raised); color: var(--ink);
+  border-radius: var(--r-pill); padding: 0.34rem 0.95rem; font-size: 0.85rem; cursor: pointer;
+  min-width: 4.6rem;
+}
+.sim__play:hover { border-color: var(--accent); }
+.sim__read { font-family: var(--type-mono); font-size: 0.74rem; color: var(--ink-3); white-space: nowrap; }
+
+/* min-width:0 on both the column and the cards. Grid items default to
+   min-width:auto, so the <pre> of generated Java — white-space:pre, with long
+   lines — set the column's min-content width and pushed it 250px past its own
+   400px track, clipping the waypoint inputs off the right of the page. */
+.sim__side { display: grid; gap: 1rem; min-width: 0; }
+.sim__card {
+  border: 1px solid var(--rule); border-radius: var(--r-lg);
+  background: var(--paper-raised); padding: 1rem 1.1rem; min-width: 0;
+}
+.sim__card h2 {
+  font-family: var(--type-sans); font-size: 0.72rem; font-weight: 600;
+  letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3);
+  margin: 0 0 0.7rem;
+}
+.sim__row { display: flex; gap: 0.7rem; }
+.sim__row label, .sim__end {
+  flex: 1; display: grid; gap: 0.3rem; font-size: 0.78rem; color: var(--ink-2);
+}
+.sim__hint { font-size: 0.75rem; color: var(--ink-3); margin: 0.55rem 0 0; }
+
+.sim input[type='number'], .sim input[type='text'], .sim select, .sim__name {
+  width: 100%; min-width: 0; background: var(--paper-sunk); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 7px;
+  padding: 0.3rem 0.45rem; font-size: 0.8rem; font-family: var(--type-mono);
+}
+.sim input:focus, .sim select:focus { outline: none; border-color: var(--accent); }
+
+.sim__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.sim__list li {
+  display: grid; grid-template-columns: 1.4rem minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)) 1.3rem;
+  gap: 0.3rem; align-items: center;
+}
+.sim__list li > button:first-child {
+  border: 1px solid var(--rule); background: transparent; color: var(--ink-3);
+  border-radius: 50%; width: 1.4rem; height: 1.4rem; font-size: 0.7rem; cursor: pointer; padding: 0;
+}
+.sim__list li.is-on > button:first-child { border-color: var(--accent); color: var(--accent); }
+.sim__del {
+  border: 0; background: transparent; color: var(--ink-3); cursor: pointer; font-size: 1rem; padding: 0;
+}
+.sim__del:disabled { opacity: 0.3; cursor: default; }
+.sim__labels {
+  display: grid; grid-template-columns: 1.4rem minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)) 1.3rem;
+  gap: 0.3rem; margin-top: 0.35rem; padding-left: 1.7rem;
+  font-size: 0.65rem; color: var(--ink-4); font-family: var(--type-mono);
+}
+.sim__labels span:first-child { grid-column: 2; }
+.sim__add {
+  margin-top: 0.75rem; width: 100%; border: 1px dashed var(--rule); background: transparent;
+  color: var(--ink-2); border-radius: 9px; padding: 0.4rem; font-size: 0.8rem; cursor: pointer;
+}
+.sim__add:hover { border-color: var(--accent); color: var(--accent); }
+
+.sim__seg { display: grid; gap: 0.65rem; }
+.sim__check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; color: var(--ink-2); }
+.sim__check input { width: auto; accent-color: var(--accent); }
+.sim__end input[type='range'] { accent-color: var(--accent); }
+
+.sim__warn ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.sim__warn li {
+  font-size: 0.8rem; color: var(--ink-2); padding-left: 0.9rem; position: relative; line-height: 1.45;
+}
+.sim__warn li::before {
+  content: ''; position: absolute; left: 0; top: 0.45rem;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+}
+.sim__warn li.is-err::before { background: #ff8f6b; }
+
+.sim__codehead { display: flex; align-items: center; justify-content: space-between; }
+.sim__codehead h2 { margin-bottom: 0; }
+.sim__codehead button {
+  border: 1px solid var(--rule); background: transparent; color: var(--ink-2);
+  border-radius: var(--r-pill); padding: 0.2rem 0.7rem; font-size: 0.75rem; cursor: pointer;
+}
+.sim__codehead button:hover { border-color: var(--accent); color: var(--accent); }
+.sim__code {
+  margin: 0.7rem 0 0; max-height: 22rem; overflow: auto;
+  background: var(--paper-sunk); border: 1px solid var(--rule); border-radius: 9px;
+  padding: 0.8rem; font-family: var(--type-mono); font-size: 0.72rem; line-height: 1.55;
+  color: var(--ink-2); white-space: pre; max-width: 100%;
+}
+
+@media (max-width: 62rem) {
+  .sim { grid-template-columns: minmax(0, 1fr); }
+  .sim__stage { position: static; }
+}

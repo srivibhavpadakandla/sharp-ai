@@ -8,45 +8,51 @@ export const prerender = true;
 >
   <section class="wrap ab">
     <p class="eyebrow">About</p>
-    <h1>An index, not an oracle.</h1>
+    <h1>Where the answers come from.</h1>
 
     <div class="ab__body prose">
       <p class="serif-lede">
-        Sharp AI answers FIRST Tech Challenge questions from documentation that
-        has been indexed section by section. It is a retrieval system with a
-        writer attached — not a model asked to recall FTC from memory.
+        Sharp AI searches FTC documentation and then writes up what it found.
+        It is not a chatbot recalling FTC from memory, which is why it can show
+        you the page behind every claim, and why it will tell you when it has
+        nothing.
       </p>
 
       <h3>What is indexed</h3>
       <p>
-        <a href="https://gm0.org" rel="noopener">Game Manual 0</a> and the
-        official <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC
-        Docs</a>, both in full and chunked by heading section, so a citation
-        lands on the exact part of the page it came from. The FTC SDK javadocs
-        are indexed separately as an <em>API surface</em> — class and method
-        names only — which is what lets generated code be checked for invented
-        methods. Planned next: REV Robotics documentation and CTRL ALT FTC.
-      </p>
-      <h3>Two kinds of index</h3>
-      <p>
-        Game Manual 0 and FTC Docs publish open licences, so they are read in
-        full: their text is chunked, embedded, and quoted in answers with a
-        citation.
-      </p>
-      <p>
+        About 3,500 sections in total. The big ones are the official
+        <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a>,
         <a href="https://docs.revrobotics.com" rel="noopener">REV</a>,
-        <a href="https://rr.brott.dev" rel="noopener">Road Runner</a>,
-        <a href="https://www.ctrlaltftc.com" rel="noopener">CTRL ALT FTC</a> and
-        <a href="https://docs.ftclib.org" rel="noopener">FTCLib</a> publish no
-        licence, which means all rights reserved. Their <em>text is never copied
-        here</em> — only the page title, its position in the documentation, and
-        the URL. Ask about Road Runner tuning and Sharp AI will name the page and
-        link it rather than paraphrasing something it has no right to reproduce,
-        and rather than improvising from an adjacent page about PID control.
+        <a href="https://gm0.org" rel="noopener">Game Manual 0</a>, the FTC SDK
+        javadocs and sample OpModes, <a href="https://www.chiefdelphi.com" rel="noopener">Chief
+        Delphi</a>, <a href="https://pedropathing.com" rel="noopener">Pedro Pathing</a>,
+        Road Runner, <a href="https://www.ctrlaltftc.com" rel="noopener">CTRL ALT FTC</a>
+        and <a href="https://docs.ftclib.org" rel="noopener">FTCLib</a>. Everything is split
+        by heading section, so a citation lands on the part of the page it came from
+        rather than the top of it.
+      </p>
+
+      <h3>Three levels of access</h3>
+      <p>
+        What a source lets us do with its text decides how it gets used, and the
+        rule is applied on the server when the prompt is assembled, not in the
+        page you are reading.
       </p>
       <p>
-        Pedro Pathing publishes neither a licence for its documentation nor a
-        sitemap, so it is still absent entirely and Sharp AI says so.
+        Game Manual 0, the FTC Docs and the SDK reference publish open licences,
+        so they are read in full and quoted with a citation.
+      </p>
+      <p>
+        The <em>FIRST</em> Competition Manual and the Pedro Pathing docs are
+        summarised but never quoted. You get the substance in Sharp AI's own
+        words plus a link, and their text is never stored on an answer page.
+      </p>
+      <p>
+        REV, Chief Delphi, Road Runner, CTRL ALT FTC and FTCLib publish no
+        licence, which means all rights reserved. Only the page title, its place
+        in the docs and the URL are stored. Ask about Road Runner tuning and you
+        get the page named and linked, rather than a paraphrase of something we
+        have no right to reproduce or a guess improvised from a nearby page.
       </p>
 
       <h3>What is deliberately not indexed</h3>
@@ -55,21 +61,21 @@ export const prerender = true;
         produce confidently wrong answers for teams on current versions.
       </p>
       <p>
-        The <em>FIRST</em> Game Manual Part 1 and Part 2 and the official Q&amp;A
-        are copyright <em>FIRST</em> and are not openly licensed. If and when
-        they are indexed, Sharp AI will return the rule number and a link and
-        nothing more — their text will never be stored on an answer page or put
-        into a model prompt. That restriction is enforced on the server, in the
-        code that assembles the prompt, not in the page you are reading.
+        Game Manual Part 1 and Part 2 and the official Q&amp;A are copyright
+        <em>FIRST</em> and are not openly licensed, so their text is never stored
+        on an answer page. The Competition Manual currently indexed is the
+        2026-2027 preseason release, and most of its game sections are still
+        placeholders until the September 2026 kickoff. Ask about a specific rule
+        and you should check the manual yourself.
       </p>
 
       <h3>Why there are no ads</h3>
       <p>
         Game Manual 0 is published under
         <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license noopener">CC BY-NC 4.0</a>.
-        Non-commercial means non-commercial: this site will never carry
-        advertising, a paid tier, or a sponsorship. That is a permanent
-        constraint of using the corpus, not a launch promise.
+        Non-commercial means non-commercial. This site will never carry
+        advertising, a paid tier or a sponsorship, for as long as it uses that
+        corpus.
       </p>
 
       <h3>When it refuses</h3>

@@ -1,0 +1,25 @@
+---
+import Base from '../layouts/Base.astro';
+import PathSim from '../components/PathSim.tsx';
+export const prerender = true;
+---
+<Base
+  title="Path planner — Sharp AI"
+  description="Draw a Pedro Pathing route on the field, watch it run, and take the Java with you."
+>
+  <section class="wrap plan">
+    <p class="eyebrow">Path planner</p>
+    <h1>Draw the route. Take the Java.</h1>
+    <p class="plan__lede">
+      Drag the waypoints to lay out a path. The robot runs it at roughly 40 in/s so you
+      can see where the heading lands, and the code underneath rewrites itself as you move.
+    </p>
+    <p class="plan__note">
+      x runs right, y runs up the field, heading 0 faces +x and turns counter-clockwise —
+      Pedro's convention, not the SDK's. Squares are 24&quot; tiles. This is geometry
+      only: nothing here knows your motors, your weight, or how much traction you have,
+      so read the timing as a sketch.
+    </p>
+    <PathSim client:load />
+  </section>
+</Base>

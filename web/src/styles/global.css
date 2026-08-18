@@ -7,7 +7,7 @@
    arrival, and then gets out of the way.
    =========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
   /* Sharp Face Robotics brand: near-black ground with the logo's blue-to-green
@@ -51,9 +51,11 @@
   --r-xl: 32px;
   --r-pill: 999px;
 
-  /* Archivo, not the previous editorial serif. A magazine serif read as a
-     design-blog masthead; a technical grotesque suits a robotics team. */
-  --type-serif: 'Archivo', 'Helvetica Neue', Helvetica, sans-serif;
+  /* Cosmos sets its display face in cosmosOracle, a licensed custom cut of ABC
+     Oracle that is self-hosted and cannot be reused here. Space Grotesk is the
+     closest freely licensed match for the same squared bowls, flat terminals
+     and low contrast. */
+  --type-serif: 'Space Grotesk', 'Helvetica Neue', Helvetica, sans-serif;
   --type-sans:  'Hanken Grotesk', 'Helvetica Neue', Helvetica, sans-serif;
   --type-mono:  'IBM Plex Mono', ui-monospace, Menlo, monospace;
 
@@ -469,4 +471,85 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 
 @media (max-width: 60rem) {
   .site-head .wrap { grid-template-columns: 1fr auto; }
+}
+
+/* Path planner ------------------------------------------------------------ */
+/* Wider than the 74rem reading column because the field and its controls sit
+   side by side, but never wider than the window: a flat 92rem pushed the
+   waypoint table's last columns off the right edge at 1440px. */
+.plan { padding-block: 3.2rem 5rem; max-width: min(92rem, 100%); }
+.plan h1 { font-family: var(--type-serif); font-size: clamp(2rem, 4vw, 3rem); margin: 0.4rem 0 0.9rem; }
+.plan__lede { max-width: 46rem; color: var(--ink-2); font-size: 1.02rem; line-height: 1.6; margin: 0 0 0.7rem; }
+.plan__note { max-width: 46rem; color: var(--ink-3); font-size: 0.86rem; line-height: 1.6; margin: 0 0 2rem; }
+
+/* Scroll sections: statement, then a panel that demonstrates it -------------- */
+.say { padding: 6.5rem 0 2.6rem; }
+.say h2 {
+  font-family: var(--type-serif);
+  font-size: clamp(2rem, 5.2vw, 4rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  text-align: center;
+  margin: 0;
+}
+
+.trio { padding-bottom: 2rem; }
+.trio__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.trio__card { margin: 0; }
+.trio__art {
+  aspect-ratio: 4 / 3; border-radius: var(--r-lg); overflow: hidden;
+  display: grid; place-items: center; border: 1px solid var(--rule);
+}
+.trio__art img {
+  width: 78%; height: auto;
+  /* Same treatment the hero plates use: the source art is hairline drawing on
+     cream, so invert turns it into white lines on near-black and screen drops
+     the black, leaving the linework over the card's own tint. Without this the
+     cream ground survives and the card reads as a pasted-in sticker. */
+  filter: invert(1) contrast(1.1) brightness(1.45);
+  mix-blend-mode: screen;
+}
+.trio__art--a { background: #16233a; }
+.trio__art--b { background: #142b33; }
+.trio__art--c { background: #101a16; padding: 2rem; }
+.trio__refusal {
+  font-family: var(--type-mono); font-size: 0.9rem; color: var(--ink-3);
+  text-align: center; line-height: 1.5;
+  border: 1px dashed var(--rule); border-radius: 12px; padding: 0.9rem 1.1rem;
+}
+.trio__card > p {
+  margin: 0.95rem 0 0; text-align: center;
+  font-family: var(--type-serif); font-size: 1.06rem; color: var(--ink-2);
+}
+
+.panel { padding-bottom: 5rem; }
+.panel__box {
+  display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  gap: 2.5rem; align-items: center;
+  background: var(--paper-raised); border: 1px solid var(--rule);
+  border-radius: var(--r-xl); padding: 2.4rem;
+  text-decoration: none; color: inherit;
+  transition: border-color 0.2s var(--ease);
+}
+.panel__box:hover { border-color: var(--accent); }
+.panel__field { width: 100%; height: auto; border-radius: var(--r-lg); }
+.pf-bg { fill: rgba(255,255,255,0.035); }
+.pf-grid line { stroke: rgba(255,255,255,0.12); stroke-width: 0.6; }
+.pf-path { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; }
+.pf-pt { fill: var(--ink); }
+.pf-bot { fill: rgba(110,219,154,0.18); stroke: var(--accent); stroke-width: 1.4; }
+.panel__copy h3 {
+  font-family: var(--type-serif); font-size: 1.7rem; margin: 0 0 0.7rem; font-weight: 500;
+}
+.panel__copy p { margin: 0 0 1.1rem; color: var(--ink-2); line-height: 1.6; max-width: 38rem; }
+.panel__go {
+  display: inline-block; font-size: 0.88rem; color: var(--accent);
+  border-bottom: 1px solid currentColor; padding-bottom: 1px;
+}
+
+@media (max-width: 60rem) {
+  .trio__grid { grid-template-columns: 1fr; gap: 2rem; }
+  .panel__box { grid-template-columns: 1fr; gap: 1.6rem; padding: 1.5rem; }
+  .say { padding: 4rem 0 2rem; }
 }

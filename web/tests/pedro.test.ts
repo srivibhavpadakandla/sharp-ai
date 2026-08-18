@@ -109,3 +109,59 @@ import { parseJava } from '../src/lib/pedro';
   ok3(!wild.model || wild.model.points.every(pt => pt.x <= 144 && pt.x >= 0 && pt.y >= 0), 'imported coords clamped');
   console.log(f3 ? `${f3} IMPORT FAILED` : 'import ok');
 }
+
+// --- timing and obstacles ---------------------------------------------------
+import { runTime, schedule, hitsObstacle, DEFAULT_LIMITS, robotCorners as rc2 } from '../src/lib/pedro';
+{
+  let f4 = 0;
+  const ok4 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f4++; } else console.log('ok  ', m); };
+
+  // Trapezoid: long enough to reach cruise. accel time 1s, decel 1s, plus cruise.
+  const L = { maxVel: 50, maxAccel: 50 };
+  ok4(Math.abs(runTime(50, L) - 2) < 1e-6, `50in at 50/50 => 2s, got ${runTime(50,L).toFixed(3)}`);
+  // Triangular: too short to reach maxVel. d=25 -> ramp distance is 25 so exactly triangular.
+  ok4(Math.abs(runTime(25, L) - 2 * Math.sqrt(25 / 50)) < 1e-9, 'short run uses a triangular profile');
+  ok4(runTime(0, L) === 0, 'zero distance takes no time');
+  ok4(runTime(100, L) > runTime(50, L), 'further takes longer');
+  ok4(runTime(50, { maxVel: 100, maxAccel: 100 }) < runTime(50, L), 'a faster robot is quicker');
+
+  const m = starterPath();
+  const sch = schedule(m, DEFAULT_LIMITS);
+  ok4(sch.legs.length === 2, '2 legs scheduled');
+  ok4(Math.abs(sch.totalInches - 115.6) < 1.5, `total length ~115.6, got ${sch.totalInches.toFixed(1)}`);
+  ok4(sch.totalSeconds > 0 && sch.totalSeconds < 20, `plausible duration ${sch.totalSeconds.toFixed(2)}s`);
+  ok4(Math.abs(sch.legs.reduce((n,l)=>n+l.seconds,0) - sch.driveSeconds) < 1e-6, 'leg times sum to drive time');
+
+  // A wait stops the robot, so the same path takes longer and splits the runs.
+  const withWait = { ...m, segments: m.segments.map((s,i)=> i===0 ? {...s, waitAfter: 2} : s) };
+  const sw = schedule(withWait, DEFAULT_LIMITS);
+  ok4(Math.abs(sw.waitSeconds - 2) < 1e-9, 'wait counted');
+  ok4(sw.totalSeconds > sch.totalSeconds + 2 - 1e-6, 'stopping mid-path costs more than the wait alone');
+
+  // Obstacles
+  const box = { id:'a', name:'goal', x: 60, y: 60, w: 20, h: 20 };
+  ok4(hitsObstacle(rc2({x:70,y:70,heading:0}, 18, 18), box), 'robot inside the obstacle is a hit');
+  ok4(!hitsObstacle(rc2({x:10,y:10,heading:0}, 18, 18), box), 'robot far away is not a hit');
+  // Corner case a bounding-box test would get wrong: rotated robot just clear of a corner
+  ok4(!hitsObstacle(rc2({x:44,y:44,heading:Math.PI/4}, 18, 18), box), 'rotated robot clear of the corner is not a hit');
+  ok4(hitsObstacle(rc2({x:56,y:56,heading:Math.PI/4}, 18, 18), box), 'rotated robot overlapping the corner is a hit');
+  console.log(f4 ? `${f4} TIMING FAILED` : 'timing ok');
+}
+
+import { distanceAtTime } from '../src/lib/pedro';
+{
+  let f5 = 0;
+  const ok5 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f5++; } else console.log('ok  ', m); };
+  const m = starterPath();
+  const withWait = { ...m, segments: m.segments.map((s,i)=> i===0 ? {...s, waitAfter: 2} : s) };
+  const sw = schedule(withWait, DEFAULT_LIMITS);
+  ok5(distanceAtTime(sw, 0) === 0, 'starts at zero');
+  ok5(Math.abs(distanceAtTime(sw, sw.totalSeconds) - sw.totalInches) < 0.5, 'ends at full length');
+  // during the wait the robot must not advance
+  const tIn = sw.legs[0].seconds + 0.5;
+  const tOut = sw.legs[0].seconds + 1.5;
+  ok5(Math.abs(distanceAtTime(sw, tIn) - distanceAtTime(sw, tOut)) < 1e-9, 'holds position through a wait');
+  ok5(Math.abs(distanceAtTime(sw, tIn) - sw.legs[0].length) < 1e-9, 'waits at the end of leg 1');
+  ok5(distanceAtTime(sw, sw.totalSeconds + 5) <= sw.totalInches + 1e-9, 'never overruns the path');
+  console.log(f5 ? `${f5} TIME MAP FAILED` : 'time map ok');
+}

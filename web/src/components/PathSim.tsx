@@ -3,7 +3,8 @@ import { animate } from 'animejs';
 import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
   sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath, parseJava,
-  type Interp, type PathModel, type Pt,
+  schedule, distanceAtTime, hitsObstacle, DEFAULT_LIMITS,
+  type Interp, type PathModel, type Pt, type Limits, type Obstacle,
 } from '../lib/pedro';
 import './pathsim.css';
 
@@ -23,6 +24,8 @@ export default function PathSim() {
   const [model, setModel] = useState<PathModel>(starterPath);
   const [copied, setCopied] = useState('');
   const [paste, setPaste] = useState('');
+  const [limits, setLimits] = useState<Limits>(DEFAULT_LIMITS);
+  const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [importNote, setImportNote] = useState('');
 
   /**
@@ -60,7 +63,19 @@ export default function PathSim() {
     if (prev) setModel(prev);
   };
 
-  useEffect(() => { setDims(readDims()); }, []);
+  useEffect(() => {
+    setDims(readDims());
+    try {
+      const raw = JSON.parse(localStorage.getItem('sharp-ai:sim') || '');
+      if (raw?.limits?.maxVel > 0) setLimits(raw.limits);
+      if (Array.isArray(raw?.obstacles)) setObstacles(raw.obstacles.slice(0, 12));
+    } catch { /* first visit */ }
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem('sharp-ai:sim', JSON.stringify({ limits, obstacles })); }
+    catch { /* private browsing */ }
+  }, [limits, obstacles]);
 
   // A path in the hash wins over the starter path.
   useEffect(() => {
@@ -79,24 +94,42 @@ export default function PathSim() {
   useEffect(() => { uRef.current = u; }, [u]);
 
   const { table, total } = useMemo(() => sampleChain(model), [model]);
-  const warnings = useMemo(() => validate(model, dims.w, dims.l), [model, dims]);
+  const sched = useMemo(() => schedule(model, limits), [model, limits]);
+  // The playhead runs on time now, not distance, so a wait actually costs
+  // something on the scrubber instead of being invisible.
+  const atDistance = useMemo(
+    () => distanceAtTime(sched, u * sched.totalSeconds),
+    [sched, u],
+  );
+  const warnings = useMemo(() => {
+    const out = validate(model, dims.w, dims.l);
+    // Sample the route and report the first obstacle the footprint touches.
+    for (const o of obstacles) {
+      const hit = table.some((sp, i) => i % 4 === 0
+        && hitsObstacle(robotCorners(poseAtLength(model, table, sp.s), dims.w, dims.l), o));
+      if (hit) out.push({ level: 'error', text: `The robot passes through ${o.name}.` });
+    }
+    return out;
+  }, [model, dims, obstacles, table]);
   const java = useMemo(() => generateJava(model), [model]);
 
   // Advance at a plausible cruise so the preview reads as motion, not a scrub.
   useEffect(() => {
-    if (!playing || total < 1) return;
+    if (!playing || sched.totalSeconds < 0.05) return;
     let raf = 0;
     let last = performance.now();
     const step = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      const next = uRef.current + (dt * 40) / total;   // ~40 in/s
+      // Real seconds against the estimated duration, so the preview runs at
+      // the speed the schedule claims.
+      const next = uRef.current + dt / sched.totalSeconds;
       setU(next >= 1 ? 0 : next);
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [playing, total]);
+  }, [playing, sched.totalSeconds]);
 
   // Keyboard: nudge, delete, undo, play. A planner you can only drive with a
   // mouse makes fine positioning tedious.
@@ -163,6 +196,20 @@ export default function PathSim() {
     ctx.strokeStyle = 'rgba(255,255,255,0.28)';
     ctx.strokeRect(0.5, 0.5, css - 1, css - 1);
 
+    for (const o of obstacles) {
+      ctx.fillStyle = 'rgba(255,143,107,0.14)';
+      ctx.strokeStyle = 'rgba(255,143,107,0.7)';
+      ctx.lineWidth = 1.5;
+      const x = X(o.x);
+      const y = Y(o.y + o.h);
+      ctx.fillRect(x, y, o.w * k, o.h * k);
+      ctx.strokeRect(x, y, o.w * k, o.h * k);
+      ctx.fillStyle = 'rgba(255,190,167,0.85)';
+      ctx.font = '500 10px system-ui, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(o.name, x + 4, y + 4);
+    }
+
     // control polygon of the selected leg only — all of them at once is noise
     if (sel) {
       const leg = sel.kind === 'control' ? sel.leg : Math.min(sel.i, model.segments.length - 1);
@@ -218,7 +265,7 @@ export default function PathSim() {
     });
 
     if (total > 0.5 && reveal.current > 0.98) {
-      const pose = poseAtLength(model, table, u * total);
+      const pose = poseAtLength(model, table, atDistance);
       const corners = robotCorners(pose, dims.w, dims.l);
       ctx.fillStyle = 'rgba(110,219,154,0.16)';
       ctx.strokeStyle = accent;
@@ -233,7 +280,7 @@ export default function PathSim() {
       ctx.lineTo(X(corners[1].x), Y(corners[1].y));
       ctx.stroke();
     }
-  }, [model, sel, u, total, table, dims]);
+  }, [model, sel, u, total, table, dims, obstacles, atDistance]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -340,7 +387,7 @@ export default function PathSim() {
     };
   });
 
-  const setLegRaw = (leg: number, patch: Partial<{ interp: Interp; endTime: number; curved: boolean }>) =>
+  const setLegRaw = (leg: number, patch: Partial<{ interp: Interp; endTime: number; curved: boolean; waitAfter: number }>) =>
     setModel((m) => ({
       ...m,
       segments: m.segments.map((s, i) => {
@@ -348,6 +395,7 @@ export default function PathSim() {
         const next = { ...s };
         if (patch.interp) next.interp = patch.interp;
         if (patch.endTime !== undefined) next.endTime = patch.endTime;
+        if (patch.waitAfter !== undefined) next.waitAfter = patch.waitAfter;
         if (patch.curved !== undefined) {
           if (patch.curved && !s.control.length) {
             const a = m.points[i];
@@ -367,7 +415,7 @@ export default function PathSim() {
       }),
     }));
 
-  const setLeg = (leg: number, patch: Partial<{ interp: Interp; endTime: number; curved: boolean }>) => {
+  const setLeg = (leg: number, patch: Partial<{ interp: Interp; endTime: number; curved: boolean; waitAfter: number }>) => {
     remember(model); setLegRaw(leg, patch);
   };
 
@@ -382,7 +430,7 @@ export default function PathSim() {
   const activePoint = sel?.kind === 'point' ? sel.i : null;
   const activeLeg = sel?.kind === 'control' ? sel.leg
     : activePoint !== null ? Math.min(activePoint, model.segments.length - 1) : 0;
-  const pose = total > 0.5 ? poseAtLength(model, table, u * total) : null;
+  const pose = total > 0.5 ? poseAtLength(model, table, atDistance) : null;
 
   return (
     <div className="sim">
@@ -406,7 +454,7 @@ export default function PathSim() {
           />
           <span className="sim__read">
             {pose
-              ? `${(u * total).toFixed(0)}/${total.toFixed(0)} in · x ${pose.x.toFixed(1)} · y ${pose.y.toFixed(1)} · ${((pose.heading * 180) / Math.PI).toFixed(0)}°`
+              ? `${(u * sched.totalSeconds).toFixed(1)}s / ${sched.totalSeconds.toFixed(1)}s · ${sched.totalInches.toFixed(0)} in · x ${pose.x.toFixed(1)} · y ${pose.y.toFixed(1)} · ${((pose.heading * 180) / Math.PI).toFixed(0)}°`
               : '—'}
           </span>
         </div>
@@ -425,7 +473,21 @@ export default function PathSim() {
                 onChange={(e) => saveDims(dims.w, Number(e.target.value) || 1)} />
             </label>
           </div>
-          <p className="sim__hint">Defaults to 18 × 18. Change it to your robot.</p>
+          <div className="sim__row">
+            <label>Max speed in/s
+              <input type="number" min={1} max={200} value={limits.maxVel}
+                onChange={(e) => setLimits({ ...limits, maxVel: Math.max(1, Number(e.target.value) || 1) })} />
+            </label>
+            <label>Max accel in/s²
+              <input type="number" min={1} max={400} value={limits.maxAccel}
+                onChange={(e) => setLimits({ ...limits, maxAccel: Math.max(1, Number(e.target.value) || 1) })} />
+            </label>
+          </div>
+          <p className="sim__hint">
+            Defaults to 18 × 18 at 52 in/s. The {sched.totalSeconds.toFixed(1)}s estimate is
+            geometry and a speed limit only — no traction, weight or heading cost — so a real
+            robot will be slower.
+          </p>
           <p className="sim__hint sim__keys">
             Click the field to add a point · arrows nudge, shift for 5&Prime; ·
             delete removes · space plays · {navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl'}Z undoes
@@ -477,6 +539,15 @@ export default function PathSim() {
                 <option value="constant">Constant heading</option>
                 <option value="tangent">Tangent heading</option>
               </select>
+              <label className="sim__wait">
+                Wait after this leg
+                <span>
+                  <input type="number" min={0} max={30} step={0.5}
+                    value={model.segments[activeLeg].waitAfter ?? 0}
+                    onChange={(e) => setLeg(activeLeg, { waitAfter: Math.max(0, Number(e.target.value) || 0) })} />
+                  s
+                </span>
+              </label>
               {model.segments[activeLeg].interp === 'linear' && (
                 <label className="sim__end">
                   Turn done by {model.segments[activeLeg].endTime.toFixed(2)}
@@ -488,6 +559,34 @@ export default function PathSim() {
             </div>
           </section>
         )}
+
+        <section className="sim__card">
+          <h2>Obstacles</h2>
+          <ol className="sim__obs">
+            {obstacles.map((o, i) => (
+              <li key={o.id}>
+                <input value={o.name} aria-label={`Name of obstacle ${i + 1}`}
+                  onChange={(e) => setObstacles(obstacles.map((q, k) => k === i ? { ...q, name: e.target.value.slice(0, 24) } : q))} />
+                {(['x', 'y', 'w', 'h'] as const).map((f) => (
+                  <input key={f} type="number" value={o[f]} step={2} aria-label={`${f} of obstacle ${i + 1}`}
+                    onChange={(e) => setObstacles(obstacles.map((q, k) => k === i
+                      ? { ...q, [f]: clampField(Number(e.target.value) || 0) } : q))} />
+                ))}
+                <button type="button" className="sim__del" aria-label={`Delete obstacle ${i + 1}`}
+                  onClick={() => setObstacles(obstacles.filter((_, k) => k !== i))}>×</button>
+              </li>
+            ))}
+          </ol>
+          {obstacles.length > 0 && (
+            <div className="sim__labels sim__labels--obs"><span>name</span><span>x</span><span>y</span><span>w</span><span>h</span></div>
+          )}
+          <button type="button" className="sim__add" disabled={obstacles.length >= 12}
+            onClick={() => setObstacles([...obstacles, {
+              id: `o${Date.now().toString(36)}`, name: `Obstacle ${obstacles.length + 1}`,
+              x: 60, y: 60, w: 24, h: 24,
+            }])}>Add obstacle</button>
+          <p className="sim__hint">Anything the robot must not drive through. Checked against the footprint along the whole route.</p>
+        </section>
 
         {warnings.length > 0 && (
           <section className="sim__card sim__warn">

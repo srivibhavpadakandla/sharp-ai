@@ -141,3 +141,19 @@
   .sim__transport { flex-wrap: wrap; }
   .sim__read { white-space: normal; flex-basis: 100%; }
 }
+
+.sim__wait { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  font-size: 0.82rem; color: var(--ink-2); }
+.sim__wait span { display: flex; align-items: center; gap: 0.35rem; font-family: var(--type-mono); font-size: 0.75rem; color: var(--ink-3); }
+.sim__wait input { width: 4.2rem; }
+
+.sim__obs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.sim__obs li {
+  display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)) 1.2rem;
+  gap: 0.3rem; align-items: center;
+}
+.sim__labels--obs {
+  grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)) 1.2rem;
+  padding-left: 0;
+}
+.sim__labels--obs span:first-child { grid-column: 1; }

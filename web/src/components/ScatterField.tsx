@@ -29,7 +29,8 @@ interface Orbiter {
   ring: number;     // 0 = innermost orbit, 1 = outermost
   speed: number;    // revolutions per second
   size: number;     // rem
-  tilt: number;     // static rotation of the card itself
+  tilt: number;     // starting rotation of the card itself
+  spin: number;     // degrees per second the card turns as it travels
   depth: number;    // scroll parallax factor
   opacity: number;
 }
@@ -44,9 +45,13 @@ const ORBITERS: Orbiter[] = Array.from({ length: COUNT }, (_, i) => {
     src: `/art/cat-${ART[(i * 3) % ART.length]}.webp`,
     angle: (i / COUNT) * Math.PI * 2 + (i % 2 ? 0.35 : 0),
     ring,
-    // Outer rings sweep slower, which reads as depth rather than a spinning wheel.
-    speed: (0.0075 - ring * 0.0028) * (i % 2 ? -1 : 1),
-    size: 4.6 + ring * 3.6 + (i % 3) * 0.5,
+    // Revolutions per second. The old 0.0075 was one lap every 133 seconds,
+    // which read as a still image rather than as motion.
+    speed: (0.035 - ring * 0.013) * (i % 2 ? -1 : 1),
+    // Each plate also turns on its own axis as it travels, alternating
+    // direction so the field does not read as one rigid wheel.
+    spin: (7 + (i % 4) * 3) * (i % 3 ? 1 : -1),
+    size: 3.9 + ring * 3.0 + (i % 3) * 0.45,
     tilt: -14 + (i * 37) % 28,
     depth: 0.10 + ring * 0.22,
     opacity: 0.72 + ring * 0.24,
@@ -137,7 +142,9 @@ export default function ScatterField() {
         // A tilted square needs a wider box than its own width, so each plate
         // clamps against its own rotated half-extent rather than a shared
         // worst-case constant.
-        const rad = (Math.abs(o.tilt) * Math.PI) / 180;
+        // The plate turns as it goes, so clamp against the widest box it can
+        // ever present — 45 degrees — not against its current angle.
+        const rad = Math.PI / 4;
         // A tilted square needs a wider box than its own width, so each plate
         // sizes its orbit from its own rotated half-extent.
         const half = ((o.size * 16) / 2) * (Math.cos(rad) + Math.sin(rad));
@@ -149,8 +156,9 @@ export default function ScatterField() {
         const x = cx + Math.cos(a) * r + px * o.depth * 46;
         // Squashed vertically so the field reads as a wide ellipse, not a wheel.
         const y = cy + Math.sin(a) * r * 0.62 - scroll * o.depth + py * o.depth * 30;
+        const turn = o.tilt + t * o.spin;
         nodes[i].style.transform =
-          `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%) rotate(${o.tilt}deg)`;
+          `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%) rotate(${turn.toFixed(2)}deg)`;
         nodes[i].style.opacity = (o.opacity * clarity(x, y, (o.size * 16) / 2)).toFixed(3);
       }
       raf = requestAnimationFrame(frame);

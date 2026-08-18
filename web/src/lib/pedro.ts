@@ -34,6 +34,8 @@ export interface Segment {
   interp: Interp;
   /** Fraction of the leg by which a linear turn should be finished. */
   endTime: number;
+  /** Seconds to hold position after this leg, if any. */
+  waitAfter?: number;
 }
 
 export interface PathModel {
@@ -519,4 +521,141 @@ export function parseJava(src: string): ImportResult {
     ? `Imported ${segments.length} legs. Skipped ${unresolved} that referenced a pose defined elsewhere.`
     : `Imported ${segments.length} legs.`;
   return { model: { points, segments }, note };
+}
+
+/* --- Timing and obstacles ------------------------------------------------ */
+
+export interface Limits {
+  /** in/s */ maxVel: number;
+  /** in/s^2 */ maxAccel: number;
+}
+
+export const DEFAULT_LIMITS: Limits = { maxVel: 52, maxAccel: 55 };
+
+/**
+ * Time to cover a distance from a standstill back to a standstill, under a
+ * trapezoidal velocity profile: accelerate, hold, decelerate. If the run is too
+ * short to reach cruising speed the profile is a triangle instead.
+ *
+ * This is an estimate and nothing more. It does not model curvature, heading
+ * changes, weight, or how much traction the wheels actually have, so a real
+ * robot will be slower.
+ */
+export function runTime(distance: number, { maxVel, maxAccel }: Limits): number {
+  const d = Math.max(0, distance);
+  if (d < 1e-6 || maxVel <= 0 || maxAccel <= 0) return 0;
+  const rampDistance = (maxVel * maxVel) / (2 * maxAccel);
+  if (2 * rampDistance >= d) return 2 * Math.sqrt(d / maxAccel);   // never reaches maxVel
+  return (2 * maxVel) / maxAccel + (d - 2 * rampDistance) / maxVel;
+}
+
+export interface Leg { index: number; length: number; seconds: number; waitAfter: number }
+export interface Schedule {
+  legs: Leg[];
+  /** Seconds spent moving. */ driveSeconds: number;
+  /** Seconds spent waiting. */ waitSeconds: number;
+  totalSeconds: number;
+  totalInches: number;
+}
+
+/**
+ * Per-leg lengths and a duration for the chain.
+ *
+ * A wait brings the robot to a stop, so the legs between two waits are treated
+ * as one continuous run with a single accelerate/decelerate profile rather than
+ * as separate stop-start hops.
+ */
+export function schedule(m: PathModel, limits: Limits): Schedule {
+  const legs: Leg[] = [];
+  for (let i = 0; i < m.segments.length; i += 1) {
+    const pts = legPoints(m, i);
+    let len = 0;
+    let prev = bezierAt(pts, 0);
+    for (let k = 1; k <= 120; k += 1) {
+      const q = bezierAt(pts, k / 120);
+      len += Math.hypot(q.x - prev.x, q.y - prev.y);
+      prev = q;
+    }
+    legs.push({ index: i, length: len, seconds: 0, waitAfter: m.segments[i].waitAfter || 0 });
+  }
+
+  // Group into runs delimited by waits, time each run, then split that time
+  // back across its legs in proportion to length.
+  let driveSeconds = 0;
+  let run: Leg[] = [];
+  const closeRun = () => {
+    if (!run.length) return;
+    const dist = run.reduce((n, l) => n + l.length, 0);
+    const t = runTime(dist, limits);
+    for (const l of run) l.seconds = dist > 0 ? t * (l.length / dist) : 0;
+    driveSeconds += t;
+    run = [];
+  };
+  for (const l of legs) {
+    run.push(l);
+    if (l.waitAfter > 0) closeRun();
+  }
+  closeRun();
+
+  const waitSeconds = legs.reduce((n, l) => n + l.waitAfter, 0);
+  const totalInches = legs.reduce((n, l) => n + l.length, 0);
+  return {
+    legs,
+    driveSeconds,
+    waitSeconds,
+    totalSeconds: driveSeconds + waitSeconds,
+    totalInches,
+  };
+}
+
+export interface Obstacle { id: string; name: string; x: number; y: number; w: number; h: number }
+
+/** Axis-aligned overlap test between the robot footprint and an obstacle. */
+export function hitsObstacle(corners: Pt[], o: Obstacle): boolean {
+  // Separating-axis test on the obstacle's axes and the robot's two edge axes.
+  const rect: Pt[] = [
+    { x: o.x, y: o.y }, { x: o.x + o.w, y: o.y },
+    { x: o.x + o.w, y: o.y + o.h }, { x: o.x, y: o.y + o.h },
+  ];
+  const axes: Pt[] = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+  for (let i = 0; i < 2; i += 1) {
+    const e = { x: corners[i + 1].x - corners[i].x, y: corners[i + 1].y - corners[i].y };
+    const len = Math.hypot(e.x, e.y) || 1;
+    axes.push({ x: -e.y / len, y: e.x / len });
+  }
+  for (const a of axes) {
+    const proj = (pts: Pt[]) => {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const q of pts) {
+        const v = q.x * a.x + q.y * a.y;
+        lo = Math.min(lo, v);
+        hi = Math.max(hi, v);
+      }
+      return [lo, hi];
+    };
+    const [aLo, aHi] = proj(corners);
+    const [bLo, bHi] = proj(rect);
+    if (aHi < bLo || bHi < aLo) return false;   // gap on this axis, no overlap
+  }
+  return true;
+}
+
+/** How far along the chain the robot is at a given time, holding still through waits. */
+export function distanceAtTime(sch: Schedule, t: number): number {
+  let time = 0;
+  let dist = 0;
+  for (const l of sch.legs) {
+    if (t <= time + l.seconds) {
+      const f = l.seconds > 0 ? (t - time) / l.seconds : 0;
+      return dist + l.length * f;
+    }
+    time += l.seconds;
+    dist += l.length;
+    if (l.waitAfter > 0) {
+      if (t <= time + l.waitAfter) return dist;   // parked
+      time += l.waitAfter;
+    }
+  }
+  return dist;
 }

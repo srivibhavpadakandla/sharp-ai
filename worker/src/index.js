@@ -74,10 +74,10 @@ function uncoveredRefusal(question, library) {
     : `That looks like a FIRST Tech Challenge question, but it is not covered by the documentation indexed so far.\n\n`;
   return (
     lead
-    + `Sharp AI currently indexes **Game Manual 0** and the **official FTC Docs**. `
-    + `Third-party libraries — Road Runner, Pedro Pathing, FTCLib, FTC Dashboard — `
-    + `and the REV and CTRL ALT FTC sites are not in the index, so there is `
-    + `nothing here I can cite.\n\n`
+    + `Sharp AI reads **Game Manual 0** and the **official FTC Docs** in full, `
+    + `and indexes **REV**, **Road Runner**, **CTRL ALT FTC** and **FTCLib** by `
+    + `page title and link only — none of those publishes an open licence, so `
+    + `their text is never copied here.\n\n`
     + `Rather than guess, here is where that answer actually lives:\n\n`
     + `- [ftc-docs](https://ftc-docs.firstinspires.org) — official FTC documentation\n`
     + `- [Game Manual 0](https://gm0.org) — the indexed source, for adjacent topics\n`
@@ -91,7 +91,14 @@ function uncoveredRefusal(question, library) {
  * is a bad way to meet someone. Handled before retrieval — no search, no LLM.
  */
 /**
- * Third-party libraries we know for certain are not in any indexed source.
+ * Third-party libraries still absent from every index.
+ *
+ * Road Runner, FTCLib, REV and CTRL ALT FTC used to be listed here. They are
+ * now indexed as LINK RECORDS — title, heading path and URL, with no body text,
+ * because none of them publishes an open licence. Retrieval finds them and the
+ * Worker cites the link, so a blanket refusal would hide the very thing we just
+ * added. Pedro Pathing stays: it publishes no sitemap, so there is nothing to
+ * index for it yet.
  *
  * These need naming explicitly rather than leaving to the relevance gate. Two
  * different failures were happening: "what is pedro pathing" scored just under
@@ -102,7 +109,7 @@ function uncoveredRefusal(question, library) {
  *
  * We know the corpus does not cover these. Say so, deterministically.
  */
-const UNINDEXED_LIBRARY = /\b(pedro\s*path\w*|pedropathing|road\s*runner|roadrunner|ftclib|ftc\s*lib|solvers\s*lib|meepmeep|dashboard|ftc\s*dashboard)\b/i;
+const UNINDEXED_LIBRARY = /\b(pedro\s*path\w*|pedropathing|solvers\s*lib|meepmeep|next\s*ftc)\b/i;
 
 const GREETING = /^\s*(h(ello|i|ey|iya)|yo|sup|good\s+(morning|afternoon|evening)|greetings|what\s*'?s\s+up|howdy|test|ping)\b[\s!.?]*$/i;
 

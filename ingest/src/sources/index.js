@@ -16,8 +16,9 @@
  */
 import * as gm0 from './gm0.js';
 import * as ftcDocs from './ftc-docs.js';
+import { ctrlaltftc, ftclib, roadrunner, rev } from './link-sources.js';
 
-export const SOURCES = { gm0, 'ftc-docs': ftcDocs };
+export const SOURCES = { gm0, 'ftc-docs': ftcDocs, ctrlaltftc, ftclib, roadrunner, rev };
 
 export function getSource(id) {
   const s = SOURCES[id];

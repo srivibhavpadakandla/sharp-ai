@@ -67,11 +67,18 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
         </div>
         <div>
           <p class="eyebrow" style="margin-bottom:0.7em">Indexed sources</p>
+          <p style="margin:0 0 0.8em">
+            <strong style="font-weight:500">Read in full</strong><br />
+            <a href="https://gm0.org" rel="noopener">Game Manual 0</a> · CC BY-NC 4.0<br />
+            <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a> · BSD 3-Clause
+          </p>
           <p style="margin:0">
-            <a href="https://gm0.org" rel="noopener">Game Manual 0</a><br />
-            <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a> (official)<br />
-            <span style="color:var(--ink-4)">FTC SDK {SDK_VERSION} — API surface, for code checking</span><br />
-            <span style="color:var(--ink-4)">REV, CTRL ALT FTC — planned</span>
+            <strong style="font-weight:500">Indexed by link only</strong><br />
+            <span style="color:var(--ink-3)">
+              REV, Road Runner, CTRL ALT FTC, FTCLib — no open licence published,
+              so their text is never copied here.
+            </span><br />
+            <span style="color:var(--ink-3)">FTC SDK {SDK_VERSION} — API surface, for code checking</span>
           </p>
         </div>
       </div>

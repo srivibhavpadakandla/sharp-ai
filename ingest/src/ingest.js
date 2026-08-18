@@ -41,13 +41,32 @@ function parseArgs(argv) {
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const q = (v) => (v === null || v === undefined ? 'NULL' : `'${String(v).replace(/'/g, "''")}'`);
 
-function main() {
+async function main() {
   const now = new Date().toISOString();
   const metas = sourceIds.map((id) => getSource(id).meta);
   const chunks = [];
 
   for (const sourceId of sourceIds) {
     const src = getSource(sourceId);
+
+    // Link-only sources emit chunk records directly: they carry titles and
+    // URLs, never body text, so there is nothing for the chunker to split.
+    if (typeof src.loadChunks === 'function') {
+      const linkChunks = await src.loadChunks();
+      console.log(`[ingest] ${src.meta.sourceName}: ${linkChunks.length} pages (link index, no text stored)`);
+      for (const c of linkChunks) {
+        if (c.canExcerpt) throw new Error(`${sourceId}: link-only source produced an excerptable chunk`);
+        chunks.push({
+          ...c,
+          chunkId: `${c.sourceId}:${sha(`${c.docPath}#link`).slice(0, 16)}`,
+          charLen: c.text.length,
+          contentHash: sha(c.text),
+          updatedAt: now,
+        });
+      }
+      continue;
+    }
+
     let docs = src.loadDocuments();
     if (args.limit) docs = docs.slice(0, Number(args.limit));
     console.log(`[ingest] ${src.meta.sourceName}: ${docs.length} pages`);
@@ -156,4 +175,4 @@ function main() {
   db.close();
 }
 
-main();
+await main();

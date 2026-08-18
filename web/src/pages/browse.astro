@@ -92,7 +92,7 @@ for (const cat of CATEGORIES) {
       {tiles.map((t) => t.kind === 'art' ? (
         <button type="button" class="tile tile--art" data-filter={t.cat.id} data-cat={t.cat.id}
           aria-pressed="false" aria-label={`Show only ${t.cat.label}`}>
-          <img src={`/art/cat-${t.cat.id}.webp`} alt="" loading="lazy" decoding="async" width="900" height="657" />
+          <img src={`/art/tile/cat-${t.cat.id}.webp`} alt="" loading="lazy" decoding="async" width="900" height="657" />
           <div class="tile__over">
             <h2>{t.cat.label}</h2>
             <p>{t.cat.blurb}</p>
@@ -128,7 +128,12 @@ for (const cat of CATEGORIES) {
   .bindex__head p { font-size: 0.92rem; color: var(--ink-3); margin: 0; }
   .bindex__head a { color: var(--accent); border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
 
-  .tile--art { appearance: none; font: inherit; text-align: left; cursor: pointer; }
+  .tile--art {
+    appearance: none; font: inherit; text-align: left; cursor: pointer;
+    color: inherit; border: 0;
+    perspective: 900px;
+  }
+  .tile__over h2 { color: var(--ink); }
   .tile.is-filtered { display: none; }
   .tile--art[aria-pressed='true'] { outline: 2px solid var(--accent); outline-offset: 2px; }
   .mosaic__filter[hidden] { display: none; }
@@ -170,8 +175,10 @@ for (const cat of CATEGORIES) {
   /* The generated art is line work on its own cream paper, a shade off ours.
      Multiply drops its background out so the drawing sits on the page's paper
      instead of on a slightly wrong rectangle. */
-  .tile--art img { filter: invert(1);
-  mix-blend-mode: screen; }
+  .tile--art img {
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
   .tile__over {
     position: absolute; inset: auto 0 0 0;
     padding: 1rem 1.1rem;
@@ -248,6 +255,27 @@ for (const cat of CATEGORIES) {
     .tile__over h2 { font-size: 1.1rem; }
   }
 </style>
+
+<script>
+  // Each drawing turns on a slow turntable. A full 360 would show a flat image
+  // mirrored for half the cycle, so it swings instead.
+  import { animate as spinAnimate, stagger as spinStagger } from 'animejs';
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const art = document.querySelectorAll('.tile--art img');
+    if (art.length) {
+      spinAnimate(art, {
+        rotateY: [-13, 13],
+        rotateX: [2, -2],
+        scale: 1.12,
+        loop: true,
+        alternate: true,
+        duration: 5200,
+        ease: 'inOutSine',
+        delay: spinStagger(420),
+      });
+    }
+  }
+</script>
 
 <script>
   // Tiles settle in on load, in reading order.

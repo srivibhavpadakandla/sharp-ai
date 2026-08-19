@@ -108,9 +108,9 @@ for (const cat of CATEGORIES) {
           aria-pressed="false" aria-label={`Show only ${t.cat.label}`}>
           <video
             class="tile__vid"
-            poster={`/art/tile/cat-${t.cat.id}.webp`}
+            poster={`/art/vid/cat-${t.cat.id}.webp`}
             muted loop playsinline preload="none"
-            width="900" height="657" aria-hidden="true"
+            width="960" height="540" aria-hidden="true"
           >
             <source src={`/art/vid/cat-${t.cat.id}.mp4`} type="video/mp4" />
           </video>
@@ -225,7 +225,7 @@ for (const cat of CATEGORIES) {
      instead of on a slightly wrong rectangle. */
   .tile__vid {
     position: absolute; inset: 0;
-    width: 100%; height: 100%; object-fit: cover;
+    width: 100%; height: 100%; object-fit: contain;
     display: block; background: #16233f;
   }
   .tile__over {

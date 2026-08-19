@@ -25,6 +25,8 @@ export default function PathSim() {
   const [copied, setCopied] = useState('');
   const [paste, setPaste] = useState('');
   const [limits, setLimits] = useState<Limits>(DEFAULT_LIMITS);
+  /** Trace the robot's footprint along the route — the Visualizer calls these onion layers. */
+  const [ghosts, setGhosts] = useState(true);
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [importNote, setImportNote] = useState('');
 
@@ -264,6 +266,25 @@ export default function PathSim() {
       ctx.stroke();
     });
 
+    // The swept footprint, drawn under the robot. A route can look clear as a
+    // line and still not fit an 18 inch robot through the gap, which is only
+    // visible once the body is drawn along it.
+    if (ghosts && total > 0.5 && reveal.current > 0.98) {
+      const step = 9;                       // inches between traces
+      ctx.lineWidth = 1;
+      for (let s = 0; s <= total; s += step) {
+        const gp = poseAtLength(model, table, s);
+        const gc = robotCorners(gp, dims.w, dims.l);
+        const hit = obstacles.some((o) => hitsObstacle(gc, o))
+          || gc.some((q) => q.x < 0 || q.x > FIELD_IN || q.y < 0 || q.y > FIELD_IN);
+        ctx.strokeStyle = hit ? 'rgba(255,143,107,0.55)' : 'rgba(110,219,154,0.16)';
+        ctx.beginPath();
+        gc.forEach((q, i) => (i ? ctx.lineTo(X(q.x), Y(q.y)) : ctx.moveTo(X(q.x), Y(q.y))));
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+
     if (total > 0.5 && reveal.current > 0.98) {
       const pose = poseAtLength(model, table, atDistance);
       const corners = robotCorners(pose, dims.w, dims.l);
@@ -280,7 +301,7 @@ export default function PathSim() {
       ctx.lineTo(X(corners[1].x), Y(corners[1].y));
       ctx.stroke();
     }
-  }, [model, sel, u, total, table, dims, obstacles, atDistance]);
+  }, [model, sel, u, total, table, dims, obstacles, atDistance, ghosts]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -500,6 +521,10 @@ export default function PathSim() {
             144&Prime; field most legs never reach top speed at all; acceleration is usually
             what binds.
           </p>
+          <label className="sim__check">
+            <input type="checkbox" checked={ghosts} onChange={(e) => setGhosts(e.target.checked)} />
+            Trace the robot along the route
+          </label>
           <p className="sim__hint sim__keys">
             Click the field to add a point · arrows nudge, shift for 5&Prime; ·
             delete removes · space plays · {navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl'}Z undoes

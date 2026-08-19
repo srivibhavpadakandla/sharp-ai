@@ -22,6 +22,10 @@ What was taken, and what was changed:
   * Its observation that the usable field span is 141.5 inches rather than the
     full 144 of six 24-inch tiles.
 
+  * The idea of tracing the robot's body along the route (it calls these onion
+    layers). Ours colours a trace when that pose would hit an obstacle or leave
+    the field, which its version does not do.
+
   Rewritten rather than copied: the implementation here is TypeScript against
   this project's own path model, not a port of the Visualizer's Svelte source.
   The elliptical direction-to-speed function and the asymmetric trapezoidal

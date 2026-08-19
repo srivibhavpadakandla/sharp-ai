@@ -108,11 +108,11 @@ for (const cat of CATEGORIES) {
           aria-pressed="false" aria-label={`Show only ${t.cat.label}`}>
           <video
             class="tile__vid"
-            poster={`/art/vid/cat-${t.cat.id}.webp`}
+            poster={`/art/vid/cat-${t.cat.id}.webp?v=f7366c58`}
             muted loop playsinline preload="none"
             width="756" height="540" aria-hidden="true"
           >
-            <source src={`/art/vid/cat-${t.cat.id}.mp4`} type="video/mp4" />
+            <source src={`/art/vid/cat-${t.cat.id}.mp4?v=f7366c58`} type="video/mp4" />
           </video>
           <div class="tile__over">
             <h2>{t.cat.label}</h2>

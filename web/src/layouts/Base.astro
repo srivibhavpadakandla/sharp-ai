@@ -40,6 +40,7 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
   {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 </head>
 <body>
+  <a class="skip" href="#main">Skip to content</a>
   <header class="site-head">
     <div class="wrap">
       <a href="/" class="wordmark">Sharp<em>AI</em></a>
@@ -54,7 +55,7 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
     </div>
   </header>
 
-  <main><slot /></main>
+  <main id="main" tabindex="-1"><slot /></main>
 
   {!bare && <footer class="site-foot">
     <div class="wrap">

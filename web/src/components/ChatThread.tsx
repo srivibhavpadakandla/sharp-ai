@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import UsageMeter from './UsageMeter';
 import { API_BASE } from '../lib/config';
 import { ask, type Citation, type Excerpt, type Validation, type CiteCheck } from '../lib/ask';
 import { renderMarkdown } from '../lib/markdown';
@@ -273,6 +274,7 @@ export default function ChatThread({
               </svg>
             </button>
           </div>
+          <UsageMeter refreshKey={turns.length} />
           <p className="composer__note">
             Generated from indexed documentation and can be wrong — check the
             source beside each claim. Follow-ups are not saved. Unofficial, not

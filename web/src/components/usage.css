@@ -1,0 +1,19 @@
+.usage { margin: 0.7rem auto 0; max-width: var(--measure); width: 100%; }
+.usage__bar {
+  height: 4px; border-radius: 999px; overflow: hidden;
+  background: var(--rule); position: relative;
+}
+.usage__bar > span {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--grad-warm);
+  transition: width 0.5s var(--ease);
+}
+.usage.is-low .usage__bar > span { background: linear-gradient(90deg, #d8a657, #e8b06a); }
+.usage.is-out .usage__bar > span { background: linear-gradient(90deg, #d2704f, #ff8f6b); }
+.usage__text {
+  margin: 0.42rem 0 0; font-size: 0.74rem; color: var(--ink-4);
+  font-family: var(--type-mono); letter-spacing: 0.01em;
+}
+.usage__text strong { color: var(--ink-2); font-weight: 500; }
+.usage.is-out .usage__text { color: #e0a893; }
+.usage__pool { color: var(--ink-4); }

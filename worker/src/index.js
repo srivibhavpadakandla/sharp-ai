@@ -17,10 +17,11 @@
  */
 import { retrieve, retrieveMulti } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
+import { classify } from './lib/topic.js';
 import { needsEscalation, planSearch, rerank } from './agent.js';
 import { isCodeRequest, validateCode } from './codegen.js';
 import { verifyCitations } from './citecheck.js';
-import { checkRateLimit, reserveLlmCall, llmUsage } from './ratelimit.js';
+import { checkRateLimit, reserveLlmCall, llmUsage, ipUsage } from './ratelimit.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
 import {
   readCache, writeAnswer, getAnswerBySlug, hydrateAnswerRow, logQuery, sha256hex, cacheKeyFor,
@@ -37,6 +38,25 @@ import { CATEGORIES } from './lib/categories.js';
  * question" is simply false, and it makes the tool look stupider than it is.
  * The honest answer is that the corpus does not cover it yet.
  */
+/**
+ * Small talk and "what is this". Answered from a constant: it needs no
+ * retrieval, no model call and no daily quota, and a refusal here made the
+ * site look broken to anyone who typed "hello" first.
+ */
+const META_ANSWER =
+  'I answer questions about building, wiring and programming FIRST Tech '
+  + 'Challenge robots, from documentation indexed section by section — Game '
+  + 'Manual 0, the official FTC Docs, the SDK reference and samples, the Road '
+  + 'Runner quickstart, plus Pedro Pathing, REV and Chief Delphi by link.\n\n'
+  + 'Ask me something concrete and I will show you the page behind every claim: '
+  + '*why does my robot brown out mid match*, *what gear ratio makes an arm '
+  + 'stronger*, *how do I tune Road Runner*. Paste a stack trace and I will read '
+  + 'it. There is also a **path planner** that draws a Pedro Pathing route and '
+  + 'hands you the Java.\n\n'
+  + 'If the documentation does not cover something, I say so rather than making '
+  + 'it up — and then answer from general engineering knowledge, clearly marked '
+  + 'as unverified.';
+
 const OFF_TOPIC_REFUSAL =
   'I only answer questions about building, wiring and programming FIRST Tech '
   + 'Challenge robots, using documentation that has been indexed section by '
@@ -249,14 +269,27 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // BEYOND marker the UI already labels as unverified, and is never persisted.
   let uncovered = false;
   if (!gate.pass || !chunks.length) {
-    // A middling cosine means the embedding recognised the domain even though
-    // nothing in the corpus answers it — that is a coverage gap, not junk.
-    // Both signals must agree: the embedding has to be in the neighbourhood
-    // AND the question has to actually use the vocabulary of the domain.
-    const looksFtc = (stats.bestCosine ?? 0) >= Number(env.UNCOVERED_COSINE || 0.5)
-      && FTC_VOCAB.test(question);
+    // Scored rather than an AND of two weak signals. Domain-only words decide
+    // alone, ordinary engineering words need company, and a confident embedding
+    // can carry a question that used none of the vocabulary.
+    const topic = classify(question, stats.bestCosine ?? 0);
 
-    if (looksFtc) {
+    if (topic.kind === 'meta') {
+      // Small talk, or a question about the site. Answering it is not a
+      // licensing or accuracy risk, and refusing looks broken.
+      ctx.waitUntil(logQuery(env, {
+        question, questionHash, cacheHit: false, belowThreshold: true, llmCalled: false,
+        bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
+        latencyMs: Date.now() - started,
+      }));
+      return streamPrerendered(
+        { question, answerMd: META_ANSWER, citations: [], excerpts: [], slug: null },
+        cors,
+        { refused: false, meta: true },
+      );
+    }
+
+    if (topic.kind === 'ftc') {
       // Leaving a team with nothing is not the honest outcome here; the corpus
       // having a gap is. Answer it, and be explicit that it is unverified.
       uncovered = true;
@@ -657,6 +690,11 @@ export default {
       if (p === '/api/answers') return handleAnswers(request, env, url);
       if (p.startsWith('/api/answer/')) {
         return handleAnswer(request, env, decodeURIComponent(p.slice('/api/answer/'.length)));
+      }
+      if (p === '/api/usage') {
+        // Read-only: polling this cannot spend a question.
+        const [you, pool] = await Promise.all([ipUsage(env, request), llmUsage(env)]);
+        return json({ you, pool }, {}, { ...cors, 'cache-control': 'no-store' });
       }
       if (p === '/api/sitemap') return handleSitemap(request, env);
       if (p === '/api/health' || p === '/') return handleHealth(request, env);

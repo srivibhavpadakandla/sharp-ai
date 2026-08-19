@@ -53,6 +53,12 @@ export async function checkRateLimit(env, request) {
 
   return {
     ok: true,
+    // Surfaced so the UI can show what is left before someone hits a wall
+    // mid-thought, rather than only finding out when they are refused.
+    dayUsed: dCount || 0,
+    dayLimit: perDay,
+    minUsed: mCount || 0,
+    minLimit: perMin,
     /** Called only once the request is actually going to do work. */
     async commit() {
       await Promise.all([
@@ -80,4 +86,15 @@ export async function llmUsage(env) {
   const ceiling = Number(env.LLM_DAILY_CEILING || 200);
   const used = Number((await env.RATE.get(`llm:${dayKey()}`)) || 0);
   return { used, ceiling, remaining: Math.max(0, ceiling - used) };
+}
+
+/** The caller's own daily usage, without spending any of it. */
+export async function ipUsage(env, request) {
+  const ip = request.headers.get('cf-connecting-ip')
+    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || '0.0.0.0';
+  const id = await hashIp(ip);
+  const perDay = Number(env.RATE_PER_DAY || 100);
+  const used = Number((await env.RATE.get(`rl:d:${id}:${dayKey()}`)) || 0);
+  return { used, limit: perDay, remaining: Math.max(0, perDay - used) };
 }

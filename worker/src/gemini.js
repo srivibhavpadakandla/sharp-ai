@@ -41,6 +41,10 @@ Rules you must follow without exception:
    getting it wrong costs a team a match.
 8. Be concise. Lead with the direct answer, give the detail that changes what
    someone does, and stop. Four short paragraphs is usually plenty.
+9a. A block marked LIVE DATA is current information fetched from FTC Scout, not
+   an indexed section. Use it, name FTC Scout in the prose, give its link, and
+   never give it a bracket citation number — those belong to sections only. Say
+   which season a figure is from, because it changes as the season is played.
 9. Write like a well-set reference document, not a chat message. No greetings,
    no sign-offs, no "great question". Use short paragraphs; use a list only when
    the content is genuinely a list. Markdown for structure, no headings above ###.
@@ -115,6 +119,8 @@ The actual answer. You have Google Search — use it when the question turns on 
 current detail you are not sure of: a library's current API, a part's real
 specs, what teams actually do now. Rules for this part:
 - Never a citation number. None of this is from the indexed documentation.
+- A block marked LIVE DATA came from FTC Scout. Use it, name FTC Scout, link it,
+  and say which season the figures are from.
 - When you use something you found on the web, name the site in the prose and
   give the URL, so the reader can check it. Do not present a search result as
   if it came from this site's index.
@@ -135,7 +141,7 @@ specs, what teams actually do now. Rules for this part:
   checking" are honest; false confidence is not.
 - No greetings, no sign-offs. Markdown for structure, no headings above ###.`;
 
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, uncovered = false } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -212,6 +218,7 @@ export function buildPrompt(question, chunks, { isError = false, isCode = false,
     robotBlock +
     priorBlock +
     `SECTIONS\n\n${blocks.join('\n\n')}\n\n` +
+    (liveBlock ? `${liveBlock}\n\n` : '') +
     `QUESTION\n\n${question}\n\n` +
     (history.length
       ? `This is a follow-up. Resolve what it refers to from the earlier turns, then answer it using only the sections above. Name the sources in the prose and put bracket numbers at the end of each paragraph. Do not repeat the earlier answer.`
@@ -229,8 +236,8 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, uncovered });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, uncovered, liveBlock });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {

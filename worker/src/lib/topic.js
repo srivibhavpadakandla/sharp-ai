@@ -18,14 +18,14 @@ const STRONG = [
   'andymark', 'road ?runner', 'roadrunner', 'pedro ?path', 'ftclib', 'apriltag',
   'limelight', 'pinpoint', 'swerve', 'strafe', 'linear slide', 'game manual',
   'scrimmage', 'pidf', 'feedforward', 'dcmotor', 'servo', 'encoder', 'imu',
-  'auton', 'autonomous', 'telemetry', 'game ?piece', 'game ?element', 'drivetrain', 'gear ?ratio', 'sprocket',
+  'auton', 'autonomous', 'telemetry', 'game ?piece', 'game ?element', 'motor', 'drivetrain', 'gear ?ratio', 'sprocket',
   'turret', 'outtake', 'localiz', 'trajectory', 'kinematics', 'robotics',
   'robot', 'alliance', 'ftc ?dashboard', 'rev ?hub', 'spark ?mini',
 ];
 
 /** Words that are on-topic in this context but ordinary on their own. */
 const WEAK = [
-  'motor', 'wheel', 'chassis', 'gear', 'belt', 'chain', 'bearing', 'shaft',
+  'wheel', 'chassis', 'gear', 'belt', 'chain', 'bearing', 'shaft',
   'torque', 'rpm', 'battery', 'wiring', 'sensor', 'gyro', 'vision', 'camera',
   'intake', 'claw', 'arm', 'lift', 'linkage', 'slide', 'tune', 'tuning',
   'pid', 'sdk', 'java', 'code', 'program', 'build', 'cad', 'field', 'match',
@@ -37,7 +37,9 @@ const WEAK = [
 /** Small talk and questions about the site itself. */
 const META = [
   /^\s*(hi|hey|hello|yo|sup|good (morning|afternoon|evening))\b/i,
-  /\bwhat (can|do) you (do|know)\b/i,
+  /\bwhat (can|do|can't|cannot|don't) (you|it) (not )?(do|know|answer)\b/i,
+  /\bwhat (are|is) (your|its) (limits?|limitations?)\b/i,
+  /\b(what|anything) (you|it) (can't|cannot|won't) (do|answer|help)\b/i,
   /\bwho (made|built|created) (you|this)\b/i,
   /\bwhat (are|is) (you|this)( site| tool)?\b/i,
   /\bhow (do|does) (you|this) work\b/i,
@@ -69,8 +71,8 @@ export function classify(question, bestCosine = 0) {
   if (strong >= 1) return { kind: 'ftc', strong, weak };
   // Several ordinary engineering words together are a robotics question.
   if (weak >= 2) return { kind: 'ftc', strong, weak };
-  // One ordinary word, but the embedding recognised the neighbourhood.
-  if (weak >= 1 && cos >= 0.42) return { kind: 'ftc', strong, weak };
+  // One ordinary word is enough with even a weak embedding signal.
+  if (weak >= 1 && cos >= 0.25) return { kind: 'ftc', strong, weak };
   // No vocabulary at all, but the embedding is confident.
   if (cos >= 0.62) return { kind: 'ftc', strong, weak };
   return { kind: 'off', strong, weak };

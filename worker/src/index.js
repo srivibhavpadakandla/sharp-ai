@@ -18,6 +18,7 @@
 import { retrieve, retrieveMulti } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
 import { classify } from './lib/topic.js';
+import { teamNumberIn, lookupTeam, describeTeam } from './lib/ftcscout.js';
 import { needsEscalation, planSearch, rerank } from './agent.js';
 import { isCodeRequest, validateCode } from './codegen.js';
 import { verifyCitations } from './citecheck.js';
@@ -53,9 +54,17 @@ const META_ANSWER =
   + 'stronger*, *how do I tune Road Runner*. Paste a stack trace and I will read '
   + 'it. There is also a **path planner** that draws a Pedro Pathing route and '
   + 'hands you the Java.\n\n'
-  + 'If the documentation does not cover something, I say so rather than making '
-  + 'it up — and then answer from general engineering knowledge, clearly marked '
-  + 'as unverified.';
+  + '\n\n**What I cannot do.** I will not tell you what a game rule says — the '
+  + 'Competition Manual is *FIRST* copyright, so I point you at the rule and the '
+  + 'manual rather than paraphrasing something that could cost you a match. The '
+  + '2026-27 BIOBUZZ game sections do not exist publicly yet; they arrive at '
+  + 'kickoff. Sources that publish no licence (Pedro Pathing, REV, Road Runner, '
+  + 'Chief Delphi) are named and linked, never quoted. I do not know your robot '
+  + 'unless you tell me, I have no memory between conversations, and I will not '
+  + 'answer questions outside FTC.\n\n'
+  + 'When the documentation does not cover something I say so rather than making '
+  + 'it up, then answer from general engineering knowledge — clearly marked as '
+  + 'unverified, and never saved.';
 
 const OFF_TOPIC_REFUSAL =
   'I only answer questions about building, wiring and programming FIRST Tech '
@@ -261,7 +270,14 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   }
 
   // --- 5. Retrieval ---------------------------------------------------------
-  const { chunks, gate, stats } = await retrieve(env, question);
+  // A question naming a team number wants live standings, which no indexed
+  // document can carry. Fetched in parallel with retrieval so it costs no time.
+  const teamNo = teamNumberIn(question);
+  const [{ chunks, gate, stats }, teamData] = await Promise.all([
+    retrieve(env, question),
+    teamNo ? lookupTeam(teamNo, Number(env.FTC_SEASON || 2025)) : Promise.resolve(null),
+  ]);
+  const liveBlock = teamData ? describeTeam(teamData) : null;
 
   // --- 6. Relevance gate: refuse without spending an LLM token --------------
   // Set when retrieval found nothing usable but the question is clearly about
@@ -289,7 +305,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       );
     }
 
-    if (topic.kind === 'ftc') {
+    if (topic.kind === 'ftc' || liveBlock) {
       // Leaving a team with nothing is not the honest outcome here; the corpus
       // having a gap is. Answer it, and be explicit that it is unverified.
       uncovered = true;
@@ -347,7 +363,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, uncovered });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, uncovered, liveBlock });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -406,7 +422,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered, liveBlock })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());

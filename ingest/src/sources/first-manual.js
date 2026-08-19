@@ -34,7 +34,7 @@ export const meta = {
 };
 
 /** `3.1  Team Eligibility Rules` or `1.3.1  Gracious Professionalism` */
-const HEADING = /^\s{0,6}(\d{1,2}(?:\.\d{1,2}){0,2})\s{2,}([A-Z][^\n]{2,80}?)\s*$/;
+const HEADING = /^\s{0,6}(?:(\d{2}(?:\.\d{1,2}){0,2})\s+|(\d(?:\.\d{1,2}){0,2})\s{2,})([A-Z][^\n]{2,80}?)\s*$/;
 /** Rule codes such as A201, GS02, RE14. */
 const RULE = /\b([A-Z]{1,2}\d{2,3})\b/g;
 
@@ -59,7 +59,7 @@ export function loadChunks() {
     const h = line.match(HEADING);
     if (h) {
       if (current) sections.push(current);
-      current = { number: h[1], title: h[2].replace(/\s{2,}/g, ' ').trim(), body: [] };
+      current = { number: h[1] || h[2], title: h[3].replace(/\s{2,}/g, ' ').trim(), body: [] };
       continue;
     }
     if (current && line.trim()) current.body.push(line.replace(/^\s{0,12}/, ''));

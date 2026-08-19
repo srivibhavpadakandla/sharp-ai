@@ -83,6 +83,20 @@ for (const cat of CATEGORIES) {
       </p>
     </header>
 
+    <div class="mosaic__find">
+      <label class="sr-only" for="mosaic-find">Filter the index</label>
+      <svg width="15" height="15" viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="1.8" />
+        <path d="M13.5 13.5 17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      </svg>
+      <input id="mosaic-find" type="search" data-find placeholder="Filter these questions" autocomplete="off" />
+      <span data-find-count aria-live="polite"></span>
+    </div>
+
+    <p class="mosaic__none" data-none hidden>
+      Nothing here matches that. <button type="button" data-find-ask>Ask it instead</button>
+    </p>
+
     <p class="mosaic__filter" data-filter-bar hidden>
       Showing <strong data-filter-name></strong>
       <button type="button" data-filter-clear>Show everything</button>
@@ -136,6 +150,33 @@ for (const cat of CATEGORIES) {
   .tile__over h2 { color: var(--ink); }
   .tile.is-filtered { display: none; }
   .tile--art[aria-pressed='true'] { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mosaic__find {
+    display: flex; align-items: center; gap: 0.6rem;
+    max-width: 26rem; margin: 0 0 1rem;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--rule); border-radius: var(--r-pill);
+    background: var(--paper-raised); color: var(--ink-3);
+  }
+  .mosaic__find:focus-within { border-color: var(--accent); }
+  .mosaic__find input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    font-family: var(--type-sans); font-size: 0.88rem; color: var(--ink);
+  }
+  .mosaic__find input::placeholder { color: var(--ink-3); }
+  .mosaic__find input::-webkit-search-cancel-button { filter: invert(0.6); }
+  .mosaic__find span {
+    font-family: var(--type-mono); font-size: 0.7rem; color: var(--ink-4); white-space: nowrap;
+  }
+  .mosaic__none[hidden] { display: none; }
+  .mosaic__none {
+    margin: 0 0 1.2rem; font-size: 0.9rem; color: var(--ink-2);
+  }
+  .mosaic__none button {
+    border: 1px solid var(--rule); background: transparent; color: var(--accent);
+    border-radius: var(--r-pill); padding: 0.2rem 0.8rem; font-size: 0.85rem;
+    cursor: pointer; margin-left: 0.4rem;
+  }
+  .mosaic__none button:hover { border-color: var(--accent); }
   .mosaic__filter[hidden] { display: none; }
   .mosaic__filter {
     display: flex; align-items: center; gap: 0.7rem;
@@ -308,16 +349,33 @@ for (const cat of CATEGORIES) {
   const clear = document.querySelector('[data-filter-clear]');
   let active = null;
 
+  const find = document.querySelector('[data-find]');
+  const findCount = document.querySelector('[data-find-count]');
+  const noneMsg = document.querySelector('[data-none]');
+  const askBtn = document.querySelector('[data-find-ask]');
+  let query = '';
+
+  // Match against the tile's own words. Art tiles carry their category label
+  // and blurb, so typing "intake" keeps that category's tile alongside its
+  // questions rather than hiding the thing you are filtering by.
+  const haystack = new WeakMap();
+  for (const el of tiles) haystack.set(el, (el.textContent || '').toLowerCase());
+
   const apply = () => {
+    let shown = 0;
     for (const el of tiles) {
       const cat = el.getAttribute('data-cat');
-      const on = !active || cat === active;
+      const on = (!active || cat === active)
+        && (!query || (haystack.get(el) || '').includes(query));
+      if (on) shown += 1;
       el.classList.toggle('is-filtered', !on);
       if (el.hasAttribute('data-filter')) {
         el.setAttribute('aria-pressed', String(el.getAttribute('data-filter') === active));
       }
     }
     if (bar) bar.hidden = !active;
+    if (findCount) findCount.textContent = query || active ? `${shown} of ${tiles.length}` : '';
+    if (noneMsg) noneMsg.hidden = shown > 0;
     if (name && active) {
       const label = document.querySelector(`[data-filter="${active}"] h2`);
       name.textContent = label ? label.textContent : active;
@@ -332,5 +390,16 @@ for (const cat of CATEGORIES) {
     });
   }
   clear?.addEventListener('click', () => { active = null; apply(); });
+
+  let debounce;
+  find?.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => { query = find.value.trim().toLowerCase(); apply(); }, 90);
+  });
+  // Nothing in the index matches, so offer the thing that can still answer it.
+  askBtn?.addEventListener('click', () => {
+    const q = (find?.value || '').trim();
+    if (q) location.href = `/ask?q=${encodeURIComponent(q.slice(0, 500))}`;
+  });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && active) { active = null; apply(); } });
 </script>

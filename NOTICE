@@ -1,0 +1,33 @@
+Sharp AI — third-party notices
+==============================
+
+Pedro Pathing Visualizer
+------------------------
+https://github.com/Pedro-Pathing/Visualizer
+Licensed under the Apache License, Version 2.0.
+Full licence text: web/public/third-party/pedro-visualizer-LICENSE.txt
+
+Its own NOTICE records that it contains significant portions of a fork by
+Matthew Allen, also under Apache-2.0.
+
+What was taken, and what was changed:
+
+  * The motion model in web/src/lib/pedro.ts. The Visualizer models a drive as
+    having separate forward and strafe top speeds and separate acceleration and
+    braking limits; this planner previously assumed a single top speed, which
+    over-estimated how fast a sideways leg could be driven. Its default figures
+    (75 in/s forward, 65 in/s strafe, 30 in/s^2 either way) are used as our
+    defaults.
+
+  * Its observation that the usable field span is 141.5 inches rather than the
+    full 144 of six 24-inch tiles.
+
+  Rewritten rather than copied: the implementation here is TypeScript against
+  this project's own path model, not a port of the Visualizer's Svelte source.
+  The elliptical direction-to-speed function and the asymmetric trapezoidal
+  profile are our own formulation of the same idea.
+
+  Not taken: the Visualizer's field images (decode.webp, intothedeep.webp,
+  centerstage.webp). Apache-2.0 covers that repository's own work; the FTC
+  field artwork depicted is FIRST's, and the licence does not grant rights to
+  it.

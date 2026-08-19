@@ -117,13 +117,13 @@ import { runTime, schedule, hitsObstacle, DEFAULT_LIMITS, robotCorners as rc2 } 
   const ok4 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f4++; } else console.log('ok  ', m); };
 
   // Trapezoid: long enough to reach cruise. accel time 1s, decel 1s, plus cruise.
-  const L = { maxVel: 50, maxAccel: 50 };
+  const L = { xVel: 50, yVel: 50, maxAccel: 50, maxDecel: 50 };
   ok4(Math.abs(runTime(50, L) - 2) < 1e-6, `50in at 50/50 => 2s, got ${runTime(50,L).toFixed(3)}`);
   // Triangular: too short to reach maxVel. d=25 -> ramp distance is 25 so exactly triangular.
   ok4(Math.abs(runTime(25, L) - 2 * Math.sqrt(25 / 50)) < 1e-9, 'short run uses a triangular profile');
   ok4(runTime(0, L) === 0, 'zero distance takes no time');
   ok4(runTime(100, L) > runTime(50, L), 'further takes longer');
-  ok4(runTime(50, { maxVel: 100, maxAccel: 100 }) < runTime(50, L), 'a faster robot is quicker');
+  ok4(runTime(50, { xVel: 100, yVel: 100, maxAccel: 100, maxDecel: 100 }) < runTime(50, L), 'a faster robot is quicker');
 
   const m = starterPath();
   const sch = schedule(m, DEFAULT_LIMITS);
@@ -164,4 +164,32 @@ import { distanceAtTime } from '../src/lib/pedro';
   ok5(Math.abs(distanceAtTime(sw, tIn) - sw.legs[0].length) < 1e-9, 'waits at the end of leg 1');
   ok5(distanceAtTime(sw, sw.totalSeconds + 5) <= sw.totalInches + 1e-9, 'never overruns the path');
   console.log(f5 ? `${f5} TIME MAP FAILED` : 'time map ok');
+}
+
+// --- directional velocity (ported model) ------------------------------------
+import { speedAt, DEFAULT_LIMITS as DL } from '../src/lib/pedro';
+{
+  let f6 = 0;
+  const ok6 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f6++; } else console.log('ok  ', m); };
+  ok6(Math.abs(speedAt(0, DL) - DL.xVel) < 1e-9, 'straight forward uses the forward limit');
+  ok6(Math.abs(speedAt(Math.PI / 2, DL) - DL.yVel) < 1e-9, 'pure strafe uses the strafe limit');
+  const diag = speedAt(Math.PI / 4, DL);
+  ok6(diag < DL.xVel && diag > DL.yVel, `diagonal sits between the two, got ${diag.toFixed(1)}`);
+  ok6(Math.abs(speedAt(Math.PI, DL) - DL.xVel) < 1e-9, 'backwards matches forwards');
+
+  // A sideways route must take longer than the same distance driven forward.
+  const fwd = { points: [{x:20,y:70,heading:0},{x:120,y:70,heading:0}], segments:[{control:[],interp:'linear' as const,endTime:1}] };
+  const side = { points: [{x:70,y:20,heading:0},{x:70,y:120,heading:0}], segments:[{control:[],interp:'linear' as const,endTime:1}] };
+  const snappy = { ...DL, maxAccel: 150, maxDecel: 150 };
+  const tf = schedule(fwd, snappy).totalSeconds;
+  const ts = schedule(side, snappy).totalSeconds;
+  ok6(ts > tf, `100in sideways (${ts.toFixed(2)}s) costs more than forward (${tf.toFixed(2)}s)`);
+  // And with ordinary acceleration the two match, because neither reaches cruise.
+  ok6(Math.abs(schedule(side, DL).totalSeconds - schedule(fwd, DL).totalSeconds) < 1e-9,
+      'at 30 in/s^2 a 100in leg is acceleration-limited either way');
+
+  // Asymmetric braking must change the answer.
+  const slowStop = { ...DL, maxDecel: 10 };
+  ok6(schedule(fwd, slowStop).totalSeconds > tf, 'weaker braking takes longer');
+  console.log(f6 ? `${f6} DIRECTIONAL FAILED` : 'directional ok');
 }

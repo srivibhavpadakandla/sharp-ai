@@ -13,6 +13,8 @@
  */
 
 export const FIELD_IN = 144;          // 6 x 6 tiles of 24 inches
+/** Usable span inside the walls. The Visualizer uses 141.5, not the full 144. */
+export const FIELD_USABLE_IN = 141.5;
 export const TILE_IN = 24;
 
 export interface Pt { x: number; y: number }
@@ -526,11 +528,31 @@ export function parseJava(src: string): ImportResult {
 /* --- Timing and obstacles ------------------------------------------------ */
 
 export interface Limits {
-  /** in/s */ maxVel: number;
+  /** Forward/backward top speed, in/s. */ xVel: number;
+  /** Strafing top speed, in/s. A mecanum robot is slower sideways. */ yVel: number;
   /** in/s^2 */ maxAccel: number;
+  /** in/s^2, braking. */ maxDecel: number;
 }
 
-export const DEFAULT_LIMITS: Limits = { maxVel: 52, maxAccel: 55 };
+/**
+ * Defaults taken from the Pedro Pathing Visualizer (Apache-2.0) — see NOTICE.
+ * Its model is better than the single top speed this used to assume: a mecanum
+ * drive strafes appreciably slower than it drives forward, so a route made of
+ * sideways legs was being estimated as though it ran at full speed.
+ */
+export const DEFAULT_LIMITS: Limits = { xVel: 75, yVel: 65, maxAccel: 30, maxDecel: 30 };
+
+/**
+ * Top speed in a given direction of travel.
+ *
+ * Forward and sideways limits describe an ellipse; a heading between them gets
+ * the ellipse's radius at that angle rather than either extreme.
+ */
+export function speedAt(angleRad: number, { xVel, yVel }: Limits): number {
+  const c = Math.cos(angleRad) / Math.max(1e-6, xVel);
+  const s = Math.sin(angleRad) / Math.max(1e-6, yVel);
+  return 1 / Math.sqrt(c * c + s * s);
+}
 
 /**
  * Time to cover a distance from a standstill back to a standstill, under a
@@ -541,15 +563,24 @@ export const DEFAULT_LIMITS: Limits = { maxVel: 52, maxAccel: 55 };
  * changes, weight, or how much traction the wheels actually have, so a real
  * robot will be slower.
  */
-export function runTime(distance: number, { maxVel, maxAccel }: Limits): number {
+export function runTime(distance: number, limits: Limits, cruise?: number): number {
   const d = Math.max(0, distance);
-  if (d < 1e-6 || maxVel <= 0 || maxAccel <= 0) return 0;
-  const rampDistance = (maxVel * maxVel) / (2 * maxAccel);
-  if (2 * rampDistance >= d) return 2 * Math.sqrt(d / maxAccel);   // never reaches maxVel
-  return (2 * maxVel) / maxAccel + (d - 2 * rampDistance) / maxVel;
+  const v = cruise ?? Math.min(limits.xVel, limits.yVel);
+  const a = limits.maxAccel;
+  const b = limits.maxDecel || limits.maxAccel;
+  if (d < 1e-6 || v <= 0 || a <= 0 || b <= 0) return 0;
+  // Accelerate at a, brake at b; they are not always the same on a real robot.
+  const rampUp = (v * v) / (2 * a);
+  const rampDown = (v * v) / (2 * b);
+  if (rampUp + rampDown >= d) {
+    // Never reaches cruise: peak where the two ramps meet.
+    const peak = Math.sqrt((2 * d * a * b) / (a + b));
+    return peak / a + peak / b;
+  }
+  return v / a + v / b + (d - rampUp - rampDown) / v;
 }
 
-export interface Leg { index: number; length: number; seconds: number; waitAfter: number }
+export interface Leg { index: number; length: number; seconds: number; waitAfter: number; cruise?: number }
 export interface Schedule {
   legs: Leg[];
   /** Seconds spent moving. */ driveSeconds: number;
@@ -576,7 +607,16 @@ export function schedule(m: PathModel, limits: Limits): Schedule {
       len += Math.hypot(q.x - prev.x, q.y - prev.y);
       prev = q;
     }
-    legs.push({ index: i, length: len, seconds: 0, waitAfter: m.segments[i].waitAfter || 0 });
+    // Cruise speed for this leg from its own direction of travel, so a
+    // sideways leg is not costed as though the robot drove it forwards.
+    const a = m.points[i];
+    const b = m.points[i + 1];
+    const dir = Math.atan2(b.y - a.y, b.x - a.x);
+    legs.push({
+      index: i, length: len, seconds: 0,
+      waitAfter: m.segments[i].waitAfter || 0,
+      cruise: speedAt(dir, limits),
+    });
   }
 
   // Group into runs delimited by waits, time each run, then split that time
@@ -586,7 +626,11 @@ export function schedule(m: PathModel, limits: Limits): Schedule {
   const closeRun = () => {
     if (!run.length) return;
     const dist = run.reduce((n, l) => n + l.length, 0);
-    const t = runTime(dist, limits);
+    // Length-weighted cruise across the run, since one profile covers all of it.
+    const v = dist > 0
+      ? run.reduce((n, l) => n + (l.cruise ?? 0) * l.length, 0) / dist
+      : Math.min(limits.xVel, limits.yVel);
+    const t = runTime(dist, limits, v);
     for (const l of run) l.seconds = dist > 0 ? t * (l.length / dist) : 0;
     driveSeconds += t;
     run = [];

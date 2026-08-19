@@ -67,7 +67,7 @@ export default function PathSim() {
     setDims(readDims());
     try {
       const raw = JSON.parse(localStorage.getItem('sharp-ai:sim') || '');
-      if (raw?.limits?.maxVel > 0) setLimits(raw.limits);
+      if (raw?.limits?.xVel > 0) setLimits({ ...DEFAULT_LIMITS, ...raw.limits });
       if (Array.isArray(raw?.obstacles)) setObstacles(raw.obstacles.slice(0, 12));
     } catch { /* first visit */ }
   }, []);
@@ -474,19 +474,31 @@ export default function PathSim() {
             </label>
           </div>
           <div className="sim__row">
-            <label>Max speed in/s
-              <input type="number" min={1} max={200} value={limits.maxVel}
-                onChange={(e) => setLimits({ ...limits, maxVel: Math.max(1, Number(e.target.value) || 1) })} />
+            <label>Forward in/s
+              <input type="number" min={1} max={200} value={limits.xVel}
+                onChange={(e) => setLimits({ ...limits, xVel: Math.max(1, Number(e.target.value) || 1) })} />
             </label>
-            <label>Max accel in/s²
+            <label>Strafe in/s
+              <input type="number" min={1} max={200} value={limits.yVel}
+                onChange={(e) => setLimits({ ...limits, yVel: Math.max(1, Number(e.target.value) || 1) })} />
+            </label>
+          </div>
+          <div className="sim__row">
+            <label>Accel in/s²
               <input type="number" min={1} max={400} value={limits.maxAccel}
                 onChange={(e) => setLimits({ ...limits, maxAccel: Math.max(1, Number(e.target.value) || 1) })} />
             </label>
+            <label>Brake in/s²
+              <input type="number" min={1} max={400} value={limits.maxDecel}
+                onChange={(e) => setLimits({ ...limits, maxDecel: Math.max(1, Number(e.target.value) || 1) })} />
+            </label>
           </div>
           <p className="sim__hint">
-            Defaults to 18 × 18 at 52 in/s. The {sched.totalSeconds.toFixed(1)}s estimate is
-            geometry and a speed limit only — no traction, weight or heading cost — so a real
-            robot will be slower.
+            A mecanum robot strafes slower than it drives, so the two speeds are separate.
+            The {sched.totalSeconds.toFixed(1)}s estimate is geometry and these limits only —
+            no traction, weight or heading cost — so a real robot will be slower. Over a
+            144&Prime; field most legs never reach top speed at all; acceleration is usually
+            what binds.
           </p>
           <p className="sim__hint sim__keys">
             Click the field to add a point · arrows nudge, shift for 5&Prime; ·

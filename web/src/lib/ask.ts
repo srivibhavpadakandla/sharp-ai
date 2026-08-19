@@ -76,7 +76,10 @@ export async function ask(
     try {
       const j = await res.json();
       if (j.error === 'rate-limited') {
-        detail = `You have hit the ${j.limit}-question ${j.scope} limit. Try again shortly.`;
+        // "Shortly" was wrong for a day limit, and contradicted the meter
+        // directly below it, which says when the count actually resets.
+        const when = j.scope === 'day' ? 'They reset at midnight UTC.' : 'Try again shortly.';
+        detail = `You have hit the ${j.limit}-question ${j.scope} limit. ${when}`;
       } else if (j.error === 'question-too-long') {
         detail = `Questions are limited to ${j.maxChars} characters.`;
       } else if (j.error === 'turnstile-failed') {

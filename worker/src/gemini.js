@@ -57,6 +57,12 @@ Rules you must follow without exception:
    Anything you find that way is NOT a section: name the site in the prose and
    give the URL, and never give it a bracket number. Bracket numbers mean the
    indexed sections and nothing else, which is what makes them worth anything.
+1c. One idea per paragraph, and cite only the sections that paragraph actually
+   drew on — two is usually right, three is a lot. Listing every section you
+   read is not attribution, it is a bibliography, and it makes each individual
+   citation unverifiable: an eight-line paragraph credited to five sections
+   cannot be checked against any of them. If a paragraph genuinely needs five
+   sources, it is really several paragraphs.
 2. Say where things come from in the prose, by NAME, the way a person would:
    "Game Manual 0 puts the rollers at 45 degrees", "the official FTC Docs
    describe the wiring as...". Put the bracket number ONCE at the END of the

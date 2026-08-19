@@ -97,6 +97,8 @@ export default function ChatLanding() {
 
   return (
     <div className="cl">
+      {/* The surface has no visible heading; a document still needs one. */}
+      <h1 className="sr-only">Ask about your FTC robot</h1>
       <div className="cl__scrim" />
 
       {/* Decorative ring, positioned by our own CSS rather than the

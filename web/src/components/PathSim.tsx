@@ -456,6 +456,22 @@ export default function PathSim() {
   return (
     <div className="sim">
       <div className="sim__stage">
+        <div className="sim__toolbar">
+          <span className="sim__clock">
+            <strong>{(u * sched.totalSeconds).toFixed(1)}s</strong> / {sched.totalSeconds.toFixed(1)}s
+            <em>({sched.totalInches.toFixed(0)} in)</em>
+          </span>
+          <span className="sim__tools">
+            <button type="button" onClick={undo} title="Undo (Cmd Z)" aria-label="Undo">⤺</button>
+            <button type="button" className={ghosts ? 'is-on' : ''} onClick={() => setGhosts((g) => !g)}
+              title="Trace the robot along the route" aria-label="Toggle robot trace">▦</button>
+            <button type="button" onClick={() =>
+              copy('link', `${location.origin}${location.pathname}#${encodePath(model)}`)}
+              title="Copy a link to this path" aria-label="Copy link">↗</button>
+            <button type="button" onClick={() => copy('code', java)}
+              title="Copy the Java" aria-label="Copy code">{'</>'}</button>
+          </span>
+        </div>
         <canvas
           ref={canvas}
           className="sim__canvas"
@@ -482,6 +498,30 @@ export default function PathSim() {
       </div>
 
       <div className="sim__side">
+        <section className="sim__card sim__pos">
+          <h2>Current robot position</h2>
+          <div className="sim__posrow">
+            <span>X <strong>{pose ? pose.x.toFixed(2) : '—'}</strong></span>
+            <span>Y <strong>{pose ? pose.y.toFixed(2) : '—'}</strong></span>
+            <span>Heading <strong>{pose ? `${((pose.heading * 180) / Math.PI).toFixed(0)}°` : '—'}</strong></span>
+          </div>
+          <h2 className="sim__sub">Starting point</h2>
+          <div className="sim__row">
+            <label>X
+              <input type="number" value={model.points[0].x} step={0.5}
+                onChange={(e) => setPoint(0, { x: clampField(Number(e.target.value)) })} />
+            </label>
+            <label>Y
+              <input type="number" value={model.points[0].y} step={0.5}
+                onChange={(e) => setPoint(0, { y: clampField(Number(e.target.value)) })} />
+            </label>
+            <label>Heading
+              <input type="number" value={model.points[0].heading} step={5}
+                onChange={(e) => setPoint(0, { heading: Number(e.target.value) })} />
+            </label>
+          </div>
+        </section>
+
         <section className="sim__card">
           <h2>Robot</h2>
           <div className="sim__row">
@@ -538,7 +578,7 @@ export default function PathSim() {
         </section>
 
         <section className="sim__card">
-          <h2>Waypoints</h2>
+          <h2>Waypoints <em>({model.points.length})</em></h2>
           <ol className="sim__list">
             {model.points.map((p, i) => (
               <li key={i} className={activePoint === i ? 'is-on' : ''}>
@@ -598,7 +638,7 @@ export default function PathSim() {
         )}
 
         <section className="sim__card">
-          <h2>Obstacles</h2>
+          <h2>Obstacles <em>({obstacles.length})</em></h2>
           <ol className="sim__obs">
             {obstacles.map((o, i) => (
               <li key={o.id}>
@@ -627,7 +667,7 @@ export default function PathSim() {
 
         {warnings.length > 0 && (
           <section className="sim__card sim__warn">
-            <h2>Checks</h2>
+            <h2>Checks <em>({warnings.length})</em></h2>
             <ul>
               {warnings.map((w, i) => (
                 <li key={i} className={w.level === 'error' ? 'is-err' : ''}>{w.text}</li>

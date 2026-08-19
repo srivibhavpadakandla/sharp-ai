@@ -26,6 +26,12 @@ What was taken, and what was changed:
     layers). Ours colours a trace when that pose would hit an obstacle or leave
     the field, which its version does not do.
 
+  * Its layout: a toolbar carrying the elapsed/total clock and the distance,
+    with icon actions beside it; a control column of sections that state their
+    own counts; a live robot-position readout above an editable starting point.
+    Rebuilt in this project's own components and palette — none of its Svelte,
+    CSS or colour scheme is used.
+
   Rewritten rather than copied: the implementation here is TypeScript against
   this project's own path model, not a port of the Visualizer's Svelte source.
   The elliptical direction-to-speed function and the asymmetric trapezoidal

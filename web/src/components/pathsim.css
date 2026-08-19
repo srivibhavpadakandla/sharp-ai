@@ -166,3 +166,36 @@
   padding-left: 0;
 }
 .sim__labels--obs span:first-child { grid-column: 1; }
+
+/* --- Toolbar and panel shape, following the Pedro Pathing Visualizer's
+       information architecture (Apache-2.0, see NOTICE) in our palette. --- */
+.sim__toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; margin-bottom: 0.7rem;
+}
+.sim__clock {
+  font-family: var(--type-mono); font-size: 0.86rem; color: var(--ink-3);
+  display: flex; align-items: baseline; gap: 0.45rem;
+}
+.sim__clock strong { color: var(--ink); font-weight: 500; font-size: 0.95rem; }
+.sim__clock em { font-style: normal; color: var(--ink-4); font-size: 0.78rem; }
+.sim__tools { display: flex; gap: 0.35rem; }
+.sim__tools button {
+  min-width: 2rem; height: 2rem; padding: 0 0.45rem;
+  border: 1px solid var(--rule); border-radius: 9px;
+  background: var(--paper-raised); color: var(--ink-3);
+  font-family: var(--type-mono); font-size: 0.8rem; cursor: pointer;
+  transition: border-color 0.16s var(--ease), color 0.16s var(--ease);
+}
+.sim__tools button:hover { border-color: var(--accent); color: var(--accent); }
+.sim__tools button.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+
+.sim__card h2 em {
+  font-style: normal; color: var(--ink-4); font-weight: 400; margin-left: 0.25rem;
+}
+.sim__sub { margin-top: 1rem !important; }
+.sim__posrow {
+  display: flex; gap: 0.9rem; flex-wrap: wrap;
+  font-family: var(--type-mono); font-size: 0.76rem; color: var(--ink-4);
+}
+.sim__posrow strong { color: var(--ink); font-weight: 500; margin-left: 0.25rem; }

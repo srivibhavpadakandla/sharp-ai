@@ -55,6 +55,11 @@ export default function HeaderSearch() {
   return (
     <form
       className="hsearch"
+      /* action/method/name are the no-JS path: before the island hydrates,
+         Enter did a native GET to the current page and threw the query away.
+         With these it lands on /ask?q=... either way. */
+      action="/ask"
+      method="get"
       onSubmit={(e) => {
         e.preventDefault();
         const q = value.trim();
@@ -67,6 +72,7 @@ export default function HeaderSearch() {
       </svg>
       <input
         ref={ref}
+        name="q"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={hint ? `Try '${hint}'` : 'Search the FTC documentation'}

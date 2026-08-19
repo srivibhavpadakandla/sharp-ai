@@ -523,6 +523,12 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   font-family: var(--type-serif); font-size: 0.95rem; color: var(--ink-2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* On a phone the toolbar has no room for one line, and the page heading was
+   being clipped to "Draw the route. T...". Let it wrap instead. */
+@media (max-width: 640px) {
+  .plan__bar { flex-wrap: wrap; gap: 0.6rem; }
+  .plan__tag { white-space: normal; overflow: visible; text-overflow: clip; }
+}
 .plan__help { position: relative; font-size: 0.8rem; margin-left: auto; }
 .plan__help > summary {
   cursor: pointer; color: var(--ink-3); list-style: none;

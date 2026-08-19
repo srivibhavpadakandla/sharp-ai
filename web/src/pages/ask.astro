@@ -9,5 +9,9 @@ export const prerender = true;
   noindex
   bare
 >
+  <!-- client:only means nothing renders on the server, so the document shipped
+       with no heading at all. This one is always present and is what the
+       question replaces visually. -->
+  <h1 class="sr-only">Ask about your FTC robot</h1>
   <AskIsland client:only="react" />
 </Base>

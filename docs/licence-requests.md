@@ -66,3 +66,20 @@ parts.
 Nothing breaks. Both stay exactly as they are — named, linked, never quoted —
 which is the correct default when no licence is published. Don't assume silence
 is permission.
+
+---
+
+## How to send the GitHub one
+
+The repo issue can go out with a single command once you have filled in the
+team number. It posts publicly under your GitHub account, which is why it is
+left for you rather than sent automatically:
+
+```
+gh issue create --repo Pedro-Pathing/PedroPathing \
+  --title "Permission to quote the docs in a free FTC search tool" \
+  --body-file docs/licence-requests-pedro.txt
+```
+
+Put the message body (the quoted block above, with [team number] filled in)
+into `docs/licence-requests-pedro.txt` first.

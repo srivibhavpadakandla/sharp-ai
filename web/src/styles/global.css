@@ -565,17 +565,18 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   display: grid; place-items: center; border: 1px solid var(--rule);
 }
 .trio__art img {
-  width: 78%; height: auto;
-  /* Same treatment the hero plates use: the source art is hairline drawing on
-     cream, so invert turns it into white lines on near-black and screen drops
-     the black, leaving the linework over the card's own tint. Without this the
-     cream ground survives and the card reads as a pasted-in sticker. */
-  filter: invert(1) contrast(1.1) brightness(1.45);
-  mix-blend-mode: screen;
+  /* Fills the card. At 78% width it sat as an inset rectangle on a ground that
+     did not match its own, which read as a pasted-in sticker — the same fault
+     the browse tiles had. The navy is baked into these files, so there is no
+     runtime filter or blend left to go wrong. */
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
-.trio__art--a { background: #16233a; }
-.trio__art--b { background: #142b33; }
-.trio__art--c { background: #101a16; padding: 2rem; }
+.trio__art--a, .trio__art--b { background: #16233f; }
+.trio__art--c {
+  background: #101a16;
+  padding: 2rem;
+  display: grid; place-items: center;
+}
 .trio__refusal {
   font-family: var(--type-mono); font-size: 0.9rem; color: var(--ink-3);
   text-align: center; line-height: 1.5;

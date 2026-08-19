@@ -111,8 +111,13 @@ One sentence, no more: say plainly that the indexed documentation does not cover
 this. No citation numbers — there are none. Do not answer the question here.
 
 ===BEYOND===
-The actual answer, from your own engineering knowledge. Rules for this part:
-- Never a citation number. None of this is from the documentation.
+The actual answer. You have Google Search — use it when the question turns on a
+current detail you are not sure of: a library's current API, a part's real
+specs, what teams actually do now. Rules for this part:
+- Never a citation number. None of this is from the indexed documentation.
+- When you use something you found on the web, name the site in the prose and
+  give the URL, so the reader can check it. Do not present a search result as
+  if it came from this site's index.
 - Never invent a specific part number, SKU, gear ratio, tick count, motor RPM or
   rule number. Vague-but-true beats precise-and-fabricated: "a high reduction,
   often 40:1 or more" is fine only if you are genuinely confident; otherwise say
@@ -237,6 +242,10 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
       }],
     },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    // Web search, but only when the corpus has nothing. A grounded answer must
+    // come from the indexed sections and nothing else; letting the model search
+    // there would put uncited web text next to citations that mean something.
+    ...(uncovered && env.WEB_SEARCH !== 'off' ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
       temperature: 0.15,
       topP: 0.9,
@@ -262,14 +271,26 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     ].map((category) => ({ category, threshold: 'BLOCK_ONLY_HIGH' })),
   };
 
-  const res = await fetch(`${GEMINI_BASE}/${model}:streamGenerateContent?alt=sse`, {
+  const call = (payload) => fetch(`${GEMINI_BASE}/${model}:streamGenerateContent?alt=sse`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-goog-api-key': env.GEMINI_API_KEY,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
+
+  let res = await call(body);
+
+  // If the model or the key cannot do search grounding, answer without it
+  // rather than failing. Losing the web is a worse answer; losing the answer is
+  // a broken page.
+  if (!res.ok && body.tools) {
+    const detail = await res.text().catch(() => '');
+    console.warn('search grounding rejected, retrying without it', detail.slice(0, 160));
+    const { tools, ...noTools } = body;
+    res = await call(noTools);
+  }
 
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => '');

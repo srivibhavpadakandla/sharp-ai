@@ -1,3 +1,4 @@
+import { SITE_URL } from '../lib/config';
 import type { APIRoute } from 'astro';
 import { API_BASE } from '../lib/config';
 
@@ -7,7 +8,7 @@ export const prerender = false;
 const STATIC = ['/', '/about', '/error'];
 
 export const GET: APIRoute = async () => {
-  const base = 'https://sharp-ai-8a1.pages.dev';
+  const base = SITE_URL;
   let slugs: Array<{ slug: string; updated_at: string }> = [];
   try {
     const res = await fetch(`${API_BASE}/api/sitemap`, { signal: AbortSignal.timeout(5000) });

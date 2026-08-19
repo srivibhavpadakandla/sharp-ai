@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css';
-import { SITE_NAME, SDK_VERSION, CORPUS_SECTIONS, CORPUS_UPDATED } from '../lib/config';
+import { SITE_URL, SITE_NAME, SDK_VERSION, CORPUS_SECTIONS, CORPUS_UPDATED } from '../lib/config';
 import HeaderSearch from '../components/HeaderSearch.tsx';
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
   bare?: boolean;
 }
 const { title, description, canonical, noindex = false, jsonLd, bare = false } = Astro.props;
-const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://sharp-ai-8a1.pages.dev').href;
+const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).href;
 ---
 <!doctype html>
 <html lang="en">
@@ -24,7 +24,7 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? 'https://shar
   <meta name="description" content={description} />
   <link rel="canonical" href={url} />
   {noindex && <meta name="robots" content="noindex" />}
-  <meta property="og:image" content={new URL('/og.png', Astro.site ?? 'https://sharp-ai-8a1.pages.dev').href} />
+  <meta property="og:image" content={new URL('/og.png', Astro.site ?? SITE_URL).href} />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Sharp AI — search every FTC doc at once" />

@@ -8,7 +8,7 @@ export default defineConfig({
   output: 'static',
   adapter: cloudflare({ imageService: 'passthrough' }),
   integrations: [react()],
-  site: 'https://sharp-ai-8a1.pages.dev',
+  site: process.env.PUBLIC_SITE_URL || 'https://sharp-ai-8a1.pages.dev',
   devToolbar: { enabled: false },
   vite: { ssr: { external: ['node:buffer'] } },
 });

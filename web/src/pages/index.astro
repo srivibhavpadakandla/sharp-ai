@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import SearchBox from '../components/SearchBox.tsx';
 import ScatterField from '../components/ScatterField.tsx';
-import { CATEGORIES, SEED_QUESTIONS, API_BASE, SITE_TAGLINE } from '../lib/config';
+import { CATEGORIES, SEED_QUESTIONS, API_BASE, SITE_TAGLINE, SITE_URL } from '../lib/config';
 
 // Popular questions come from the answers table when the site has traffic;
 // until then the seeded list keeps the index dense and browsable.
@@ -21,10 +21,10 @@ const jsonLd = {
   '@type': 'WebSite',
   name: 'Sharp AI',
   description: SITE_TAGLINE,
-  url: 'https://sharp-ai-8a1.pages.dev',
+  url: SITE_URL,
   potentialAction: {
     '@type': 'SearchAction',
-    target: 'https://sharp-ai-8a1.pages.dev/ask?q={search_term_string}',
+    target: `${SITE_URL}/ask?q={search_term_string}`,
     'query-input': 'required name=search_term_string',
   },
 };

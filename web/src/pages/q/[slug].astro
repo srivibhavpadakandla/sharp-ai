@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import ChatThread from '../../components/ChatThread.tsx';
-import { API_BASE } from '../../lib/config';
+import { API_BASE, SITE_URL } from '../../lib/config';
 
 // Server-rendered so Google indexes the answer text itself, not an empty shell.
 // Every other page on the site stays static.
@@ -40,17 +40,17 @@ const jsonLd = {
       '@type': 'Answer',
       text: plain,
       dateCreated: answer.createdAt,
-      url: `https://sharp-ai-8a1.pages.dev/q/${answer.slug}`,
+      url: `${SITE_URL}/q/${answer.slug}`,
       citation: (answer.citations || []).map((c: any) => c.url),
     },
   },
-  isPartOf: { '@type': 'WebSite', name: 'Sharp AI', url: 'https://sharp-ai-8a1.pages.dev' },
+  isPartOf: { '@type': 'WebSite', name: 'Sharp AI', url: SITE_URL },
 };
 ---
 <Base
   title={`${answer.question} — Sharp AI`}
   description={description}
-  canonical={`https://sharp-ai-8a1.pages.dev/q/${answer.slug}`}
+  canonical={`${SITE_URL}/q/${answer.slug}`}
   jsonLd={jsonLd}
   bare
 >

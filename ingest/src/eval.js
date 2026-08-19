@@ -113,6 +113,23 @@ const OFF_TOPIC = [
 
 const db = openLocal();
 
+// A single-source ingest rewrites data/ and the local vectors table, so this
+// database often holds one source rather than the corpus. Scoring that and
+// printing "routed 0/13" reads as a catastrophic regression when nothing is
+// wrong — it happened, and cost real time chasing it. Refuse to score instead.
+{
+  const rows = db.prepare('SELECT COUNT(*) n, COUNT(DISTINCT source_id) s FROM chunks').get();
+  const EXPECT = Number(process.env.EVAL_MIN_CHUNKS || 3000);
+  if (!rows || rows.n < EXPECT) {
+    console.error(`\n  eval aborted: the local corpus holds ${rows?.n ?? 0} chunks from `
+      + `${rows?.s ?? 0} source(s), against ${EXPECT}+ expected.\n`
+      + `  A single-source ingest overwrote it. Rebuild with:\n`
+      + `      npm run ingest -- --all && npm run embed\n`
+      + `  Or point the checks at production instead of scoring a fragment.\n`);
+    process.exit(2);
+  }
+}
+
 const vecRows = db.prepare('SELECT chunk_id, vec FROM vectors').all();
 if (!vecRows.length) {
   console.error('No vectors in data/local.db — run `npm run embed` first.');

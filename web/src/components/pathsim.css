@@ -214,3 +214,5 @@
 }
 .sim__chainbtns button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .sim__chainbtns button:disabled { opacity: 0.4; cursor: default; }
+
+.sim__action { display: grid; gap: 0.3rem; margin-top: 0.55rem; font-size: 0.8rem; color: var(--ink-2); }

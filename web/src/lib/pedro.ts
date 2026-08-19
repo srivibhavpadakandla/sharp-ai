@@ -52,6 +52,16 @@ export interface Chain {
   color: string;
   points: Waypoint[];
   segments: Segment[];
+  /**
+   * What the robot does once this chain finishes — drop the sample, raise the
+   * lift. Emitted after the follower reports the path complete.
+   *
+   * Deliberately end-of-chain rather than anywhere along it: the indexed Pedro
+   * documentation covers isBusy() and atParametricEnd() but no parametric
+   * callback, and a marker that fired mid-path would need an API this cannot
+   * verify exists. Split a chain in two if you need an action in the middle.
+   */
+  action?: string;
 }
 
 export const CHAIN_COLORS = ['#6edb9a', '#4fc3e8', '#e8b06a', '#c98bdb', '#ff8f6b'];
@@ -780,10 +790,19 @@ export function generateJavaChains(chains: Chain[], className = 'GeneratedAuto')
   }
 
   const decls = named.map(({ ident }) => ident).join(', ');
-  const follows = named.map(({ chain, ident }, i) =>
-    `        // ${chain.name || `Chain ${i + 1}`}\n`
-    + `        follower.followPath(${ident});\n`
-    + `        while (follower.isBusy()) { follower.update(); }`).join('\n');
+  const follows = named.map(({ chain, ident }, i) => {
+    const act = (chain.action || '').trim();
+    const method = act
+      ? act.replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split(/\s+/)
+          .map((w, k) => (k ? w.charAt(0).toUpperCase() + w.slice(1) : w.toLowerCase())).join('')
+      : '';
+    return `        // ${chain.name || `Chain ${i + 1}`}\n`
+      + `        follower.followPath(${ident});\n`
+      + `        while (follower.isBusy() && opModeIsActive()) { follower.update(); }`
+      + (act && /^[a-zA-Z_$]/.test(method)
+        ? `\n        // TODO: implement — ${act}\n        ${method}();`
+        : '');
+  }).join('\n\n');
 
   return `package org.firstinspires.ftc.teamcode.pedroPathing;
 

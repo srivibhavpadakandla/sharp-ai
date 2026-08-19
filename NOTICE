@@ -31,6 +31,12 @@ What was taken, and what was changed:
     Our emitted Java differs: one PathChain per chain inside a LinearOpMode
     that follows each and waits on isBusy between them.
 
+  * The idea of attaching an action to a path. Its event markers fire anywhere
+    along a path; ours run only when a chain finishes, because the indexed Pedro
+    documentation covers isBusy() and atParametricEnd() but no parametric
+    callback, and emitting a call against an API we cannot verify would produce
+    code that does not compile.
+
   * Its layout: a toolbar carrying the elapsed/total clock and the distance,
     with icon actions beside it; a control column of sections that state their
     own counts; a live robot-position readout above an editable starting point.

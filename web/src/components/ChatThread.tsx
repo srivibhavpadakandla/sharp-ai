@@ -22,6 +22,7 @@ export interface Turn {
   answer: string;
   beyond: string;
   citations: Citation[];
+  reason?: string;
   excerpts: Excerpt[];
   status: Status;
   agent: Agent | null;
@@ -391,7 +392,37 @@ function TurnView({ turn, index, stage, isActive, onFocus, patch }: {
                 }}
               >{v === 'up' ? 'Yes' : 'No'}</button>
             ))}
-            {turn.rated && <span className="rate__thanks">Logged — thank you.</span>}
+            {turn.rated === 'up' && <span className="rate__thanks">Logged — thank you.</span>}
+            {/* A bare no says something is wrong but not what, and the reason is
+                the part that can be acted on. The column already existed; the
+                interface simply never asked. */}
+            {turn.rated === 'down' && !turn.reason && (
+              <span className="rate__why">
+                What was wrong?
+                {([
+                  ['wrong', 'Incorrect'],
+                  ['missing', 'Missed the question'],
+                  ['thin', 'Too vague'],
+                  ['long', 'Too long'],
+                  ['source', 'Sources look wrong'],
+                ] as const).map(([key, label]) => (
+                  <button key={key} type="button" className="rate__chip"
+                    onClick={() => {
+                      patch(turn.id, () => ({ reason: key }));
+                      fetch(`${API_BASE}/api/feedback`, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                          verdict: 'down', reason: key, question: turn.question, slug: turn.slug,
+                          chunkIds: turn.citations.map((c) => c.chunkId),
+                          sourceIds: [...new Set(turn.citations.map((c) => c.sourceId))],
+                        }),
+                      }).catch(() => {});
+                    }}>{label}</button>
+                ))}
+              </span>
+            )}
+            {turn.reason && <span className="rate__thanks">Logged — that helps, thank you.</span>}
           </div>
         )}
 

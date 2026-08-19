@@ -211,7 +211,7 @@ import { generateJavaChains, chainIdent, CHAIN_COLORS, type Chain } from '../src
   ok7((java.match(/pathBuilder\(\)/g) || []).length === 3, 'one builder per chain');
   ok7((java.match(/followPath\(/g) || []).length === 3, 'follows each in order');
   ok7(java.indexOf('followPath(scorePreload)') < java.indexOf('followPath(cycle)'), 'keeps declared order');
-  ok7(java.includes('while (follower.isBusy())'), 'waits for each to finish');
+  ok7(/while \(follower\.isBusy\(\)/.test(java), 'waits for each to finish');
   ok7(java.includes('LinearOpMode'), 'a sequence needs a LinearOpMode');
 
   // names must survive collision and bad input
@@ -221,4 +221,23 @@ import { generateJavaChains, chainIdent, CHAIN_COLORS, type Chain } from '../src
   ok7(/^chain3$/.test(chainIdent('123', 2, taken)), 'falls back when a name is not an identifier');
   ok7(/^[a-zA-Z_$]/.test(chainIdent('!!!', 3, taken)), 'never emits an invalid identifier');
   console.log(f7 ? `${f7} CHAINS FAILED` : 'chains ok');
+}
+
+// --- chain actions ----------------------------------------------------------
+{
+  let f8 = 0;
+  const ok8 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f8++; } else console.log('ok  ', m); };
+  const mk = (name: string, action?: string): Chain => ({
+    id: name, name, color: CHAIN_COLORS[0], action,
+    points: [{ x: 10, y: 20, heading: 0 }, { x: 60, y: 90, heading: 90 }],
+    segments: [{ control: [], interp: 'linear', endTime: 0.8 }],
+  });
+  const java = generateJavaChains([mk('score preload', 'drop the sample'), mk('park')], 'A');
+  ok8(java.includes('dropTheSample();'), 'an action becomes a call');
+  ok8(java.includes('// TODO: implement — drop the sample'), 'marks it as unimplemented in the team\'s own words');
+  ok8(java.includes('opModeIsActive()'), 'the follow loop can be stopped');
+  ok8(!/park[\s\S]*TODO/.test(java.split('followPath(park)')[1] || ''), 'a chain with no action emits none');
+  const weird = generateJavaChains([mk('c', '!!!')], 'B');
+  ok8(!/TODO: implement/.test(weird), 'a name that cannot be an identifier emits no call');
+  console.log(f8 ? `${f8} ACTION FAILED` : 'actions ok');
 }

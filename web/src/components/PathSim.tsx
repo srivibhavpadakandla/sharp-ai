@@ -649,7 +649,18 @@ export default function PathSim() {
               setModel({ points: next[i2].points, segments: next[i2].segments });
             }}>Remove</button>
           </div>
-          <p className="sim__hint">Each chain becomes its own PathChain, followed in order.</p>
+          <label className="sim__action">
+            After this chain
+            <input value={chains[activeChain]?.action || ''} placeholder="e.g. drop the sample"
+              aria-label="Action after this chain"
+              onChange={(e) => setChains(cs => cs.map((c2, i) => i === activeChain
+                ? { ...c2, action: e.target.value.slice(0, 60) } : c2))} />
+          </label>
+          <p className="sim__hint">
+            Each chain becomes its own PathChain, followed in order. An action becomes a
+            call after that chain finishes — Pedro documents no mid-path callback, so split
+            a chain in two if you need one partway along.
+          </p>
         </section>
 
         <section className="sim__card">

@@ -278,3 +278,11 @@
 .turn__prose > :first-child { margin-top: 0; }
 .turn__prose p { margin: 0 0 1.05em; }
 .turn__prose h3 { margin-top: 1.7em; }
+
+.rate__why { display: inline-flex; align-items: center; gap: 0.34rem; flex-wrap: wrap;
+  margin-left: 0.5rem; font-size: 0.82rem; color: var(--ink-3); }
+.rate__chip {
+  border: 1px solid var(--rule); background: transparent; color: var(--ink-3);
+  border-radius: var(--r-pill); padding: 0.14rem 0.6rem; font-size: 0.78rem; cursor: pointer;
+}
+.rate__chip:hover { border-color: var(--accent); color: var(--accent); }

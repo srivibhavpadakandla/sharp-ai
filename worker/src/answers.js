@@ -96,8 +96,9 @@ export async function logQuery(env, entry) {
     await env.DB.prepare(`
       INSERT INTO query_log (ts, question, question_hash, question_len, cache_hit,
                              below_threshold, llm_called, degraded, top_score,
-                             best_bm25, best_cosine, source_ids, chunk_ids, latency_ms)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                             best_bm25, best_cosine, source_ids, chunk_ids, latency_ms,
+                             cite_checked, cite_weak)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).bind(
       new Date().toISOString(),
       entry.question,
@@ -113,6 +114,8 @@ export async function logQuery(env, entry) {
       JSON.stringify(entry.sourceIds || []),
       JSON.stringify(entry.chunkIds || []),
       entry.latencyMs ?? null,
+      entry.citeChecked ?? null,
+      entry.citeWeak ?? null,
     ).run();
   } catch (err) {
     console.error('logQuery failed', err.message);

@@ -396,6 +396,8 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     // the indexable /q/ page.
     let grounded = '';
     let beyond = '';
+    let citeChecked = 0;
+    let citeWeak = 0;
     const splitter = createAnswerSplitter();
 
     try {
@@ -446,7 +448,11 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       if (grounded.trim() && citations.length) {
         const textById = new Map(finalChunks.map((c) => [c.chunkId, c.text]));
         const cc = verifyCitations(grounded, citations, textById);
-        if (cc.checked) await writer.write(encoder.encode(sse('citecheck', cc)));
+        if (cc.checked) {
+          citeChecked = cc.checked;
+          citeWeak = (cc.weak?.length || 0) + (cc.outOfRange?.length || 0);
+          await writer.write(encoder.encode(sse('citecheck', cc)));
+        }
       }
 
       // The generated code is checked against the real SDK surface before the
@@ -483,6 +489,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
 
       await logQuery(env, {
         question, questionHash, cacheHit: false, llmCalled: true,
+        citeChecked, citeWeak,
         bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
         topScore: stats.bestCosine,
         sourceIds: [...new Set(finalChunks.map((c) => c.sourceId))],

@@ -63,9 +63,27 @@ if (fb.length) {
   const up = fb.find((x) => x.verdict === 'up')?.n || 0;
   const down = fb.find((x) => x.verdict === 'down')?.n || 0;
   console.log(`\nFEEDBACK   ${up} helpful · ${down} not helpful`);
-  const bad = q(`SELECT question, source_ids FROM feedback
+  // The reason is the part that can be acted on: "wrong" and "sources look
+  // wrong" point at retrieval, "too long" and "too vague" point at the prompt.
+  const why = q(`SELECT coalesce(reason,'(none given)') r, count(*) n FROM feedback
+    WHERE verdict = 'down' AND ts > ${since} GROUP BY r ORDER BY n DESC`);
+  if (why.length) console.log('  why: ' + why.map((x) => `${x.r} ${x.n}`).join(' · '));
+  const bad = q(`SELECT question, reason, source_ids FROM feedback
     WHERE verdict = 'down' AND ts > ${since} ORDER BY ts DESC LIMIT 6`);
-  for (const r of bad) console.log(`  ✗ ${r.question.slice(0, 56)}  ${r.source_ids || ''}`);
+  for (const r of bad) console.log(`  ✗ ${(r.reason || '?').padEnd(8)} ${r.question.slice(0, 50)}`);
 }
 
-console.log('\nMost-refused topics are the next source to index.\n');
+// --- attribution quality ---------------------------------------------------
+// Weak means a paragraph shares little vocabulary with a section it credited.
+// Some of that is honest: a derived claim reuses few of the source's words. A
+// rising share is not — it means paragraphs are crediting sections they did not
+// really use, which makes every citation on the page worth less.
+const [cc] = q(`SELECT sum(cite_checked) checked, sum(cite_weak) weak,
+  count(*) answers FROM query_log WHERE cite_checked IS NOT NULL AND ts > ${since}`);
+if (cc && cc.checked) {
+  const pct = Math.round((100 * (cc.weak || 0)) / cc.checked);
+  console.log(`\nCITATIONS  ${cc.weak || 0} weak of ${cc.checked} checked across ${cc.answers} answers (${pct}%)`);
+  if (pct > 30) console.log('  above 30% — paragraphs are probably crediting sections they did not use');
+}
+
+console.log('\nRefusals show coverage gaps; feedback reasons show which half is at fault.\n');

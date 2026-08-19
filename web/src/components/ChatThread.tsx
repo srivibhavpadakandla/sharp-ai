@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UsageMeter from './UsageMeter';
+import Mascot from './Mascot';
 import { API_BASE } from '../lib/config';
 import { ask, type Citation, type Excerpt, type Validation, type CiteCheck } from '../lib/ask';
 import { renderMarkdown } from '../lib/markdown';
@@ -346,6 +347,7 @@ function TurnView({ turn, index, stage, isActive, onFocus, patch }: {
         {(turn.status === 'thinking'
           || (turn.status === 'streaming' && !turn.answer && !turn.beyond)) && (
           <div className="turn__loading">
+            <Mascot state="thinking" />
             <span className="turn__bar" />
             {/* Retrieval finishing is not the answer starting. The indicator used
                 to stop the moment sections came back, leaving the reader looking

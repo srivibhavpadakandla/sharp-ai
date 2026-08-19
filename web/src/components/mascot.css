@@ -1,0 +1,22 @@
+.mascot { width: 4.6rem; height: 2.9rem; display: block; overflow: visible; }
+.mascot__path {
+  fill: none;
+  stroke: var(--rule-strong);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 3 4;
+  opacity: 0.7;
+}
+.mascot--thinking .mascot__path { stroke: var(--accent); opacity: 0.5; }
+.mascot__bot {
+  fill: color-mix(in srgb, var(--accent) 22%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  /* Centred on the origin so a motion path puts its middle on the line, and so
+     it turns about its own centre rather than a corner. */
+  transform-box: view-box;
+  transform-origin: 0 0;
+  transform: translate(10px, 30px);
+}
+.mascot--idle .mascot__bot { transform-origin: 10px 30px; }
+@media (prefers-reduced-motion: reduce) { .mascot__bot { transform: translate(10px, 30px); } }

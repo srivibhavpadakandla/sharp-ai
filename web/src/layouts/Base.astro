@@ -36,14 +36,19 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-head">
     <div class="wrap">
-      <a href="/" class="wordmark">Sharp<em>AI</em></a>
+      <a href="/" class="wordmark">
+        <img src="/logo.svg" alt="" width="26" height="26" class="wordmark__mark" />
+        Sharp<em>AI</em>
+      </a>
       <HeaderSearch client:idle />
       <nav>
         <a href="/chat">Chat</a>

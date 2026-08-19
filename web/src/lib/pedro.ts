@@ -40,6 +40,38 @@ export interface Segment {
   waitAfter?: number;
 }
 
+/**
+ * A named, coloured route. A real autonomous is several of these — score the
+ * preload, cycle, park — and the Visualizer models them as separate chains for
+ * that reason. Each builds its own PathChain in the emitted Java, which is how
+ * a team actually runs them: followPath(scorePreload), then followPath(cycle).
+ */
+export interface Chain {
+  id: string;
+  name: string;
+  color: string;
+  points: Waypoint[];
+  segments: Segment[];
+}
+
+export const CHAIN_COLORS = ['#6edb9a', '#4fc3e8', '#e8b06a', '#c98bdb', '#ff8f6b'];
+
+/** A Java identifier from a chain name, unique within the set. */
+export function chainIdent(name: string, index: number, taken: Set<string>): string {
+  let base = String(name || '')
+    .replace(/[^a-zA-Z0-9 ]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((w, i) => (i ? w.charAt(0).toUpperCase() + w.slice(1) : w.toLowerCase()))
+    .join('');
+  if (!/^[a-zA-Z_$]/.test(base)) base = `chain${index + 1}`;
+  let name2 = base;
+  let n = 2;
+  while (taken.has(name2)) name2 = `${base}${n++}`;
+  taken.add(name2);
+  return name2;
+}
+
 export interface PathModel {
   points: Waypoint[];
   segments: Segment[];
@@ -702,4 +734,90 @@ export function distanceAtTime(sch: Schedule, t: number): number {
     }
   }
   return dist;
+}
+
+
+/** Every chain as one OpMode: a PathChain each, followed in order. */
+export function generateJavaChains(chains: Chain[], className = 'GeneratedAuto'): string {
+  const taken = new Set<string>();
+  const named = chains.map((c, i) => ({ chain: c, ident: chainIdent(c.name, i, taken) }));
+
+  const poseNames = new Set<string>();
+  const poseLines: string[] = [];
+  const builders: string[] = [];
+
+  for (const { chain, ident } of named) {
+    const names = chain.points.map((w, i) => {
+      const base = (w.name && /^[a-zA-Z_$][\w$]*$/.test(w.name)) ? w.name : `${ident}Pose${i + 1}`;
+      let n = base;
+      let k = 2;
+      while (poseNames.has(n) && !w.name) n = `${base}_${k++}`;
+      poseNames.add(n);
+      return n;
+    });
+    chain.points.forEach((w, i) => {
+      const line = `    private final Pose ${names[i]} = new Pose(${round2(w.x)}, ${round2(w.y)}, Math.toRadians(${round2(w.heading)}));`;
+      if (!poseLines.some((l) => l.includes(` ${names[i]} =`))) poseLines.push(line);
+    });
+
+    const legs = chain.segments.map((seg, i) => {
+      const a = names[i];
+      const b = names[i + 1];
+      const geom = seg.control.length === 0
+        ? `new BezierLine(${a}, ${b})`
+        : `new BezierCurve(${a}, ${seg.control.map((c) => `new Pose(${round2(c.x)}, ${round2(c.y)})`).join(', ')}, ${b})`;
+      const interp = seg.interp === 'constant'
+        ? `.setConstantHeadingInterpolation(${a}.getHeading())`
+        : seg.interp === 'tangent'
+          ? '.setTangentHeadingInterpolation()'
+          : seg.endTime < 1
+            ? `.setLinearHeadingInterpolation(${a}.getHeading(), ${b}.getHeading(), ${round2(seg.endTime)})`
+            : `.setLinearHeadingInterpolation(${a}.getHeading(), ${b}.getHeading())`;
+      return `                .addPath(${geom})\n                ${interp}`;
+    }).join('\n');
+
+    builders.push(`        ${ident} = follower.pathBuilder()\n${legs}\n                .build();`);
+  }
+
+  const decls = named.map(({ ident }) => ident).join(', ');
+  const follows = named.map(({ chain, ident }, i) =>
+    `        // ${chain.name || `Chain ${i + 1}`}\n`
+    + `        follower.followPath(${ident});\n`
+    + `        while (follower.isBusy()) { follower.update(); }`).join('\n');
+
+  return `package org.firstinspires.ftc.teamcode.pedroPathing;
+
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierCurve;
+import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.PathChain;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+
+@Autonomous(name = "${className}")
+public class ${className} extends LinearOpMode {
+
+    private Follower follower;
+    private PathChain ${decls};
+
+${poseLines.join('\n')}
+
+    private void buildPaths() {
+${builders.join('\n\n')}
+    }
+
+    @Override
+    public void runOpMode() {
+        follower = Constants.createFollower(hardwareMap);
+        follower.setStartingPose(${named[0] ? (named[0].chain.points[0]?.name || 'new Pose()') : 'new Pose()'});
+        buildPaths();
+
+        waitForStart();
+        if (isStopRequested()) return;
+
+${follows}
+    }
+}
+`;
 }

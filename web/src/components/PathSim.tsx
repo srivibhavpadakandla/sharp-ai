@@ -4,6 +4,7 @@ import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
   sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath, parseJava,
   schedule, distanceAtTime, hitsObstacle, DEFAULT_LIMITS,
+  generateJavaChains, CHAIN_COLORS, type Chain,
   type Interp, type PathModel, type Pt, type Limits, type Obstacle,
 } from '../lib/pedro';
 import './pathsim.css';
@@ -22,6 +23,12 @@ const readDims = () => {
 export default function PathSim() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [model, setModel] = useState<PathModel>(starterPath);
+  /** Every chain, in run order. The edited `model` is whichever is active. */
+  const [chains, setChains] = useState<Chain[]>(() => {
+    const p = starterPath();
+    return [{ id: 'c1', name: 'Main chain', color: CHAIN_COLORS[0], points: p.points, segments: p.segments }];
+  });
+  const [activeChain, setActiveChain] = useState(0);
   const [copied, setCopied] = useState('');
   const [paste, setPaste] = useState('');
   const [limits, setLimits] = useState<Limits>(DEFAULT_LIMITS);
@@ -95,6 +102,13 @@ export default function PathSim() {
   }, [model]);
   useEffect(() => { uRef.current = u; }, [u]);
 
+  // The chain list is the source of truth for output; `model` is the working
+  // copy of whichever one is selected.
+  useEffect(() => {
+    setChains((cs) => cs.map((c2, i) => (i === activeChain
+      ? { ...c2, points: model.points, segments: model.segments } : c2)));
+  }, [model, activeChain]);
+
   const { table, total } = useMemo(() => sampleChain(model), [model]);
   const sched = useMemo(() => schedule(model, limits), [model, limits]);
   // The playhead runs on time now, not distance, so a wait actually costs
@@ -113,7 +127,9 @@ export default function PathSim() {
     }
     return out;
   }, [model, dims, obstacles, table]);
-  const java = useMemo(() => generateJava(model), [model]);
+  const java = useMemo(() => (chains.length > 1
+    ? generateJavaChains(chains)
+    : generateJava(model)), [chains, model]);
 
   // Advance at a plausible cruise so the preview reads as motion, not a scrub.
   useEffect(() => {
@@ -225,6 +241,19 @@ export default function PathSim() {
       }
     }
 
+    // Every other chain, dimmed, so a multi-part auto reads as one route.
+    chains.forEach((ch, i) => {
+      if (i === activeChain || ch.points.length < 2) return;
+      ctx.strokeStyle = ch.color;
+      ctx.globalAlpha = 0.32;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const t2 = sampleChain({ points: ch.points, segments: ch.segments }, 40).table;
+      t2.forEach((sp, k) => (k ? ctx.lineTo(X(sp.p.x), Y(sp.p.y)) : ctx.moveTo(X(sp.p.x), Y(sp.p.y))));
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    });
+
     // Stroked from the arc-length table rather than per-leg bezier steps, so the
     // draw-in advances at a constant rate instead of racing through short legs.
     ctx.strokeStyle = accent;
@@ -301,7 +330,7 @@ export default function PathSim() {
       ctx.lineTo(X(corners[1].x), Y(corners[1].y));
       ctx.stroke();
     }
-  }, [model, sel, u, total, table, dims, obstacles, atDistance, ghosts]);
+  }, [model, sel, u, total, table, dims, obstacles, atDistance, ghosts, chains, activeChain]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -575,6 +604,52 @@ export default function PathSim() {
               : copied === 'link:failed' ? 'Copy the address bar instead'
               : 'Copy a link to this path'}
           </button>
+        </section>
+
+        <section className="sim__card">
+          <h2>Path chains <em>({chains.length})</em></h2>
+          <div className="sim__chainrow">
+            <select value={activeChain} aria-label="Active chain"
+              onChange={(e) => {
+                const i = Number(e.target.value);
+                setActiveChain(i);
+                setModel({ points: chains[i].points, segments: chains[i].segments });
+                setSel({ kind: 'point', i: 0 });
+              }}>
+              {chains.map((ch, i) => <option key={ch.id} value={i}>{ch.name}</option>)}
+            </select>
+            <input type="color" value={chains[activeChain]?.color || CHAIN_COLORS[0]}
+              aria-label="Chain colour"
+              onChange={(e) => setChains(cs => cs.map((c2, i) => i === activeChain ? { ...c2, color: e.target.value } : c2))} />
+          </div>
+          <input className="sim__chainname" value={chains[activeChain]?.name || ''}
+            aria-label="Chain name" placeholder="Chain name"
+            onChange={(e) => setChains(cs => cs.map((c2, i) => i === activeChain ? { ...c2, name: e.target.value.slice(0, 40) } : c2))} />
+          <div className="sim__chainbtns">
+            <button type="button" onClick={() => {
+              const p2 = starterPath();
+              const ch: Chain = { id: `c${Date.now().toString(36)}`, name: `Chain ${chains.length + 1}`,
+                color: CHAIN_COLORS[chains.length % CHAIN_COLORS.length], points: p2.points, segments: p2.segments };
+              setChains([...chains, ch]);
+              setActiveChain(chains.length);
+              setModel({ points: ch.points, segments: ch.segments });
+            }}>New</button>
+            <button type="button" onClick={() => {
+              const src = chains[activeChain];
+              const ch: Chain = { ...src, id: `c${Date.now().toString(36)}`, name: `${src.name} copy`,
+                points: src.points.map(q => ({ ...q })), segments: src.segments.map(q => ({ ...q, control: q.control.map(k => ({ ...k })) })) };
+              setChains([...chains, ch]);
+              setActiveChain(chains.length);
+              setModel({ points: ch.points, segments: ch.segments });
+            }}>Duplicate</button>
+            <button type="button" disabled={chains.length <= 1} onClick={() => {
+              const next = chains.filter((_, i) => i !== activeChain);
+              const i2 = Math.max(0, activeChain - 1);
+              setChains(next); setActiveChain(i2);
+              setModel({ points: next[i2].points, segments: next[i2].segments });
+            }}>Remove</button>
+          </div>
+          <p className="sim__hint">Each chain becomes its own PathChain, followed in order.</p>
         </section>
 
         <section className="sim__card">

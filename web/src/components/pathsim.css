@@ -199,3 +199,18 @@
   font-family: var(--type-mono); font-size: 0.76rem; color: var(--ink-4);
 }
 .sim__posrow strong { color: var(--ink); font-weight: 500; margin-left: 0.25rem; }
+
+.sim__chainrow { display: flex; gap: 0.45rem; align-items: center; }
+.sim__chainrow select { flex: 1; min-width: 0; }
+.sim__chainrow input[type='color'] {
+  width: 2.1rem; height: 2.1rem; padding: 2px; flex: none; cursor: pointer;
+  background: var(--paper-sunk); border: 1px solid var(--rule); border-radius: 8px;
+}
+.sim__chainname { margin-top: 0.45rem; }
+.sim__chainbtns { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+.sim__chainbtns button {
+  flex: 1; border: 1px solid var(--rule); background: var(--paper-sunk);
+  color: var(--ink-2); border-radius: 9px; padding: 0.34rem; font-size: 0.8rem; cursor: pointer;
+}
+.sim__chainbtns button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.sim__chainbtns button:disabled { opacity: 0.4; cursor: default; }

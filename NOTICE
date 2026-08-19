@@ -26,6 +26,11 @@ What was taken, and what was changed:
     layers). Ours colours a trace when that pose would hit an obstacle or leave
     the field, which its version does not do.
 
+  * Multiple named, coloured path chains, its PATH CHAINS control with New /
+    Duplicate / Remove, and the idea that each chain is followed in sequence.
+    Our emitted Java differs: one PathChain per chain inside a LinearOpMode
+    that follows each and waits on isBusy between them.
+
   * Its layout: a toolbar carrying the elapsed/total clock and the distance,
     with icon actions beside it; a control column of sections that state their
     own counts; a live robot-position readout above an editable starting point.

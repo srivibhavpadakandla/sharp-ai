@@ -193,3 +193,32 @@ import { speedAt, DEFAULT_LIMITS as DL } from '../src/lib/pedro';
   ok6(schedule(fwd, slowStop).totalSeconds > tf, 'weaker braking takes longer');
   console.log(f6 ? `${f6} DIRECTIONAL FAILED` : 'directional ok');
 }
+
+// --- multiple path chains ---------------------------------------------------
+import { generateJavaChains, chainIdent, CHAIN_COLORS, type Chain } from '../src/lib/pedro';
+{
+  let f7 = 0;
+  const ok7 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f7++; } else console.log('ok  ', m); };
+  const mk = (name: string, x: number): Chain => ({
+    id: name, name, color: CHAIN_COLORS[0],
+    points: [{ x, y: 20, heading: 0, name: `${name}Start` }, { x: x + 30, y: 90, heading: 90, name: `${name}End` }],
+    segments: [{ control: [], interp: 'linear', endTime: 0.8 }],
+  });
+  const chains = [mk('score preload', 10), mk('cycle', 60), mk('park', 100)];
+  const java = generateJavaChains(chains, 'MyAuto');
+
+  ok7(java.includes('private PathChain scorePreload, cycle, park;'), 'declares every chain');
+  ok7((java.match(/pathBuilder\(\)/g) || []).length === 3, 'one builder per chain');
+  ok7((java.match(/followPath\(/g) || []).length === 3, 'follows each in order');
+  ok7(java.indexOf('followPath(scorePreload)') < java.indexOf('followPath(cycle)'), 'keeps declared order');
+  ok7(java.includes('while (follower.isBusy())'), 'waits for each to finish');
+  ok7(java.includes('LinearOpMode'), 'a sequence needs a LinearOpMode');
+
+  // names must survive collision and bad input
+  const taken = new Set<string>();
+  ok7(chainIdent('score preload', 0, taken) === 'scorePreload', 'camel-cases a name');
+  ok7(chainIdent('score preload', 1, taken) === 'scorePreload2', 'de-duplicates');
+  ok7(/^chain3$/.test(chainIdent('123', 2, taken)), 'falls back when a name is not an identifier');
+  ok7(/^[a-zA-Z_$]/.test(chainIdent('!!!', 3, taken)), 'never emits an invalid identifier');
+  console.log(f7 ? `${f7} CHAINS FAILED` : 'chains ok');
+}

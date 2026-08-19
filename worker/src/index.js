@@ -244,27 +244,36 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const { chunks, gate, stats } = await retrieve(env, question);
 
   // --- 6. Relevance gate: refuse without spending an LLM token --------------
+  // Set when retrieval found nothing usable but the question is clearly about
+  // FTC robots. The answer then comes from the model's own knowledge, under the
+  // BEYOND marker the UI already labels as unverified, and is never persisted.
+  let uncovered = false;
   if (!gate.pass || !chunks.length) {
-    ctx.waitUntil(logQuery(env, {
-      question, questionHash, cacheHit: false, belowThreshold: true, llmCalled: false,
-      bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
-      latencyMs: Date.now() - started,
-    }));
     // A middling cosine means the embedding recognised the domain even though
     // nothing in the corpus answers it — that is a coverage gap, not junk.
     // Both signals must agree: the embedding has to be in the neighbourhood
     // AND the question has to actually use the vocabulary of the domain.
     const looksFtc = (stats.bestCosine ?? 0) >= Number(env.UNCOVERED_COSINE || 0.5)
       && FTC_VOCAB.test(question);
-    return streamPrerendered(
-      {
-        question,
-        answerMd: looksFtc ? uncoveredRefusal(question, null) : OFF_TOPIC_REFUSAL,
-        citations: [], excerpts: [], slug: null,
-      },
-      cors,
-      { refused: true, uncovered: looksFtc, gate },
-    );
+
+    if (looksFtc) {
+      // Leaving a team with nothing is not the honest outcome here; the corpus
+      // having a gap is. Answer it, and be explicit that it is unverified.
+      uncovered = true;
+    } else {
+      // Genuinely off topic. This site is scoped to FTC, and answering anything
+      // at all would also make it a free general-purpose model for anyone.
+      ctx.waitUntil(logQuery(env, {
+        question, questionHash, cacheHit: false, belowThreshold: true, llmCalled: false,
+        bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
+        latencyMs: Date.now() - started,
+      }));
+      return streamPrerendered(
+        { question, answerMd: OFF_TOPIC_REFUSAL, citations: [], excerpts: [], slug: null },
+        cors,
+        { refused: true, uncovered: false, gate },
+      );
+    }
   }
 
   // --- 6b. Agentic pass -----------------------------------------------------
@@ -305,7 +314,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, uncovered });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -364,7 +373,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());
@@ -402,7 +411,12 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       let slug = null;
       // Follow-ups get no permanent URL. "Why?" makes a terrible page title and
       // a worse search result, and the answer is meaningless without its thread.
-      if (grounded.trim() && !isFollowUp) {
+      // Only a cited answer is worth keeping. An uncited grounded half means the
+      // sections did not answer the question and the substance is in BEYOND —
+      // which is never persisted, so caching this would serve every later
+      // asker the bare "not covered" line with the reasoning stripped out, and
+      // they would never get a fresh generation. Better to regenerate.
+      if (grounded.trim() && !isFollowUp && !uncovered && citations.length > 0) {
         const saved = await writeAnswer(env, {
           // Grounded only. Persisting the ungrounded half would put uncited
           // claims on a permanent, crawlable URL.

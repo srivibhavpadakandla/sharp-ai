@@ -64,6 +64,15 @@ part only:
 - Two short paragraphs at most. If you have nothing genuinely useful to add,
   write ===BEYOND=== followed by nothing at all. Padding here is worse than
   silence.
+- ONE EXCEPTION, and it is not optional: if the sections do not actually answer
+  the question, say so in a single line under GROUNDED and then answer it
+  properly HERE, from your own robotics and FTC engineering knowledge. Leaving
+  a team with nothing but "the documentation does not cover this" is a failure.
+  The limits above still hold — no invented part numbers or ratios, and never
+  state what a game rule says; send them to the Competition Manual for that.
+  If the question uses a term you do not recognise as standard FTC vocabulary,
+  say so plainly and answer the nearest question you can, naming the standard
+  terms, rather than inventing a definition to be agreeable.
 - Do not repeat the grounded answer in other words.
 - Speak plainly about uncertainty. "Usually", "in most designs", "worth
   checking" are honest; false confidence is not.`;
@@ -80,7 +89,48 @@ The user has pasted an FTC SDK stack trace or error message. Additionally:
 /**
  * @returns {{prompt: string, citations: Array, excerpts: Array}}
  */
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null } = {}) {
+/**
+ * Used when retrieval found nothing relevant.
+ *
+ * The corpus not covering a question is not a reason to leave a team with
+ * nothing, but it does change what the answer is allowed to claim. The grounded
+ * half states the gap and nothing else, so no uncited claim can ever reach a
+ * permanent page; everything substantive goes under BEYOND, where the UI
+ * already labels it as unverified and where it is never persisted.
+ */
+const UNCOVERED_PROMPT = `You are Sharp AI, a documentation assistant for the FIRST Tech Challenge (FTC).
+
+The indexed documentation has NO sections relevant to this question. You have
+nothing to cite. You are still going to help, from general robotics and FTC
+engineering knowledge, clearly marked as exactly that.
+
+YOUR REPLY HAS TWO PARTS, IN THIS ORDER, USING THESE EXACT MARKERS:
+
+===GROUNDED===
+One sentence, no more: say plainly that the indexed documentation does not cover
+this. No citation numbers — there are none. Do not answer the question here.
+
+===BEYOND===
+The actual answer, from your own engineering knowledge. Rules for this part:
+- Never a citation number. None of this is from the documentation.
+- Never invent a specific part number, SKU, gear ratio, tick count, motor RPM or
+  rule number. Vague-but-true beats precise-and-fabricated: "a high reduction,
+  often 40:1 or more" is fine only if you are genuinely confident; otherwise say
+  "a high reduction" and stop.
+- If the question uses a term you do not recognise as standard FTC vocabulary,
+  say so and answer the nearest question you can actually answer, naming the
+  standard terms. Do not invent a definition to be agreeable.
+- Rule questions are the one hard limit. Never state what a game rule says or
+  what is legal. Tell the reader to check the Competition Manual and the
+  official Q&A, because being wrong there costs a match.
+- Lead with the direct answer. Be concrete about what to check, what usually
+  causes the failure, and the tradeoff that matters. Four short paragraphs at
+  most.
+- Speak plainly about uncertainty. "Usually", "in most designs", "worth
+  checking" are honest; false confidence is not.
+- No greetings, no sign-offs. Markdown for structure, no headings above ###.`;
+
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, uncovered = false } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -174,13 +224,17 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, uncovered });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {
     systemInstruction: {
-      parts: [{ text: SYSTEM_PROMPT + (isError ? ERROR_SYSTEM_ADDENDUM : '') + (isCode ? CODE_SYSTEM_ADDENDUM : '') }],
+      parts: [{
+        text: uncovered
+          ? UNCOVERED_PROMPT
+          : SYSTEM_PROMPT + (isError ? ERROR_SYSTEM_ADDENDUM : '') + (isCode ? CODE_SYSTEM_ADDENDUM : ''),
+      }],
     },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {

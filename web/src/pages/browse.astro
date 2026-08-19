@@ -106,7 +106,14 @@ for (const cat of CATEGORIES) {
       {tiles.map((t) => t.kind === 'art' ? (
         <button type="button" class="tile tile--art" data-filter={t.cat.id} data-cat={t.cat.id}
           aria-pressed="false" aria-label={`Show only ${t.cat.label}`}>
-          <img src={`/art/tile/cat-${t.cat.id}.webp`} alt="" loading="lazy" decoding="async" width="900" height="657" />
+          <video
+            class="tile__vid"
+            poster={`/art/tile/cat-${t.cat.id}.webp`}
+            muted loop playsinline preload="none"
+            width="900" height="657" aria-hidden="true"
+          >
+            <source src={`/art/vid/cat-${t.cat.id}.mp4`} type="video/mp4" />
+          </video>
           <div class="tile__over">
             <h2>{t.cat.label}</h2>
             <p>{t.cat.blurb}</p>
@@ -216,9 +223,10 @@ for (const cat of CATEGORIES) {
   /* The generated art is line work on its own cream paper, a shade off ours.
      Multiply drops its background out so the drawing sits on the page's paper
      instead of on a slightly wrong rectangle. */
-  .tile--art img {
-    transform-style: preserve-3d;
-    will-change: transform;
+  .tile__vid {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    display: block; background: #16233f;
   }
   .tile__over {
     position: absolute; inset: auto 0 0 0;
@@ -298,23 +306,25 @@ for (const cat of CATEGORIES) {
 </style>
 
 <script>
-  // Each drawing turns on a slow turntable. A full 360 would show a flat image
-  // mirrored for half the cycle, so it swings instead.
-  import { animate as spinAnimate, stagger as spinStagger } from 'animejs';
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const art = document.querySelectorAll('.tile--art img');
-    if (art.length) {
-      spinAnimate(art, {
-        rotateY: [-13, 13],
-        rotateX: [2, -2],
-        scale: 1.12,
-        loop: true,
-        alternate: true,
-        duration: 5200,
-        ease: 'inOutSine',
-        delay: spinStagger(420),
-      });
-    }
+  // The drawing plays as a short silent loop while the pointer is on its tile.
+  // Nothing is fetched until then: the poster is the still, and preload is none.
+  const arts = document.querySelectorAll('.tile--art');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  for (const tile of arts) {
+    const v = tile.querySelector('video');
+    if (!v || reduced) continue;
+
+    const play = () => { v.play().catch(() => {}); };
+    // load() restores the poster frame; pause alone would freeze on whatever
+    // frame the clip happened to reach.
+    const stop = () => { v.pause(); v.load(); };
+
+    tile.addEventListener('pointerenter', play);
+    tile.addEventListener('pointerleave', stop);
+    // Keyboard users get the same preview when the tile takes focus.
+    tile.addEventListener('focus', play);
+    tile.addEventListener('blur', stop);
   }
 </script>
 

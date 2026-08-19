@@ -113,7 +113,7 @@ export default function ChatThread({
 
     ask(q, {
       onMeta: (meta) => {
-        clearInterval(ticker);
+        clearInterval(ticker);   // stages describe retrieval; writing follows
         patch(id, () => ({
           citations: meta.citations || [],
           excerpts: meta.excerpts || [],
@@ -213,7 +213,11 @@ export default function ChatThread({
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   };
 
-  const anyCitations = turns.some((t) => t.citations.length > 0);
+  // Sources are known as soon as retrieval returns, but showing them before a
+  // single word of the answer reads as though the citations came first and the
+  // answer was fitted to them. They appear with the writing.
+  const anyCitations = turns.some((t) => t.citations.length > 0
+    && (t.answer || t.beyond || t.status === 'done' || t.status === 'refused'));
 
   return (
     <div className={`chat${anyCitations ? '' : ' chat--norail'}`}>
@@ -290,7 +294,7 @@ export default function ChatThread({
       {anyCitations && <aside className="chat__rail" ref={railRef}>
         <div className="chat__railhead">
           <span className="eyebrow">Sources</span>
-          {activeTurn?.citations.length ? (
+          {activeTurn?.citations.length && (activeTurn.answer || activeTurn.beyond || activeTurn.status === 'done' || activeTurn.status === 'refused') ? (
             <span className="chat__count">{activeTurn.citations.length}</span>
           ) : null}
         </div>
@@ -338,10 +342,14 @@ function TurnView({ turn, index, stage, isActive, onFocus, patch }: {
       <div className="turn__reply">
         {turn.notice && <p className="turn__notice">{turn.notice}</p>}
 
-        {turn.status === 'thinking' && (
+        {(turn.status === 'thinking'
+          || (turn.status === 'streaming' && !turn.answer && !turn.beyond)) && (
           <div className="turn__loading">
             <span className="turn__bar" />
-            <p>{STAGES[stage]}…</p>
+            {/* Retrieval finishing is not the answer starting. The indicator used
+                to stop the moment sections came back, leaving the reader looking
+                at sources and a blank space while the model was still writing. */}
+            <p>{turn.status === 'streaming' ? 'Writing the answer' : STAGES[stage]}…</p>
           </div>
         )}
 

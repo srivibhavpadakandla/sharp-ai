@@ -76,19 +76,20 @@
 .chat__starters button:hover { color: var(--accent); border-color: var(--rule-strong); transform: translateX(3px); }
 
 /* --- a turn -------------------------------------------------------------- */
-.turn { padding-bottom: 2.2rem; margin-bottom: 2.2rem; border-bottom: 1px solid var(--rule); }
-.turn:last-child { border-bottom: 0; }
+.turn { padding-bottom: 0; margin-bottom: 3rem; }
+.turn:last-child { margin-bottom: 1rem; }
 
-.turn__you { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+.turn__you { display: flex; justify-content: flex-end; margin-bottom: 1.6rem; }
 .turn__you p {
   margin: 0;
-  max-width: 34ch;
+  max-width: 42ch;
   background: var(--paper-raised);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--r-lg) var(--r-lg) var(--r-sm) var(--r-lg);
-  padding: 0.7rem 1.05rem;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  border: 1px solid var(--rule);
+  /* Evenly rounded, the way both ChatGPT and Claude draw the user's turn. */
+  border-radius: 20px;
+  padding: 0.72rem 1.1rem;
+  font-size: 0.97rem;
+  line-height: 1.55;
   text-wrap: pretty;
 }
 
@@ -269,3 +270,11 @@
 .rate__btn:disabled { cursor: default; opacity: 0.65; }
 .rate__btn--on:disabled { opacity: 1; }
 .rate__thanks { color: var(--ink-4); }
+
+/* Assistant turns run full measure with no container of their own — the
+   answer is the page, not a card inside it. */
+.turn__reply { max-width: var(--measure); }
+.turn__prose { font-size: 1rem; line-height: 1.68; }
+.turn__prose > :first-child { margin-top: 0; }
+.turn__prose p { margin: 0 0 1.05em; }
+.turn__prose h3 { margin-top: 1.7em; }

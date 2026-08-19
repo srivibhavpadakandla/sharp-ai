@@ -17,7 +17,7 @@ export const SITE_URL =
 export const SDK_VERSION = '11.2.1';
 
 /** Indexed section count. Update with the ingest, not by editing prose. */
-export const CORPUS_SECTIONS = 3539;
+export const CORPUS_SECTIONS = 3551;
 
 /**
  * When the corpus was last rebuilt. Surfaced in the footer because the index

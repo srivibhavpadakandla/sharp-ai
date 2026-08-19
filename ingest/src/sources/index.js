@@ -22,6 +22,7 @@ import {
 } from './link-sources.js';
 import { samples as sdkSamples, api as sdkApi } from './ftc-sdk.js';
 import * as firstManual from './first-manual.js';
+import { rrQuickstart } from './rr-quickstart.js';
 
 export const SOURCES = {
   gm0,
@@ -31,6 +32,7 @@ export const SOURCES = {
   ctrlaltftc, ftclib, roadrunner, rev, pedropathing,
   'first-rules': firstRules,
   'first-manual': firstManual,
+  'rr-quickstart': rrQuickstart,
   chiefdelphi,
   'ftc-community': ftcCommunity,
   frczero,

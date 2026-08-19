@@ -6,6 +6,36 @@
  * metadata and nothing else; its body text never enters the request.
  */
 
+/**
+ * Shape addenda by question type.
+ *
+ * A lookup wants the documentation first. Advice and debugging want the answer
+ * first, with the documentation supporting it — asked "what ratio should I
+ * use", nobody wants a paragraph about what the corpus does and does not
+ * contain before the number.
+ */
+const ADVICE_ADDENDUM = `
+
+THIS QUESTION ASKS FOR JUDGEMENT, NOT A LOOKUP.
+Open with your actual recommendation, in the first sentence. Then give the
+reasoning that makes it the right call, and the condition that would change it.
+The sections are evidence for that recommendation, not the subject of the
+answer — cite them where they support a step, and reason past them where they
+stop. Do not open by describing what the documentation does or does not contain;
+a reader asking what to do is not asking what has been indexed. If the honest
+answer is "it depends", say what it depends on and give the number or choice you
+would start from anyway.`;
+
+const DEBUG_ADDENDUM = `
+
+THIS QUESTION IS A FAULT TO DIAGNOSE.
+Lead with the most likely cause, then the next most likely, in that order. For
+each, say what the reader should check and what result would confirm or rule it
+out. Cheap checks before expensive ones, and things that cost a match before
+things that cost a component. The sections support the diagnosis; they are not
+the subject. Do not open by saying the documentation does not cover this
+particular symptom — symptoms are rarely written down, causes are.`;
+
 const SYSTEM_PROMPT = `You are Sharp AI, a documentation assistant for the FIRST Tech Challenge (FTC).
 
 Rules you must follow without exception:
@@ -154,7 +184,7 @@ specs, what teams actually do now. Rules for this part:
   checking" are honest; false confidence is not.
 - No greetings, no sign-offs. Markdown for structure, no headings above ###.`;
 
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null, intent = 'lookup' } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -249,16 +279,19 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, uncovered, liveBlock });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null, intent = 'lookup' }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, uncovered, liveBlock, intent });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {
     systemInstruction: {
       parts: [{
         text: uncovered
-          ? UNCOVERED_PROMPT
-          : SYSTEM_PROMPT + (isError ? ERROR_SYSTEM_ADDENDUM : '') + (isCode ? CODE_SYSTEM_ADDENDUM : ''),
+          ? UNCOVERED_PROMPT + (intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : '')
+          : SYSTEM_PROMPT
+            + (isError ? ERROR_SYSTEM_ADDENDUM : '')
+            + (isCode ? CODE_SYSTEM_ADDENDUM : '')
+            + (intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : ''),
       }],
     },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],

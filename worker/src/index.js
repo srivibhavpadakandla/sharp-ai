@@ -19,6 +19,7 @@ import { retrieve, retrieveMulti } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
 import { classify } from './lib/topic.js';
 import { teamNumberIn, lookupTeam, describeTeam } from './lib/ftcscout.js';
+import { intentOf } from './lib/intent.js';
 import { needsEscalation, planSearch, rerank } from './agent.js';
 import { isCodeRequest, validateCode } from './codegen.js';
 import { verifyCitations } from './citecheck.js';
@@ -272,6 +273,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // --- 5. Retrieval ---------------------------------------------------------
   // A question naming a team number wants live standings, which no indexed
   // document can carry. Fetched in parallel with retrieval so it costs no time.
+  const intent = intentOf(question);
   const teamNo = teamNumberIn(question);
   const [{ chunks, gate, stats }, teamData] = await Promise.all([
     retrieve(env, question),
@@ -363,7 +365,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, uncovered, liveBlock });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, uncovered, liveBlock, intent });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -422,7 +424,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered, liveBlock })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered, liveBlock, intent })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());

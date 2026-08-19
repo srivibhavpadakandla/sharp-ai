@@ -108,11 +108,11 @@ for (const cat of CATEGORIES) {
           aria-pressed="false" aria-label={`Show only ${t.cat.label}`}>
           <video
             class="tile__vid"
-            poster={`/art/vid/cat-${t.cat.id}.webp?v=f7366c58`}
+            poster={`/art/vid/cat-${t.cat.id}.webp?v=9cc56c63`}
             muted loop playsinline preload="none"
             width="756" height="540" aria-hidden="true"
           >
-            <source src={`/art/vid/cat-${t.cat.id}.mp4?v=f7366c58`} type="video/mp4" />
+            <source src={`/art/vid/cat-${t.cat.id}.mp4?v=9cc56c63`} type="video/mp4" />
           </video>
           <div class="tile__over">
             <h2>{t.cat.label}</h2>
@@ -278,7 +278,7 @@ for (const cat of CATEGORIES) {
     padding: 0.95rem 1rem 0.8rem;
     background: var(--paper-raised);
   }
-  .tile--q:hover { border-color: var(--rule-strong); background: #fff; }
+  .tile--q:hover { border-color: var(--accent); background: var(--paper-sunk); }
   .tile--q p {
     margin: 0;
     font-size: 0.875rem;
@@ -287,7 +287,7 @@ for (const cat of CATEGORIES) {
     text-wrap: pretty;
     transition: color 0.16s var(--ease);
   }
-  .tile--q:hover p { color: var(--accent); }
+  .tile--q:hover p { color: var(--ink); }
   .tile__cat {
     margin-top: auto;
     padding-top: 0.6rem;

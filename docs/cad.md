@@ -36,6 +36,23 @@ Three ways, in increasing order of commitment:
   cost, which is what keeps this inside the free-tier rule.
 - FTC teams get Onshape Education free, so no one needs a paid seat to export.
 
+## The sizing check
+
+`/cad` measures the model's bounding box and compares it per axis against a
+limit you can edit. The cage is drawn in the scene as well as reported, because
+a number tells you that you failed and the box shows you which corner is out.
+
+**The 18in default is not quoted from the 2026-27 manual.** That manual is
+indexed, but its robot sections are placeholders until kickoff on 12 September
+2026, so there is no official rule to cite yet — 18in is the long-standing
+sizing cube as referenced by Game Manual 0. The UI says so, and the panel links
+to Sharp AI for what the manual actually states. After kickoff, re-ingest and
+update `web/src/lib/inspect.ts`, which is the single place the number lives.
+
+Onshape exports Z-up and three.js is Y-up, so a robot can arrive on its side and
+measure wrong. The Z-up/Y-up button corrects that; check it before trusting a
+verdict.
+
 ## What this does not do
 
 It is a viewer, not a simulator. Onshape has no robot-dynamics simulation, and

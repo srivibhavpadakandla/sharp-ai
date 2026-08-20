@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { DEFAULT_LIMIT, LIMIT_SOURCE, checkSize, type AxisCheck, type Limit } from '../lib/inspect';
 import './cadviewer.css';
 
 /**
@@ -27,6 +28,9 @@ export default function CadViewer() {
   const camera = useRef<THREE.PerspectiveCamera | null>(null);
   const controls = useRef<OrbitControls | null>(null);
   const current = useRef<THREE.Object3D | null>(null);
+  const renderer = useRef<THREE.WebGLRenderer | null>(null);
+  const cage = useRef<THREE.LineSegments | null>(null);
+  const raw = useRef<THREE.Vector3 | null>(null);   // model size in inches
 
   const [models, setModels] = useState<ModelRef[]>([]);
   const [label, setLabel] = useState('Sample chassis');
@@ -34,6 +38,9 @@ export default function CadViewer() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [limit, setLimit] = useState<Limit>(DEFAULT_LIMIT);
+  const [checks, setChecks] = useState<AxisCheck[] | null>(null);
+  const [zUp, setZUp] = useState(false);
 
   // ---- scene ---------------------------------------------------------------
   useEffect(() => {
@@ -43,10 +50,12 @@ export default function CadViewer() {
     const sc = new THREE.Scene();
     const cam = new THREE.PerspectiveCamera(42, 1, 0.01, 200);
     cam.position.set(0.9, 0.7, 1.1);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    el.appendChild(renderer.domElement);
+    // preserveDrawingBuffer so the view can be saved as a PNG for the
+    // engineering notebook; without it toDataURL comes back blank.
+    const gl = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    gl.setPixelRatio(Math.min(devicePixelRatio, 2));
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    el.appendChild(gl.domElement);
 
     // Three lights, not one: a single source makes every face the same value
     // and the geometry stops reading as solid.
@@ -64,29 +73,29 @@ export default function CadViewer() {
     (grid.material as THREE.Material).opacity = 0.5;
     sc.add(grid);
 
-    const orbit = new OrbitControls(cam, renderer.domElement);
+    const orbit = new OrbitControls(cam, gl.domElement);
     orbit.enableDamping = true;
     orbit.dampingFactor = 0.08;
     orbit.maxPolarAngle = Math.PI * 0.495;   // never orbit under the floor
 
-    scene.current = sc; camera.current = cam; controls.current = orbit;
+    scene.current = sc; camera.current = cam; controls.current = orbit; renderer.current = gl;
 
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = el;
       if (!w || !h) return;
       cam.aspect = w / h; cam.updateProjectionMatrix();
-      renderer.setSize(w, h, false);
+      gl.setSize(w, h, false);
     };
     resize();
     const ro = new ResizeObserver(resize); ro.observe(el);
 
     let raf = 0;
-    const tick = () => { orbit.update(); renderer.render(sc, cam); raf = requestAnimationFrame(tick); };
+    const tick = () => { orbit.update(); gl.render(sc, cam); raf = requestAnimationFrame(tick); };
     tick();
 
     return () => {
       cancelAnimationFrame(raf); ro.disconnect(); orbit.dispose();
-      renderer.dispose(); el.removeChild(renderer.domElement);
+      gl.dispose(); el.removeChild(gl.domElement);
     };
   }, []);
 
@@ -119,15 +128,68 @@ export default function CadViewer() {
     orbit.update();
 
     setLabel(name);
-    setDims(`${(size.x / UNITS_PER_INCH).toFixed(1)} × ${(size.z / UNITS_PER_INCH).toFixed(1)} × ${(size.y / UNITS_PER_INCH).toFixed(1)} in`);
+    const inches = new THREE.Vector3(size.x / UNITS_PER_INCH, size.y / UNITS_PER_INCH, size.z / UNITS_PER_INCH);
+    raw.current = inches;
+    setDims(`${inches.x.toFixed(1)} × ${inches.z.toFixed(1)} × ${inches.y.toFixed(1)} in`);
   }, []);
+
+  // ---- the sizing cage -----------------------------------------------------
+  //
+  // Drawn as well as reported: a number tells you that you failed, the box
+  // shows you which corner is sticking out.
+  useEffect(() => {
+    const sc = scene.current;
+    if (!sc) return;
+    if (cage.current) { sc.remove(cage.current); cage.current.geometry.dispose(); }
+    const box = new THREE.BoxGeometry(
+      limit.x * UNITS_PER_INCH, limit.y * UNITS_PER_INCH, limit.z * UNITS_PER_INCH,
+    );
+    const lines = new THREE.LineSegments(
+      new THREE.EdgesGeometry(box),
+      new THREE.LineBasicMaterial({ color: 0x6edb9a, transparent: true, opacity: 0.5 }),
+    );
+    box.dispose();
+    lines.position.y = (limit.y * UNITS_PER_INCH) / 2;
+    sc.add(lines);
+    cage.current = lines;
+  }, [limit]);
+
+  // Re-run whenever either side of the comparison changes.
+  useEffect(() => {
+    setChecks(raw.current ? checkSize(raw.current, limit) : null);
+  }, [limit, dims]);
+
+  /** Onshape exports Z-up; three.js is Y-up, so a robot can arrive on its side. */
+  const flipUp = useCallback(() => {
+    const obj = current.current;
+    if (!obj) return;
+    const next = !zUp;
+    obj.rotation.x = next ? -Math.PI / 2 : 0;
+    setZUp(next);
+    frame(obj, label);
+  }, [zUp, label, frame]);
+
+  /** A PNG of the current view, for the engineering notebook. */
+  const capture = useCallback(() => {
+    const gl = renderer.current, sc = scene.current, cam = camera.current;
+    if (!gl || !sc || !cam) return;
+    gl.render(sc, cam);                       // guarantee a fresh frame
+    const a = document.createElement('a');
+    a.href = gl.domElement.toDataURL('image/png');
+    a.download = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    a.click();
+  }, [label]);
 
   /** An 18in chassis, so the page is not empty before a real export exists. */
   const sample = useCallback(() => {
     const g = new THREE.Group();
     const railMat = new THREE.MeshStandardMaterial({ color: 0x4a90e2, metalness: 0.35, roughness: 0.45 });
     const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1d2b33, metalness: 0.2, roughness: 0.8 });
-    const s = 18 * UNITS_PER_INCH, t = 1.5 * UNITS_PER_INCH, h = 4 * UNITS_PER_INCH;
+    // 14in frame with 2in wheels at the corners, which puts the real bounding
+    // box just inside 18. The first version used an 18in frame and I labelled
+    // it "18.0 x 18.0" by hand — the wheels stuck out to 20.1 x 22.0 and the
+    // check caught it, which is the whole point of the check.
+    const s = 14 * UNITS_PER_INCH, t = 1.5 * UNITS_PER_INCH, h = 4 * UNITS_PER_INCH;
     for (const [x, z, w, d] of [[0, -s / 2, s, t], [0, s / 2, s, t], [-s / 2, 0, t, s], [s / 2, 0, t, s]]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(w, t, d), railMat);
       rail.position.set(x, h, z); g.add(rail);
@@ -140,8 +202,7 @@ export default function CadViewer() {
       wheel.rotation.z = Math.PI / 2;
       wheel.position.set(x, r, z); g.add(wheel);
     }
-    frame(g, 'Sample chassis');
-    setDims('18.0 × 18.0 × 4.8 in — placeholder, not your robot');
+    frame(g, 'Sample chassis (placeholder, not your robot)');
   }, [frame]);
 
   useEffect(() => {
@@ -207,6 +268,11 @@ export default function CadViewer() {
           Open a model
         </label>
         <button type="button" onClick={sample}>Sample chassis</button>
+        <button type="button" onClick={flipUp} aria-pressed={zUp}
+          title="Onshape exports Z-up; three.js is Y-up. Use this if the robot arrives on its side.">
+          {zUp ? 'Y-up' : 'Z-up'}
+        </button>
+        <button type="button" onClick={capture}>Save a PNG</button>
         {models.map((m) => (
           <button key={m.file} type="button"
             onClick={() => load(`/cad/${m.file}`, m.name, m.file.toLowerCase().endsWith('.stl'))}
@@ -215,6 +281,49 @@ export default function CadViewer() {
           </button>
         ))}
       </div>
+
+      {checks && (
+        <section className="cad__check" aria-live="polite">
+          <header>
+            <h2>Sizing</h2>
+            <span className={checks.every((c) => c.pass) ? 'cad__verdict cad__verdict--ok' : 'cad__verdict cad__verdict--bad'}>
+              {checks.every((c) => c.pass) ? 'Fits' : 'Over'}
+            </span>
+          </header>
+
+          <table>
+            <thead><tr><th>Axis</th><th>Model</th><th>Limit</th><th>Margin</th></tr></thead>
+            <tbody>
+              {checks.map((c) => (
+                <tr key={c.axis} className={c.pass ? '' : 'cad__row--bad'}>
+                  <td>{c.label}</td>
+                  <td>{c.actual.toFixed(2)} in</td>
+                  <td>
+                    <input
+                      type="number" min={1} max={200} step={0.5} value={c.limit}
+                      aria-label={`${c.label} limit in inches`}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isFinite(v) && v > 0) setLimit((l) => ({ ...l, [c.axis]: v }));
+                      }}
+                    />
+                  </td>
+                  <td>{c.pass ? `${(c.limit - c.actual).toFixed(2)} in spare` : `${c.over.toFixed(2)} in over`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Never let this be mistaken for the rule itself. */}
+          <p className="cad__prov">
+            {LIMIT_SOURCE.provisional ? 'Checked against ' : 'Rule: '}
+            <strong>{LIMIT_SOURCE.label}</strong>, editable above. {LIMIT_SOURCE.note}{' '}
+            <a href="/ask?q=what%20are%20the%20robot%20sizing%20rules%20for%20inspection">
+              Ask Sharp AI what the manual says →
+            </a>
+          </p>
+        </section>
+      )}
 
       <p className="cad__note">
         Drag a <code>.glb</code>, <code>.gltf</code> or <code>.stl</code> straight onto the

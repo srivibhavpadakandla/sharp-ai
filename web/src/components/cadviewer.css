@@ -54,3 +54,32 @@
 }
 
 @media (prefers-reduced-motion: reduce) { .cad__stage { cursor: default; } }
+
+/* --- sizing check --------------------------------------------------------- */
+.cad__check { border: 1px solid var(--rule); border-radius: var(--r-md); padding: 0.9rem 1rem; }
+.cad__check header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.7rem; }
+.cad__check h2 { font-size: 0.95rem; margin: 0; }
+.cad__verdict {
+  font-family: var(--type-mono); font-size: 0.7rem; letter-spacing: 0.04em;
+  text-transform: uppercase; border-radius: 999px; padding: 0.1rem 0.55rem;
+  border: 1px solid currentColor;
+}
+.cad__verdict--ok { color: var(--accent); }
+.cad__verdict--bad { color: #e08b6b; }
+
+.cad__check table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+.cad__check th {
+  text-align: left; font-weight: 500; font-size: 0.7rem; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-3); padding-bottom: 0.35rem;
+}
+.cad__check td { padding: 0.28rem 0.6rem 0.28rem 0; border-top: 1px solid var(--rule); font-family: var(--type-mono); }
+.cad__check td:first-child { font-family: var(--type-sans); }
+.cad__row--bad td { color: #e08b6b; }
+.cad__check input {
+  width: 5rem; font: inherit; font-family: var(--type-mono);
+  background: transparent; color: inherit;
+  border: 1px solid var(--rule-strong); border-radius: var(--r-sm); padding: 0.05rem 0.35rem;
+}
+.cad__check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cad__prov { font-size: 0.78rem; color: var(--ink-3); margin: 0.75rem 0 0; max-width: 70ch; }
+.cad__prov a { color: var(--accent); }

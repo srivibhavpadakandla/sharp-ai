@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import UsageMeter from './UsageMeter';
 import Mascot from './Mascot';
 import { API_BASE } from '../lib/config';
@@ -224,11 +224,27 @@ export default function ChatThread({
     return () => root.removeEventListener('click', onClick);
   }, [focusSource, active]);
 
-  const grow = (el: HTMLTextAreaElement | null) => {
+  // The composer grows with what you write, up to a share of the window, then
+  // scrolls inside itself. Driven by an effect on `draft` rather than by the
+  // change handler alone, so it also shrinks back when a message is sent — the
+  // old version only ever grew, leaving a tall empty box after a long question.
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = composerRef.current;
     if (!el) return;
+    const cap = expanded
+      ? Math.round(window.innerHeight * 0.62)
+      : Math.min(Math.round(window.innerHeight * 0.38), 360);
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
-  };
+    const wanted = el.scrollHeight;
+    el.style.height = `${Math.min(wanted, cap)}px`;
+    // Offer the taller mode only once there is more text than the normal
+    // composer can show; a control that does nothing is worse than no control.
+    setCanExpand(wanted > Math.min(Math.round(window.innerHeight * 0.38), 360) - 4);
+    if (!draft) setExpanded(false);
+  }, [draft, expanded]);
 
   // Sources are known as soon as retrieval returns, but showing them before a
   // single word of the answer reads as though the citations came first and the
@@ -279,7 +295,7 @@ export default function ChatThread({
               value={draft}
               disabled={busy}
               placeholder={turns.length ? 'Ask a follow-up…' : 'Ask about your FTC robot…'}
-              onChange={(e) => { setDraft(e.target.value); grow(e.target); }}
+              onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -288,6 +304,24 @@ export default function ChatThread({
               }}
               aria-label="Ask a question"
             />
+            {canExpand && (
+              <button
+                type="button"
+                className="composer__expand"
+                onClick={() => setExpanded((v) => !v)}
+                aria-pressed={expanded}
+                aria-label={expanded ? 'Shrink the box' : 'Expand the box'}
+                title={expanded ? 'Shrink' : 'Expand'}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                  {expanded
+                    ? <path d="M6 1v5H1M8 13V8h5" fill="none" stroke="currentColor"
+                        strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    : <path d="M1 6V1h5M13 8v5H8" fill="none" stroke="currentColor"
+                        strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
+                </svg>
+              </button>
+            )}
             <button type="submit" disabled={busy || !draft.trim()} aria-label="Send">
               <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor"

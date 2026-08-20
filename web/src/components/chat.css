@@ -146,6 +146,16 @@
   backdrop-filter: blur(8px);
   padding: 0.9rem var(--gutter) 1rem;
 }
+.composer__expand {
+  flex: none; align-self: flex-start;
+  display: grid; place-items: center;
+  width: 1.7rem; height: 1.7rem; margin-top: -0.15rem;
+  border: 1px solid transparent; border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-3); cursor: pointer;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+.composer__expand:hover { color: var(--ink); border-color: var(--rule-strong); }
+
 .composer__field {
   position: relative;
   display: flex; align-items: flex-end; gap: 0.5rem;
@@ -173,20 +183,23 @@
 .composer textarea {
   flex: 1; border: 0; outline: 0; resize: none; background: transparent;
   font-family: var(--type-sans); font-size: 0.98rem; line-height: 1.5;
-  color: var(--ink); padding: 0; max-height: 200px; overflow-y: auto;
+  /* Height is set inline as you type; this is only the floor and the scroll
+     behaviour once the box has reached its cap. */
+  color: var(--ink); padding: 0; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent;
 }
 .composer textarea::placeholder { color: var(--ink-4); }
 .composer textarea:disabled { opacity: 0.55; }
 
-.composer button {
+.composer button:not(.composer__expand) {
   flex: none; display: grid; place-items: center;
   width: 2.15rem; height: 2.15rem;
   border: 0; background: var(--grad-warm); color: #fff;
   border-radius: var(--r-pill); cursor: pointer;
   transition: background 0.18s var(--ease), opacity 0.18s var(--ease);
 }
-.composer button:hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
-.composer button:disabled { opacity: 0.28; cursor: default; }
+.composer button:not(.composer__expand):hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
+.composer button:not(.composer__expand):disabled { opacity: 0.28; cursor: default; }
 
 .composer__note {
   margin: 0.55rem 0 0;

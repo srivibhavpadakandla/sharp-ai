@@ -6,7 +6,12 @@
 .chat {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  height: calc(100dvh - var(--header-h));
+  /* min-height, not height. This used to be a fixed viewport-tall box with the
+     conversation scrolling inside it, so a long answer ran off the end of its
+     own pane and had to be scrolled back through by hand. The thread now grows
+     and the page scrolls; the composer and the rail stick instead. */
+  min-height: calc(100dvh - var(--header-h));
+  align-items: start;
   border-top: 1px solid var(--rule);
 }
 
@@ -15,21 +20,21 @@
   flex-direction: column;
   min-width: 0;
   border-right: 1px solid var(--rule);
-  overflow: hidden;
 }
 
 .chat__turns {
   flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: 2rem var(--gutter) 1rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--rule-strong) transparent;
 }
 
 .chat__rail {
   background: var(--paper-sunk);
   padding: 0 var(--gutter) 2rem;
+  /* Sticks beside the thread now that the page is what scrolls, so the sources
+     stay level with the claim you are reading. */
+  position: sticky;
+  top: var(--header-h);
+  max-height: calc(100dvh - var(--header-h));
   overflow-y: auto;
   overscroll-behavior: contain;
   min-width: 0;
@@ -54,10 +59,13 @@
 .chat__railempty { font-size: 0.84rem; color: var(--ink-3); max-width: 26ch; }
 
 @media (max-width: 62rem) {
-  .chat { grid-template-columns: 1fr; height: auto; }
+  .chat { grid-template-columns: 1fr; min-height: 0; }
   .chat__thread { border-right: 0; }
-  .chat__turns { overflow: visible; }
-  .chat__rail { border-top: 1px solid var(--rule); padding-top: 0.5rem; }
+  /* Stacked below the thread, so there is nothing to stick to. */
+  .chat__rail {
+    position: static; max-height: none; overflow: visible;
+    border-top: 1px solid var(--rule); padding-top: 0.5rem;
+  }
 }
 
 /* --- empty state --------------------------------------------------------- */
@@ -129,6 +137,10 @@
 /* --- composer ------------------------------------------------------------ */
 .composer {
   flex: none;
+  /* Stays reachable without scrolling to the end of a long conversation. */
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
   border-top: 1px solid var(--rule);
   background: color-mix(in srgb, var(--paper) 92%, transparent);
   backdrop-filter: blur(8px);

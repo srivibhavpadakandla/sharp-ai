@@ -169,14 +169,29 @@ export default function ChatThread({
   // once when a turn was appended, then the answer streamed in underneath and
   // ended up hidden behind the composer. Only auto-follows when the reader is
   // already near the bottom, so scrolling up to re-read is not yanked back.
+  //
+  // The page is the scroller, not the thread. This used to call scrollTo on
+  // .chat__thread, which is not scrollable — so following silently did nothing
+  // and every long answer had to be scrolled back through by hand.
   const streamedChars = turns.reduce((n, t) => n + t.answer.length + t.beyond.length, 0);
   useEffect(() => {
-    const el = threadRef.current;
-    if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 220;
+    const doc = document.documentElement;
+    const nearBottom = doc.scrollHeight - window.scrollY - window.innerHeight < 240;
     if (!nearBottom && turns.length === lastCount.current) return;
+
+    const isNewTurn = turns.length !== lastCount.current;
     lastCount.current = turns.length;
-    el.scrollTo({ top: el.scrollHeight, behavior: turns.length > 1 ? 'smooth' : 'auto' });
+
+    // A new question goes to the top of the view rather than the bottom of the
+    // page: you want to read the answer from its first line, not watch it
+    // arrive from underneath the composer.
+    const target = isNewTurn && turns.length > 1
+      ? threadRef.current?.querySelector<HTMLElement>('[data-turn]:last-of-type')
+      : null;
+    const top = target
+      ? target.getBoundingClientRect().top + window.scrollY - 12
+      : doc.scrollHeight;
+    window.scrollTo({ top, behavior: turns.length > 1 ? 'smooth' : 'auto' });
   }, [turns.length, streamedChars]);
 
   useEffect(() => { setActive(Math.max(0, turns.length - 1)); }, [turns.length]);

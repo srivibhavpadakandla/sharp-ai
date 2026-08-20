@@ -18,27 +18,5 @@ import CadViewer from '../components/CadViewer.tsx';
 
     <CadViewer client:only="react" />
 
-    <h2>Why this rather than an embedded Onshape</h2>
-    <p>
-      Onshape is proprietary, and its integration story runs the other way: it supports
-      putting an app <em>inside</em> Onshape, not putting Onshape inside another site.
-      Nothing here is a copy of it. The geometry is ours, so exporting it and showing it
-      under our own branding is straightforwardly allowed — and it works for anyone with
-      a browser, which an embed would not.
-    </p>
-
-    <h2>Getting a model out of Onshape</h2>
-    <p>
-      Right-click a Part Studio or Assembly tab and choose <strong>Export</strong>, with
-      the format set to <strong>glTF</strong> or <strong>STL</strong>. Drop the file on the
-      view above and it appears immediately. Nothing is uploaded — the file is read in your
-      browser and never leaves the machine, so an unreleased design stays private.
-    </p>
-    <p>
-      To put a model on this page for the whole team, commit it to
-      <code>web/public/cad/</code> and add an entry to <code>manifest.json</code>. There is
-      also <code>scripts/onshape-export.mjs</code>, which pulls an export straight from the
-      Onshape API if you have developer keys.
-    </p>
   </section>
 </Base>

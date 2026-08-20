@@ -18,5 +18,116 @@ import CadViewer from '../components/CadViewer.tsx';
 
     <CadViewer client:only="react" />
 
+    <div class="cadref">
+      <h2>What Onshape can actually do</h2>
+      <p class="cadref__intro">
+        The viewer above shows finished geometry. This is the feature set that produced
+        it. Onshape is free for FTC teams and runs in a browser, which is why it is the
+        practical default, but the features below exist under the same names in Fusion,
+        SolidWorks and Inventor. Ask Sharp about any of them.
+      </p>
+
+      <div class="cadref__grid">
+        <section class="cadref__group">
+          <h3>Core CAD</h3>
+          <dl>
+            <dt>Part Studios</dt><dd>One space holding several related parts, so mating faces are built from the same sketch and cannot disagree.</dd>
+            <dt>Parametric modelling</dt><dd>The model is a recipe rather than a drawing. Change an early number and everything downstream rebuilds.</dd>
+            <dt>Sketching</dt><dd>2D profiles locked down by dimensions and constraints. A sketch that is not fully defined moves when you edit it.</dd>
+          </dl>
+        </section>
+
+        <section class="cadref__group">
+          <h3>Creating solids</h3>
+          <dl>
+            <dt>Extrude</dt><dd>Push a closed sketch a distance. Plates, brackets, blocks, and every hole cut in reverse.</dd>
+            <dt>Revolve</dt><dd>Spin a profile about an axis. Shafts, spools, pulleys, spacers.</dd>
+            <dt>Sweep</dt><dd>Drag a profile along a path. Tube runs, bent brackets, belt clearance.</dd>
+            <dt>Loft</dt><dd>Blend between different profiles. Transitions, funnels, tapered guides.</dd>
+          </dl>
+        </section>
+
+        <section class="cadref__group">
+          <h3>Modifying solids</h3>
+          <dl>
+            <dt>Fillet</dt><dd>Round an edge. Internal corners for strength, external corners for hands and wiring.</dd>
+            <dt>Chamfer</dt><dd>Cut an angled edge. Lead-ins on shafts and bores, and easier to machine than a fillet.</dd>
+            <dt>Shell</dt><dd>Hollow a solid to a wall thickness. Fails when the wall exceeds the smallest internal radius.</dd>
+            <dt>Draft</dt><dd>Angle a face so it releases from a mould, or so an overhang prints without support.</dd>
+            <dt>Rib</dt><dd>A thin web that stiffens exactly along the line where a part bends, for very little mass.</dd>
+            <dt>Hole</dt><dd>A specified hole carrying clearance or tap size, counterbore and depth. Not an extruded circle.</dd>
+          </dl>
+        </section>
+
+        <section class="cadref__group">
+          <h3>Repeating and combining</h3>
+          <dl>
+            <dt>Patterns</dt><dd>Linear, circular and curve. One edit updates every instance, which a copy does not.</dd>
+            <dt>Boolean operations</dt><dd>Union, subtract, intersect. Subtracting a modelled envelope is how clearance is guaranteed.</dd>
+            <dt>Mirror</dt><dd>Reflect about a datum plane. Half a robot is usually the mirror of the other half.</dd>
+            <dt>Transform</dt><dd>Translate, rotate or copy whole bodies. For positioning finished parts, not for building them.</dd>
+            <dt>Move face</dt><dd>Push or rotate a face without editing its sketch. For geometry whose dimensions you cannot reach.</dd>
+          </dl>
+        </section>
+
+        <section class="cadref__group">
+          <h3>Geometry you did not author</h3>
+          <dl>
+            <dt>Direct editing</dt><dd>Editing shape that has no feature history, such as a vendor STEP file.</dd>
+            <dt>Imported geometry</dt><dd>STEP carries exact geometry and is what you want. STL is triangles, so never dimension from it.</dd>
+            <dt>Surface modelling</dt><dd>Zero-thickness geometry, then thickened. Right for sheet material and for repairing imports.</dd>
+            <dt>Mesh workflows</dt><dd>Scans and downloaded STLs are reference for bulk and clearance, not a parametric model.</dd>
+          </dl>
+        </section>
+
+        <section class="cadref__group">
+          <h3>Driving the model</h3>
+          <dl>
+            <dt>Variables</dt><dd>A named value defined once and used everywhere, so a tolerance change is one line.</dd>
+            <dt>Expressions</dt><dd>Arithmetic in a dimension field. Records the relationship rather than today's answer.</dd>
+            <dt>Equations</dt><dd>One dimension driving another, so a longer rail gains the right number of holes by itself.</dd>
+            <dt>Reference geometry</dt><dd>Planes and axes. Construction scaffolding with no mass that features can safely attach to.</dd>
+          </dl>
+        </section>
+      </div>
+
+      <p class="cadref__foot">
+        Each of these is taught properly, with exercises, in
+        <a href="https://sharpfacerobotics.github.io/telemark/mechanical/module-05" rel="noopener">Telemark Module 5</a>.
+      </p>
+    </div>
+
   </section>
 </Base>
+
+<style>
+  .cadref { margin-top: 3.5rem; border-top: 1px solid var(--rule); padding-top: 2.5rem; }
+  .cadref h2 { margin: 0 0 0.75rem; }
+  .cadref__intro { color: var(--ink-2); max-width: var(--measure); margin: 0 0 2.25rem; }
+
+  .cadref__grid {
+    display: grid; gap: 2rem 2.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  }
+
+  .cadref__group h3 {
+    font-family: var(--type-mono);
+    font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 0.9rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .cadref__group dl { margin: 0; }
+  .cadref__group dt {
+    font-weight: 600; color: var(--ink);
+    margin-top: 0.95rem;
+  }
+  .cadref__group dt:first-of-type { margin-top: 0; }
+  .cadref__group dd {
+    margin: 0.2rem 0 0; color: var(--ink-3);
+    font-size: 0.94rem; line-height: 1.5;
+  }
+
+  .cadref__foot { margin-top: 2.5rem; color: var(--ink-3); }
+</style>

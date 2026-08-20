@@ -28,6 +28,11 @@ const PATH_RULES = [
 ];
 
 const TITLE_RULES = [
+  // CAD runs first because its vocabulary overlaps everything else. "CAD a
+  // motor mount" matched the electronics rule on the word "motor" and filed
+  // itself under Electronics; "modelling a servo bracket" did the same. A CAD
+  // document is about the modelling, whatever component it happens to model.
+  [/onshape|solidworks|fusion ?360|\bcad\b|part ?studio|parametric|sketch|extrud|revolve|loft|fillet|chamfer|\bshell\b|\bdraft\b|\brib\b|mate ?connector|feature ?tree|assembl/i, 'build'],
   [/odometry|dead ?wheel|localiz|pose|road ?runner|pinpoint/i, 'odometry'],
   [/drivetrain|mecanum|tank drive|x-?drive|swerve|strafe/i, 'drivetrains'],
   [/intake|transfer|claw|turret|gripper/i, 'intakes'],

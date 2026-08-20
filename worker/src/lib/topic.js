@@ -28,10 +28,40 @@ const WEAK = [
   'wheel', 'chassis', 'gear', 'belt', 'chain', 'bearing', 'shaft',
   'torque', 'rpm', 'battery', 'wiring', 'sensor', 'gyro', 'vision', 'camera',
   'intake', 'claw', 'arm', 'lift', 'linkage', 'slide', 'tune', 'tuning',
-  'pid', 'sdk', 'java', 'code', 'program', 'build', 'cad', 'field', 'match',
+  'pid', 'sdk', 'java', 'code', 'program', 'build', 'field', 'match',
   'team', 'competition', 'inspection', 'notebook', 'judging', 'award', 'drive',
   'spline', 'path', 'pose', 'heading', 'tick', 'ramp', 'stall', 'brownout',
   'auto', 'preload', 'park', 'cycle', 'score', 'strafing', 'gamepad',
+];
+
+/**
+ * CAD vocabulary, kept separate because it was the classifier's blind spot.
+ *
+ * "cad" alone was a WEAK term, so "how do I loft between two profiles" or
+ * "what is a part studio" scored zero and was refused as off topic. These are
+ * exactly the questions a rookie asks, and they are on topic every time.
+ *
+ * Split by ambiguity, not by importance. A word goes in STRONG only if it is
+ * essentially never used outside CAD; anything with an ordinary English sense
+ * (shell, draft, hole, mirror, pattern, plane, sketch, loft) stays WEAK so it
+ * still needs company before it decides.
+ */
+const CAD_STRONG = [
+  'onshape', 'solidworks', 'fusion ?360', 'part ?studio', 'mate ?connector',
+  'feature ?tree', 'feature ?list', 'fully ?defined', 'parametric',
+  'extrud', 'chamfer', 'counterbore', 'countersink', 'tap ?drill',
+  'clearance hole', 'mid-?plane', 'datum', 'stl', 'step ?file',
+];
+
+const CAD_WEAK = [
+  'cad', 'sketch', 'revolve', 'sweep', 'loft', 'fillet', 'shell', 'draft',
+  'rib', 'hole', 'pattern', 'profile', 'boolean', 'union', 'subtract', 'intersect',
+  'mirror', 'transform', 'move face', 'direct edit', 'imported', 'import',
+  'surface', 'mesh', 'thicken', 'variable', 'expression', 'equation',
+  'plane', 'axis', 'axes', 'assembly', 'mate', 'model', 'part', 'constraint',
+  'dimension', 'wall thickness', 'bolt circle', 'angle', 'bracket', 'plate',
+  'spacer', 'standoff', 'tolerance', 'clearance', 'corner', 'edge', 'face',
+  'body', 'geometry', 'reference', 'radius', 'diameter', 'thickness',
 ];
 
 /** Small talk and questions about the site itself. */
@@ -48,8 +78,8 @@ const META = [
 ];
 
 const build = (list) => new RegExp('\\b(' + list.join('|') + ')', 'gi');
-const STRONG_RE = build(STRONG);
-const WEAK_RE = build(WEAK);
+const STRONG_RE = build([...STRONG, ...CAD_STRONG]);
+const WEAK_RE = build([...WEAK, ...CAD_WEAK]);
 
 const count = (re, s) => {
   re.lastIndex = 0;

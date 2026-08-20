@@ -295,7 +295,7 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null, intent = 'lookup' }) {
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
   const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, uncovered, liveBlock, intent });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
@@ -388,6 +388,10 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
       if (!payload || payload === '[DONE]') continue;
       let json;
       try { json = JSON.parse(payload); } catch { continue; }
+      // Gemini reports usage on the chunks, cumulatively, so the last one wins.
+      // Handed to a callback rather than returned: a generator's return value is
+      // discarded by `for await`, which is how every caller consumes this.
+      if (json?.usageMetadata && onUsage) { try { onUsage(json.usageMetadata); } catch { /* never break the stream for accounting */ } }
       const parts = json?.candidates?.[0]?.content?.parts || [];
       for (const p of parts) if (typeof p.text === 'string' && p.text) yield p.text;
     }

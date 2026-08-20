@@ -24,6 +24,7 @@ import { needsEscalation, planSearch, rerank } from './agent.js';
 import { isCodeRequest, validateCode } from './codegen.js';
 import { verifyCitations } from './citecheck.js';
 import { checkRateLimit, reserveLlmCall, llmUsage, ipUsage } from './ratelimit.js';
+import { readUsage, recordTokens, tokenReport } from './lib/tokens.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
 import {
   readCache, writeAnswer, getAnswerBySlug, hydrateAnswerRow, logQuery, sha256hex, cacheKeyFor,
@@ -426,10 +427,24 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered, liveBlock, intent })) {
+      // What the call actually cost, per Gemini. Folded into today's row after
+      // the answer is written, so accounting can never delay or fail a reply.
+      let usageMeta = null;
+      const onUsage = (m) => { usageMeta = m; };
+
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered, liveBlock, intent, onUsage })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());
+
+      // Awaited, NOT ctx.waitUntil: this runs inside the pump, which is itself
+      // already a waitUntil task running after the handler returned. Registering
+      // a new one there throws, and the pump's catch swallowed it — which also
+      // skipped the answer save below. recordTokens never throws on its own.
+      const spent = readUsage(usageMeta);
+      if (spent) {
+        await recordTokens(env, isCode ? 'code' : isError ? 'error' : 'answer', spent);
+      }
 
       // A generation that produced essentially nothing is a failure, not an
       // answer. Falling through would show an empty page and cache it.
@@ -676,16 +691,18 @@ async function handleSitemap(request, env) {
 
 async function handleHealth(request, env) {
   const cors = corsHeaders(env, request);
-  const [chunkRow, answerRow, usage] = await Promise.all([
+  const [chunkRow, answerRow, usage, tokens] = await Promise.all([
     env.DB.prepare('SELECT count(*) AS n FROM chunks').first().catch(() => null),
     env.DB.prepare('SELECT count(*) AS n FROM answers').first().catch(() => null),
     llmUsage(env).catch(() => null),
+    tokenReport(env).catch(() => null),
   ]);
   return json({
     ok: true,
     chunks: chunkRow?.n ?? null,
     answers: answerRow?.n ?? null,
     llm: usage,
+    tokens,
     bindings: {
       d1: !!env.DB, vectorize: !!env.VECTORIZE, ai: !!env.AI,
       cache: !!env.CACHE, rate: !!env.RATE,

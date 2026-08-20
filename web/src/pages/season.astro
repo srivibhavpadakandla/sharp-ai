@@ -1,0 +1,86 @@
+---
+import Base from '../layouts/Base.astro';
+import { SEASON, ANGLES } from '../lib/season';
+import { API_BASE } from '../lib/config';
+
+// Read live rather than baked in: the moment the manual is re-ingested after
+// kickoff, this page stops saying the game is unpublished.
+let manual: any = null;
+try {
+  const r = await fetch(`${API_BASE}/api/manual`);
+  if (r.ok) manual = await r.json();
+} catch { /* the page is still worth serving without it */ }
+
+const published = manual?.gamePublished ?? false;
+const sections = manual?.sectionCount ?? null;
+---
+<Base
+  title={`${SEASON.game} ${SEASON.years} — Sharp AI`}
+  description={`What the ${SEASON.years} FIRST Tech Challenge manual actually says so far about ${SEASON.game}, and what a team can act on before the game is revealed.`}
+>
+  <section class="wrap prose-page">
+    <p class="eyebrow">Season</p>
+    <h1>{SEASON.game}, before the game.</h1>
+    <p class="lede">
+      {SEASON.years} is <strong>{SEASON.first}</strong>, and the <em>FIRST</em> Tech Challenge game
+      inside it is <strong>{SEASON.game}</strong> presented by {SEASON.presentedBy}. {SEASON.theme}
+    </p>
+
+    <div class="season__status">
+      <p class={published ? 'season__flag season__flag--live' : 'season__flag'}>
+        {published ? 'Game rules published' : 'Game rules not published yet'}
+      </p>
+      <p>
+        {published
+          ? 'The manual now carries the game sections. Re-run the questions below — the answers are generated from the index, so they reflect the published rules.'
+          : 'The manual is at V0. Sections on the game itself are placeholders until kickoff, so nobody — including this site — knows what BIOBUZZ is yet. Anything you read claiming otherwise is guessing.'}
+        {sections && ` ${sections} sections are indexed today.`}
+      </p>
+    </div>
+
+    <h2>What is already settled</h2>
+    <p>
+      The useful thing about a V0 manual is that a lot of it is not provisional. The robot
+      construction rules, the motor and actuator limits, the control system, inspection,
+      advancement and every judged award are published in full. They constrain your design and
+      your season plan right now, whatever the game turns out to be — which is why the questions
+      below are worth asking in August rather than in September.
+    </p>
+
+    <ol class="season__angles">
+      {ANGLES.map((a) => (
+        <li>
+          <a href={`/ask?q=${encodeURIComponent(a.q)}`}>{a.q}</a>
+          <p>{a.why}</p>
+        </li>
+      ))}
+    </ol>
+
+    <p class="season__note">
+      Each question runs through the normal ask flow, so every claim comes back with the manual
+      section behind it. This page deliberately contains no analysis of its own: an unsourced
+      opinion about an unreleased game is exactly the thing this site exists not to produce.
+    </p>
+  </section>
+</Base>
+
+<style>
+  .season__status {
+    border: 1px solid var(--rule); border-radius: var(--r-md);
+    padding: 0.9rem 1.1rem; margin: 1.6rem 0 2rem;
+  }
+  .season__status p { margin: 0; font-size: 0.9rem; color: var(--ink-2); }
+  .season__flag {
+    font-family: var(--type-mono); font-size: 0.72rem; letter-spacing: 0.05em;
+    text-transform: uppercase; color: #e0a06b; margin-bottom: 0.4rem !important;
+  }
+  .season__flag--live { color: var(--accent); }
+
+  .season__angles { margin: 1.4rem 0 0; padding-left: 1.1rem; display: grid; gap: 1.1rem; }
+  .season__angles li::marker { color: var(--ink-3); font-family: var(--type-mono); font-size: 0.8rem; }
+  .season__angles a { font-size: 1rem; color: var(--ink); border-bottom: 1px solid var(--rule-strong); }
+  .season__angles a:hover { color: var(--accent); border-color: var(--accent); }
+  .season__angles p { margin: 0.3rem 0 0; font-size: 0.86rem; color: var(--ink-3); max-width: 62ch; }
+
+  .season__note { margin-top: 2rem; font-size: 0.84rem; color: var(--ink-3); max-width: 66ch; }
+</style>

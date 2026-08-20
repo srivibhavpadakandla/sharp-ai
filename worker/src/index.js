@@ -689,6 +689,43 @@ async function handleSitemap(request, env) {
   return json({ slugs: results || [] }, {}, cors);
 }
 
+/**
+ * What the indexed Competition Manual actually contains for this season.
+ *
+ * The season page needs to say plainly which parts of the manual exist and
+ * which are still placeholders, and that answer changes the moment the manual
+ * is re-ingested after kickoff. Reading it from the index rather than hardcoding
+ * it means the page cannot claim the game is unpublished after it is published.
+ */
+async function handleManual(request, env) {
+  const cors = corsHeaders(env, request);
+  const rows = await env.DB.prepare(
+    `SELECT section_title AS title, source_url AS url, sum(char_len) AS chars
+       FROM chunks WHERE source_name = 'FTC Competition Manual'
+      GROUP BY section_title ORDER BY min(ordinal)`,
+  ).all().catch(() => null);
+
+  const sections = rows?.results || [];
+  // The game itself lives in the scoring/robot sections. If none of them are in
+  // the index, the game has not been published yet.
+  // Deliberately narrow. Section 12's construction rules are published while
+  // the game itself is not, so matching "robot" or "match" would claim the game
+  // had dropped when only the rules around it had.
+  const GAME = /(game rules|scoring|randomi|field setup|game overview)/i;
+  const gameSections = sections.filter((s) => GAME.test(s.title));
+
+  return json({
+    season: '2026-2027',
+    name: 'BIOBUZZ',
+    presentedBy: 'RTX',
+    sections: sections.map((s) => ({ title: s.title, chars: s.chars })),
+    sectionCount: sections.length,
+    gamePublished: gameSections.length > 0,
+    gameSections: gameSections.map((s) => s.title),
+    manualUrl: sections[0]?.url || 'https://ftc-resources.firstinspires.org/ftc/game/manual',
+  }, {}, cors);
+}
+
 async function handleHealth(request, env) {
   const cors = corsHeaders(env, request);
   const [chunkRow, answerRow, usage, tokens] = await Promise.all([
@@ -739,6 +776,7 @@ export default {
         return json({ you, pool }, {}, { ...cors, 'cache-control': 'no-store' });
       }
       if (p === '/api/sitemap') return handleSitemap(request, env);
+      if (p === '/api/manual') return handleManual(request, env);
       if (p === '/api/health' || p === '/') return handleHealth(request, env);
 
       return json({ error: 'not-found' }, { status: 404 }, cors);

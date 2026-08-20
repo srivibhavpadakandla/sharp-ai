@@ -171,12 +171,13 @@
 .composer__field::after {
   content: ''; position: absolute; inset: -1px; border-radius: calc(var(--r-lg) + 1px); padding: 1px;
   background: var(--grad-warm);
-  opacity: 0.55;
   background-size: 220% 100%;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
+  /* Hidden until focus on purpose: at rest the composer carries the same
+     neutral border as every other field, and the gradient is the focus state. */
   opacity: 0; transition: opacity 0.3s var(--ease); pointer-events: none;
 }
 .composer__field:focus-within { border-color: transparent; }
@@ -252,7 +253,12 @@
 .chat--norail { grid-template-columns: minmax(0, 1fr); }
 .chat--norail .chat__thread { border-right: 0; }
 .chat--norail .chat__turns { max-width: 52rem; margin-inline: auto; width: 100%; }
-.chat--norail .composer { max-width: 52rem; margin-inline: auto; width: 100%; }
+/* The bar spans the width; only its contents are centred. Constraining the
+   element itself gave it a visible left and right edge, so with no sources rail
+   the composer read as a floating card on an empty page rather than a bar. */
+.chat--norail .composer__field,
+.chat--norail .usage,
+.chat--norail .composer__note { max-width: 52rem; margin-inline: auto; width: 100%; }
 
 .composer__note a { color: var(--ink-3); border-bottom: 1px solid var(--rule-strong); }
 .composer__note a:hover { color: var(--accent); }

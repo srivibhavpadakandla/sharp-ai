@@ -33,8 +33,15 @@
   --accent-deep: #4fc38a;
   --accent-wash: rgba(110, 219, 154, 0.10);
 
+  /* The only warm colour on the site, and it means one thing: a check failed.
+     Never decorative — if it is warm, something is wrong. */
+  --warn:      #e08b6b;
+  --warn-wash: rgba(224, 139, 107, 0.12);
+
   /* The logo gradient. Blue through cyan into green, used for the wordmark,
-     emphasis type, buttons and the ambient wash. */
+     emphasis type, buttons and the ambient wash. Named "warm" from an earlier
+     palette that no longer exists; it is the site's one gradient. Anything
+     drawing its own is a bug — the composer border was doing exactly that. */
   --grad-warm: linear-gradient(112deg, #4a90e2 0%, #4fc3e8 34%, #6edb9a 68%, #9be870 100%);
   --grad-soft: linear-gradient(112deg,
       rgba(74, 144, 226, 0.20) 0%,

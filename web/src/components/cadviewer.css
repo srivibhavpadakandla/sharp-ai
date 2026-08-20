@@ -65,7 +65,7 @@
   border: 1px solid currentColor;
 }
 .cad__verdict--ok { color: var(--accent); }
-.cad__verdict--bad { color: #e08b6b; }
+.cad__verdict--bad { color: var(--warn); }
 
 .cad__check table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
 .cad__check th {
@@ -74,7 +74,7 @@
 }
 .cad__check td { padding: 0.28rem 0.6rem 0.28rem 0; border-top: 1px solid var(--rule); font-family: var(--type-mono); }
 .cad__check td:first-child { font-family: var(--type-sans); }
-.cad__row--bad td { color: #e08b6b; }
+.cad__row--bad td { color: var(--warn); }
 .cad__check input {
   width: 5rem; font: inherit; font-family: var(--type-mono);
   background: transparent; color: inherit;

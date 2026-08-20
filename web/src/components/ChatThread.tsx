@@ -205,7 +205,7 @@ export default function ChatThread({
       const pane = railRef.current;
       if (!el || !pane) return;
       pane.scrollTo({ top: el.offsetTop - pane.offsetTop - 8, behavior: 'smooth' });
-      el.animate?.([{ backgroundColor: 'rgba(176,82,44,0.14)' }, { backgroundColor: 'transparent' }],
+      el.animate?.([{ backgroundColor: 'rgba(110,219,154,0.14)' }, { backgroundColor: 'transparent' }],
         { duration: 1000, easing: 'cubic-bezier(0.22,0.61,0.24,1)' });
     });
   }, []);

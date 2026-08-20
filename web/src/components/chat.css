@@ -165,11 +165,13 @@
   padding: 0.85rem 0.85rem 0.85rem 1.25rem;
   transition: border-color 0.24s var(--ease);
 }
-/* The one borrowed gradient, reused here so the site has exactly one of them. */
+/* The site's one gradient. This used to draw its own rust-and-olive one, left
+   over from a warm palette the site no longer has, while the comment claimed it
+   was shared — so the composer was the only warm thing on a blue-green page. */
 .composer__field::after {
   content: ''; position: absolute; inset: -1px; border-radius: calc(var(--r-lg) + 1px); padding: 1px;
-  background: linear-gradient(102deg, rgba(176,82,44,0.85) 0%, rgba(196,132,76,0.55) 34%,
-    rgba(120,128,112,0.45) 66%, rgba(176,82,44,0.75) 100%);
+  background: var(--grad-warm);
+  opacity: 0.55;
   background-size: 220% 100%;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;

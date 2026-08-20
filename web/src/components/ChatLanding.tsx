@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ChatThread from './ChatThread';
 import OrbitImages from './OrbitImages';
 import './chatlanding.css';
@@ -42,11 +42,22 @@ export default function ChatLanding() {
   const [entered, setEntered] = useState<string | null>(null);
   const [value, setValue] = useState('');
   const [placeholder, setPlaceholder] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   // Order is shuffled per mount so the ring is not identical every visit.
   const orbit = useRef(shuffled(ORBIT));
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+
+  // Grows with what you type instead of scrolling a single line out of view.
+  // It is a textarea for exactly that reason — an <input> cannot wrap, so a
+  // long question disappeared off the left edge as it was written.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const cap = Math.min(Math.round(window.innerHeight * 0.4), 340);
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
+  }, [value]);
 
   // Type the placeholder out a character at a time, hold it, delete it, move on.
   //
@@ -134,10 +145,16 @@ export default function ChatLanding() {
             <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="1.7" />
             <path d="M13.5 13.5 17 17" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
           </svg>
-          <input
+          <textarea
             ref={inputRef}
+            rows={1}
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter asks, Shift+Enter breaks the line — the same contract as
+              // the follow-up composer, so the two surfaces behave alike.
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+            }}
             placeholder={placeholder}
             aria-label="Ask about your FTC robot"
             maxLength={500}

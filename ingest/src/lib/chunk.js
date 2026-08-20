@@ -27,6 +27,33 @@ const MERGE_MAX = 2200;   // stop merging forward once we reach this
 const MAX_CHARS = 3600;   // hard ceiling before a section is split
 const SPLIT_TARGET = 2400;
 
+/**
+ * Collapse a trailing word that repeats the one before it.
+ *
+ * The FTC docs put the section name in both the breadcrumb and the page title
+ * for some pages, which produced source cards reading "Managing OpModes in
+ * Blocks Blocks" and "Blocks Reference Materials Blocks". Twelve chunks in the
+ * live index carried a doubled word; a reader seeing that reasonably concludes
+ * the citation is wrong.
+ */
+export function tidyTitle(title) {
+  if (typeof title !== 'string') return title;
+  // "Managing OpModes in Blocks Blocks" — the word repeats immediately.
+  let out = title.replace(/\b(\w[\w'-]*)(\s+\1)+\b\s*$/i, '$1').trim();
+  // "Blocks Reference Materials Blocks" — the section name is prepended AND
+  // appended, so the repeat is the first word, not the previous one.
+  const w = out.split(/\s+/);
+  const DANGLING = /^(to|of|in|on|and|or|with|for|vs|from|at|the|a|an|into)$/i;
+  if (w.length > 2
+      && w[0].toLowerCase() === w[w.length - 1].toLowerCase()
+      // "Java to Java" is a real title, not a doubled one — trimming it would
+      // leave "Java to" dangling. Only strip when what remains reads whole.
+      && !DANGLING.test(w[w.length - 2])) {
+    out = w.slice(0, -1).join(' ');
+  }
+  return out;
+}
+
 export function headerFor(pageTitle, headingPath) {
   const path = headingPath.join(' > ');
   return path && path !== pageTitle
@@ -122,7 +149,7 @@ export function chunkDocument(doc) {
         sourceId: doc.sourceId,
         sourceName: doc.sourceName,
         docPath: doc.docPath,
-        pageTitle: doc.pageTitle,
+        pageTitle: tidyTitle(doc.pageTitle),
         sectionTitle: u.title,
         headingPath: u.headingPath.join(' > '),
         anchor: u.anchor,

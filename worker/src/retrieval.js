@@ -66,6 +66,36 @@ export async function semanticSearch(env, question, limit) {
   return scored.slice(0, limit);
 }
 
+/**
+ * Every chunk of the page at a URL, in reading order.
+ *
+ * Retrieval finds pages that resemble the question. When a student asks about
+ * the page in front of them, resemblance is the wrong tool: we know exactly
+ * which page they mean, so the lesson is loaded rather than searched for. That
+ * is the difference between usually having the right section and always having
+ * the whole lesson, which is what "explain this" and "help me with question 3"
+ * both need.
+ *
+ * The anchor is dropped, so a link to one heading still loads the whole page.
+ */
+export async function chunksForUrl(env, url, limit = 24) {
+  if (!url) return [];
+  const base = String(url).split('#')[0];
+  // A range rather than a LIKE: D1 refuses a pattern as long as a full URL
+  // with "LIKE or GLOB pattern too complex". Every anchor on a page sorts
+  // between "<url>#" and "<url>$", since $ is the next character after #.
+  const { results } = await env.DB
+    .prepare(
+      `SELECT ${CHUNK_COLUMNS} FROM chunks c
+       WHERE c.source_url = ?1
+          OR (c.source_url > ?2 AND c.source_url < ?3)
+       ORDER BY c.ordinal LIMIT ?4`,
+    )
+    .bind(base, `${base}#`, `${base}$`, limit)
+    .all();
+  return results || [];
+}
+
 export async function hydrate(env, chunkIds) {
   if (!chunkIds.length) return new Map();
   const placeholders = chunkIds.map(() => '?').join(',');

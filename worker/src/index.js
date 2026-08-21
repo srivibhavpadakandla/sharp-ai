@@ -15,7 +15,7 @@
  *
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
-import { retrieve, retrieveMulti } from './retrieval.js';
+import { retrieve, retrieveMulti, chunksForUrl } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
 import { classify } from './lib/topic.js';
 import { teamNumberIn, lookupTeam, describeTeam } from './lib/ftcscout.js';
@@ -324,11 +324,17 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // document can carry. Fetched in parallel with retrieval so it costs no time.
   const intent = intentOf(question);
   const teamNo = teamNumberIn(question);
-  const [{ chunks, gate, stats }, teamData] = await Promise.all([
+  const [{ chunks, gate, stats }, teamData, pageChunks] = await Promise.all([
     retrieve(env, retrievalQuery(question, page)),
     teamNo ? lookupTeam(teamNo, Number(env.FTC_SEASON || 2025)) : Promise.resolve(null),
+    // Loaded, not searched for. We know which page the student is on, so its
+    // own text is fetched by URL rather than left to resemble the question
+    // well enough to be retrieved. Without this, "help me with question 3"
+    // finds lessons about the topic and not the exercise being asked about.
+    chat && page?.url ? chunksForUrl(env, page.url) : Promise.resolve([]),
   ]);
   const liveBlock = teamData ? describeTeam(teamData) : null;
+
 
   // --- 6. Relevance gate: refuse without spending an LLM token --------------
   // Set when retrieval found nothing usable but the question is clearly about
@@ -412,6 +418,17 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       console.error('agentic pass failed, using fusion order', err.message);
       finalChunks = chunks;
     }
+  }
+
+  // The page the student is on is pinned in front of whatever the retrieval
+  // and agentic passes settled on. Those passes optimise for resemblance to the
+  // question; the open lesson is relevant by fact, not by score, and it must
+  // not be reranked out of the context of a question about itself.
+  if (pageChunks.length) {
+    finalChunks = [
+      ...pageChunks,
+      ...finalChunks.filter((c) => !pageChunks.some((p) => p.chunkId === c.chunkId)),
+    ].slice(0, Number(env.TOP_K || 16) + pageChunks.length);
   }
 
   const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });

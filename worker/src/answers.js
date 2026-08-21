@@ -22,8 +22,16 @@ export async function readCache(env, question) {
   return hit || null;
 }
 
-export async function writeAnswer(env, { question, answerMd, citations, excerpts, category, model, topScore }) {
-  const { norm, key } = await cacheKeyFor(question);
+/**
+ * @param cacheSubject What the cached entry is keyed on, when that differs from
+ *   the question. A question like "explain this lesson" means something
+ *   different on every page, so the page has to be part of the key or the
+ *   first answer is served to every lesson that asks it. The stored answer row
+ *   still records the question the student actually typed.
+ */
+export async function writeAnswer(env, { question, cacheSubject, answerMd, citations, excerpts, category, model, topScore }) {
+  const { norm } = await cacheKeyFor(question);
+  const { key } = await cacheKeyFor(cacheSubject || question);
   const hash = await sha256hex(norm);
   const now = new Date().toISOString();
 

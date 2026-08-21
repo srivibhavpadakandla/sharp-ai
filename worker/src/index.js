@@ -286,7 +286,10 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // --- 4. Cache -------------------------------------------------------------
   const { norm } = await cacheKeyFor(question);
   const questionHash = await sha256hex(norm);
-  const cached = isFollowUp ? null : await readCache(env, question);
+  // Keyed on the same subject retrieval used, so a deictic question cannot
+  // serve one lesson's answer to another.
+  const cacheSubject = retrievalQuery(question, page);
+  const cached = isFollowUp ? null : await readCache(env, cacheSubject);
   if (cached) {
     ctx.waitUntil(logQuery(env, {
       question, questionHash, cacheHit: true, llmCalled: false,
@@ -532,6 +535,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       // they would never get a fresh generation. Better to regenerate.
       if (grounded.trim() && !isFollowUp && !uncovered && citations.length > 0) {
         const saved = await writeAnswer(env, {
+          cacheSubject,
           // Grounded only. Persisting the ungrounded half would put uncited
           // claims on a permanent, crawlable URL.
           question, answerMd: grounded.trim(), citations, excerpts, category,

@@ -28,6 +28,11 @@ RATE_PER_MIN     = "10"
 # limit could spend 300 — the entire global daily ceiling — and leave everyone
 # else on the degraded no-summary path. 25 questions caps one visitor at 75.
 RATE_PER_DAY     = "25"
+# A verified account is metered on its own, so the allowance can be larger
+# without a lab full of students sharing one address sharing one budget.
+RATE_PER_DAY_SIGNED_IN = "60"
+# Firebase project whose ID tokens are accepted in place of a Turnstile solve.
+FIREBASE_PROJECT_ID = "telemark-e9159"
 # Gemini free tier is the real ceiling; KV's 1000 writes/day sits just above the
 # ~3 writes each uncached question costs, so these two numbers move together.
 # Counts LLM CALLS, not questions. A confident question costs one call; an

@@ -26,6 +26,7 @@ import { verifyCitations } from './citecheck.js';
 import { checkRateLimit, reserveLlmCall, llmUsage, ipUsage } from './ratelimit.js';
 import { readUsage, recordTokens, tokenReport } from './lib/tokens.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
+import { verifyFirebaseToken } from './firebase.js';
 import {
   readCache, writeAnswer, getAnswerBySlug, hydrateAnswerRow, logQuery, sha256hex, cacheKeyFor,
 } from './answers.js';
@@ -210,10 +211,20 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const specs = String(body.specs || '').slice(0, 1200) || null;
   const isCode = isCodeRequest(question);
 
-  // --- 1. Turnstile ---------------------------------------------------------
-  const ts = await verifyTurnstile(env, token, request);
-  if (!ts.ok) {
-    return json({ error: 'turnstile-failed', detail: ts.reason }, { status: 403 }, cors);
+  // --- 1. Who is asking -----------------------------------------------------
+  // A verified account stands in for the CAPTCHA. Turnstile exists to prove a
+  // human is present, and a Google sign-in proves rather more than that, so
+  // making a signed-in student solve one as well is a toll with no purpose.
+  const identity = await verifyFirebaseToken(env, body.idToken);
+  if (!identity.ok) {
+    const ts = await verifyTurnstile(env, token, request);
+    if (!ts.ok) {
+      return json(
+        { error: 'turnstile-failed', detail: ts.reason, auth: identity.reason },
+        { status: 403 },
+        cors,
+      );
+    }
   }
 
   // --- 3. Length (checked before the KV round-trips so junk costs nothing) ---
@@ -232,7 +243,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   }
 
   // --- 2. Rate limit --------------------------------------------------------
-  const rl = await checkRateLimit(env, request);
+  const rl = await checkRateLimit(env, request, identity.ok ? identity : null);
   if (!rl.ok) {
     return json(
       { error: 'rate-limited', scope: rl.scope, limit: rl.limit },

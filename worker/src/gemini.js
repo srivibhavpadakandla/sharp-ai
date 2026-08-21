@@ -200,7 +200,7 @@ specs, what teams actually do now. Rules for this part:
   checking" are honest; false confidence is not.
 - No greetings, no sign-offs. Markdown for structure, no headings above ###.`;
 
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null, intent = 'lookup' } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, page = null, uncovered = false, liveBlock = null, intent = 'lookup' } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -268,12 +268,21 @@ export function buildPrompt(question, chunks, { isError = false, isCode = false,
   // The robot in front of them. Generated code that uses placeholder names is
   // code someone has to hand-edit before it compiles, which is the step that
   // goes wrong most often.
+  // What the student currently has open. This resolves the pronouns a person
+  // uses when they are looking at something: "why is this 3.2 and not 3.0"
+  // has no referent without it. It is context for reading the question, not a
+  // source, so it is never cited and never overrides the retrieved sections.
+  const pageBlock = page && page.title
+    ? `WHAT THE STUDENT IS READING\n\n${page.title}${page.section ? ` — section: ${page.section}` : ''}\n${page.url || ''}\n\nUse this only to work out what the question refers to. Cite retrieved sections, never this line. `
+    : '';
+
   const robotBlock = specs
     ? `THIS TEAM'S ROBOT\n\n${specs}\n\nUse these exact configuration names and this hardware in any code you write. `
       + `If the question needs a detail they have not given, say which detail and ask for it rather than inventing a name.\n\n`
     : '';
 
   const prompt =
+    pageBlock +
     robotBlock +
     priorBlock +
     `SECTIONS\n\n${blocks.join('\n\n')}\n\n` +
@@ -295,8 +304,8 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, uncovered = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, uncovered, liveBlock, intent });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, uncovered = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, uncovered, liveBlock, intent });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {

@@ -280,7 +280,12 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
      lands on the true page centre no matter how wide the wordmark or nav get.
      A flex row centred the pill between its neighbours instead of on the page. */
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* max-content on the outer tracks, not a bare 1fr: with the theme switch
+     added, the end track's content no longer fit its share and spilled left
+     over the search pill. The outer tracks now claim what they need and the
+     centre track gives way, which is the right trade — the search box can be
+     narrower, the nav cannot overlap it. */
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
   gap: 1.5rem;
   width: 100%;
@@ -303,7 +308,6 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   color: transparent;
 }
 .site-head nav {
-  justify-self: end;
   display: flex;
   gap: clamp(0.85rem, 1.5vw, 1.4rem);
   white-space: nowrap;
@@ -318,7 +322,16 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
    scroller with no visible affordance is not reachable in practice, and nobody
    swipes a nav bar. Below 46rem it becomes a real drawer with 44px rows, and
    the theme switch moves out of it into the bar so it is never behind a menu. */
-.site-head__tools { display: flex; align-items: center; gap: 0.2rem; justify-self: end; }
+/* The header grid has three tracks and the middle one must land on the true
+   page centre, so everything at the end shares one track. Adding the theme
+   switch as a fourth child pushed it onto a second implicit row, where it sat
+   orphaned under the header. */
+.site-head__end {
+  justify-self: end;
+  display: flex; align-items: center; gap: clamp(0.85rem, 1.5vw, 1.4rem);
+  min-width: 0;
+}
+.site-head__tools { display: flex; align-items: center; gap: 0.2rem; }
 .navtoggle { display: none; }
 
 @media (max-width: 46rem) {

@@ -209,6 +209,16 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const isFollowUp = history.length > 0;
   // The team's robot configuration, if they filled it in. Never stored.
   const specs = String(body.specs || '').slice(0, 1200) || null;
+  // The lesson the student has open, sent by the Telemark panel. Bounded and
+  // never stored: it exists so a question like "why is this 3.2 and not 3.0"
+  // has a referent.
+  const page = body.page && typeof body.page === 'object'
+    ? {
+        title: String(body.page.title || '').slice(0, 200),
+        section: String(body.page.section || '').slice(0, 120),
+        url: String(body.page.url || '').slice(0, 300),
+      }
+    : null;
   const isCode = isCodeRequest(question);
 
   // --- 1. Who is asking -----------------------------------------------------
@@ -377,7 +387,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, uncovered, liveBlock, intent });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, uncovered, liveBlock, intent });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -443,7 +453,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       let usageMeta = null;
       const onUsage = (m) => { usageMeta = m; };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, uncovered, liveBlock, intent, onUsage })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, uncovered, liveBlock, intent, onUsage })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());

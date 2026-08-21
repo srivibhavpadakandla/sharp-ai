@@ -93,40 +93,83 @@
    a dark ground is 1.7:1 on white and unreadable, so light gets its own darker
    green. The gradient is the brand and is identical in both.
    --------------------------------------------------------------------------- */
-[data-theme="light"] {
-  color-scheme: light;
-
-  --paper:        #f7f5f0;
-  --paper-sunk:   #efece4;
-  --paper-raised: #ffffff;
-
-  /* Against --paper: ink 15.8:1, ink-2 8.1:1, ink-3 4.7:1, ink-4 3.4:1. */
-  --ink:      #12171d;
-  --ink-2:    #46515c;
-  --ink-3:    #6d7883;
-  --ink-4:    #8b949d;
-
-  --rule:        #e3ded4;
-  --rule-strong: #cec7ba;
-
-  /* #6edb9a is 1.7:1 here. This is 4.6:1 and still reads as the same green. */
-  --accent:      #0b7a49;
-  --accent-deep: #08603a;
-  --accent-wash: rgba(11, 122, 73, 0.09);
-
-  --warn:      #b0522c;
-  --warn-wash: rgba(176, 82, 44, 0.10);
-
-  --grad-soft: linear-gradient(112deg,
+/* The light values, defined once. Both mappings below point at these, so the
+   themed and the no-JS paths cannot drift apart the way hand-copied palettes do. */
+:root {
+  --l-paper: #f7f5f0;
+  --l-paper-sunk: #efece4;
+  --l-paper-raised: #ffffff;
+  --l-ink: #12171d;
+  --l-ink-2: #46515c;
+  --l-ink-3: #6d7883;
+  --l-ink-4: #8b949d;
+  --l-rule: #e3ded4;
+  --l-rule-strong: #cec7ba;
+  --l-accent: #0b7a49;
+  --l-accent-deep: #08603a;
+  --l-accent-wash: rgba(11, 122, 73, 0.09);
+  --l-warn: #b0522c;
+  --l-warn-wash: rgba(176, 82, 44, 0.10);
+  --l-grad-soft: linear-gradient(112deg,
       rgba(74, 144, 226, 0.16) 0%, rgba(79, 195, 232, 0.13) 34%,
       rgba(110, 219, 154, 0.14) 68%, rgba(155, 232, 112, 0.16) 100%);
-  --grad-veil: radial-gradient(105% 70% at 12% -8%, rgba(74, 144, 226, 0.16), transparent 58%),
+  --l-grad-veil: radial-gradient(105% 70% at 12% -8%, rgba(74, 144, 226, 0.16), transparent 58%),
                radial-gradient(85% 62% at 78% -4%, rgba(110, 219, 154, 0.14), transparent 56%),
                radial-gradient(70% 55% at 48% 2%, rgba(79, 195, 232, 0.10), transparent 60%);
+  --l-hairline: rgba(18, 23, 29, 0.14);
+  --l-hairline-soft: rgba(18, 23, 29, 0.04);
+  --l-plate: #eef1f6;
+}
 
-  --hairline:      rgba(18, 23, 29, 0.14);
-  --hairline-soft: rgba(18, 23, 29, 0.04);
-  --plate:         #eef1f6;
+[data-theme="light"] {
+  color-scheme: light;
+  --paper: var(--l-paper);
+  --paper-sunk: var(--l-paper-sunk);
+  --paper-raised: var(--l-paper-raised);
+  --ink: var(--l-ink);
+  --ink-2: var(--l-ink-2);
+  --ink-3: var(--l-ink-3);
+  --ink-4: var(--l-ink-4);
+  --rule: var(--l-rule);
+  --rule-strong: var(--l-rule-strong);
+  --accent: var(--l-accent);
+  --accent-deep: var(--l-accent-deep);
+  --accent-wash: var(--l-accent-wash);
+  --warn: var(--l-warn);
+  --warn-wash: var(--l-warn-wash);
+  --grad-soft: var(--l-grad-soft);
+  --grad-veil: var(--l-grad-veil);
+  --hairline: var(--l-hairline);
+  --hairline-soft: var(--l-hairline-soft);
+  --plate: var(--l-plate);
+}
+
+/* Without JS nothing sets data-theme, so a light-preferring reader was served
+   the dark palette regardless. The interactive site needs JS, but the pages
+   that are just documentation do not, and they should still honour the OS. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --paper: var(--l-paper);
+    --paper-sunk: var(--l-paper-sunk);
+    --paper-raised: var(--l-paper-raised);
+    --ink: var(--l-ink);
+    --ink-2: var(--l-ink-2);
+    --ink-3: var(--l-ink-3);
+    --ink-4: var(--l-ink-4);
+    --rule: var(--l-rule);
+    --rule-strong: var(--l-rule-strong);
+    --accent: var(--l-accent);
+    --accent-deep: var(--l-accent-deep);
+    --accent-wash: var(--l-accent-wash);
+    --warn: var(--l-warn);
+    --warn-wash: var(--l-warn-wash);
+    --grad-soft: var(--l-grad-soft);
+    --grad-veil: var(--l-grad-veil);
+    --hairline: var(--l-hairline);
+    --hairline-soft: var(--l-hairline-soft);
+    --plate: var(--l-plate);
+  }
 }
 
 /* The drawings are hairline work printed dark-on-cream. Dark mode inverts them
@@ -921,12 +964,15 @@ main:focus { outline: none; }
 }
 .themeswitch:hover { color: var(--ink); border-color: var(--rule-strong); }
 .themeswitch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* Show the theme you would switch TO, which is what the control does. */
-.themeswitch__sun { display: none; }
-[data-theme="light"] .themeswitch__sun { display: none; }
-[data-theme="light"] .themeswitch__moon { display: block; }
+/* Show the theme you would switch TO, which is what the control does.
+   Keyed off the light case only: the previous version required data-theme to be
+   present at all, so if the inline script ever failed to run the button
+   rendered completely empty. Dark is the default palette, so the default icon
+   is the sun. */
+.themeswitch__sun  { display: block; }
 .themeswitch__moon { display: none; }
-[data-theme="dark"] .themeswitch__sun { display: block; }
+[data-theme="light"] .themeswitch__sun  { display: none; }
+[data-theme="light"] .themeswitch__moon { display: block; }
 
 /* ---------------------------------------------------------------------------
    Touch sizing.

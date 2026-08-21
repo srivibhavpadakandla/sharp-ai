@@ -154,17 +154,51 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
       var btn = document.getElementById('nav-toggle');
       var nav = document.getElementById('site-nav');
       if (!btn || !nav) return;
+      /* Everything the drawer covers. Marked inert while it is open so that
+         tabbing cannot walk out of the menu into the page behind it — which it
+         did: four presses of Tab landed on the hero buttons with the drawer
+         still over them. inert also hides that content from assistive tech,
+         which a visual overlay alone does not. */
+      var behind = function () {
+        return [document.getElementById('main'), document.querySelector('footer'),
+                document.querySelector('.hsearch'), document.querySelector('.wordmark'),
+                /* The skip link too: it targets #main, which is inert while the
+                   drawer is open, so following it would send focus nowhere. */
+                document.querySelector('.skip')]
+          .filter(Boolean);
+      };
       var set = function (open) {
         root.dataset.nav = open ? 'open' : 'closed';
         btn.setAttribute('aria-expanded', String(open));
         /* Hold the page still behind the drawer; a menu that scrolls the page
            underneath it is the classic mobile-nav bug. */
         document.body.style.overflow = open ? 'hidden' : '';
+        behind().forEach(function (el) {
+          if (open) el.setAttribute('inert', ''); else el.removeAttribute('inert');
+        });
+        if (open) { var first = nav.querySelector('a'); if (first) first.focus(); }
+        else if (document.activeElement === document.body) { btn.focus(); }
       };
       set(false);
       btn.addEventListener('click', function () { set(root.dataset.nav !== 'open'); });
       nav.addEventListener('click', function (e) { if (e.target.closest('a')) set(false); });
-      addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+      addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { set(false); btn.focus(); return; }
+        if (e.key !== 'Tab' || root.dataset.nav !== 'open') return;
+        /* Wrap Tab inside the drawer and the bar. inert on the content behind
+           marks it correctly for assistive tech but Chromium still let Tab
+           reach the skip link, and following that lands focus in an inert
+           #main — nowhere. This is deterministic. */
+        var stops = [].slice.call(nav.querySelectorAll('a')).concat([
+          document.getElementById('theme-toggle'), btn]).filter(Boolean);
+        if (!stops.length) return;
+        var i = stops.indexOf(document.activeElement);
+        var next = e.shiftKey
+          ? (i <= 0 ? stops.length - 1 : i - 1)
+          : (i === -1 || i === stops.length - 1 ? 0 : i + 1);
+        e.preventDefault();
+        stops[next].focus();
+      });
       /* Rotating to landscape can cross the breakpoint with the drawer open,
          which would leave the body locked and the desktop nav already showing. */
       addEventListener('resize', function () { if (innerWidth > 736) set(false); });

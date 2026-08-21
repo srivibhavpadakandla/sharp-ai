@@ -15,6 +15,7 @@
  *   the Worker returns rule number + link and never their body text.
  */
 import * as gm0 from './gm0.js';
+import * as telemark from './telemark.js';
 import * as ftcDocs from './ftc-docs.js';
 import {
   ctrlaltftc, ftclib, roadrunner, rev, pedropathing, firstRules,
@@ -25,6 +26,7 @@ import * as firstManual from './first-manual.js';
 import { rrQuickstart } from './rr-quickstart.js';
 
 export const SOURCES = {
+  telemark,
   gm0,
   'ftc-docs': ftcDocs,
   'ftc-sdk-api': sdkApi,

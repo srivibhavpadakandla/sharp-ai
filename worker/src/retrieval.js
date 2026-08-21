@@ -78,7 +78,7 @@ export async function semanticSearch(env, question, limit) {
  *
  * The anchor is dropped, so a link to one heading still loads the whole page.
  */
-export async function chunksForUrl(env, url, limit = 24) {
+export async function chunksForUrl(env, url, limit = 12) {
   if (!url) return [];
   const base = String(url).split('#')[0];
   // A range rather than a LIKE: D1 refuses a pattern as long as a full URL

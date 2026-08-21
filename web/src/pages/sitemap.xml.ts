@@ -1,26 +1,20 @@
 import { SITE_URL } from '../lib/config';
 import type { APIRoute } from 'astro';
-import { API_BASE } from '../lib/config';
 
-// Rendered on request so newly answered questions appear without a rebuild.
-export const prerender = false;
+// Static pages only. This used to pull every answered question from
+// /api/sitemap and emit a /q/<slug> URL for each one, which handed real student
+// questions to search engines. Questions are private now — nothing here is
+// derived from what anyone asked.
+export const prerender = true;
 
 const STATIC = ['/', '/about', '/error'];
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = () => {
   const base = SITE_URL;
-  let slugs: Array<{ slug: string; updated_at: string }> = [];
-  try {
-    const res = await fetch(`${API_BASE}/api/sitemap`, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) slugs = (await res.json()).slugs || [];
-  } catch { /* still emit the static pages */ }
 
-  const urls = [
-    ...STATIC.map((p) => `<url><loc>${base}${p}</loc><changefreq>weekly</changefreq></url>`),
-    ...slugs.map((s) =>
-      `<url><loc>${base}/q/${encodeURIComponent(s.slug)}</loc>` +
-      `<lastmod>${(s.updated_at || '').slice(0, 10)}</lastmod></url>`),
-  ].join('');
+  const urls = STATIC
+    .map((p) => `<url><loc>${base}${p}</loc><changefreq>weekly</changefreq></url>`)
+    .join('');
 
   return new Response(
     `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`,

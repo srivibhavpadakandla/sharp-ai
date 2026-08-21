@@ -2,19 +2,12 @@
 import Base from '../layouts/Base.astro';
 import SearchBox from '../components/SearchBox.tsx';
 import ScatterField from '../components/ScatterField.tsx';
-import { CATEGORIES, SEED_QUESTIONS, API_BASE, SITE_TAGLINE, SITE_URL } from '../lib/config';
+import { CATEGORIES, SEED_QUESTIONS, SITE_TAGLINE, SITE_URL } from '../lib/config';
 
-// Popular questions come from the answers table when the site has traffic;
-// until then the seeded list keeps the index dense and browsable.
-type Q = { slug: string; question: string; category: string };
-let live: Record<string, Q[]> = {};
-try {
-  const res = await fetch(`${API_BASE}/api/categories`, { signal: AbortSignal.timeout(4000) });
-  if (res.ok) {
-    const data = await res.json() as { categories: Array<{ id: string; questions: Q[] }> };
-    live = Object.fromEntries(data.categories.map((c) => [c.id, c.questions || []]));
-  }
-} catch { /* build offline: fall back to seeds */ }
+// These are example questions, not real ones. This grid used to render whatever
+// people had actually asked, pulled live from the answers table — which published
+// student questions on the front page. Questions are private now, so the seeded
+// list is the only thing shown here.
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -48,7 +41,7 @@ const jsonLd = {
       </p>
       <div class="hero__actions rise d4">
         <a class="btn btn--primary" href="/chat">Ask a question</a>
-        <a class="btn" href="/browse">Browse the index</a>
+        <a class="btn" href="/season">See what's indexed</a>
       </div>
     </div>
   </section>
@@ -170,25 +163,21 @@ const jsonLd = {
     <div class="wrap">
       <div class="browse__head">
         <h2>Browse by system</h2>
-        <p>Questions people have already asked, grouped by the part of the robot they are about.</p>
+        <p>Example questions, grouped by the part of the robot they are about.</p>
       </div>
 
       <div class="grid">
         {CATEGORIES.map((cat) => {
-          const answered = live[cat.id] || [];
           const seeds = SEED_QUESTIONS[cat.id] || [];
           return (
             <article class="cell">
               <header class="cell__head">
                 <h3>{cat.label}</h3>
-                <span class="cell__n">{answered.length || seeds.length}</span>
+                <span class="cell__n">{seeds.length}</span>
               </header>
               <p class="cell__blurb">{cat.blurb}</p>
               <ul class="cell__list">
-                {answered.slice(0, 5).map((q) => (
-                  <li><a href={`/q/${q.slug}`}>{q.question}</a></li>
-                ))}
-                {answered.length === 0 && seeds.slice(0, 5).map((q) => (
+                {seeds.slice(0, 5).map((q) => (
                   <li><a href={`/ask?q=${encodeURIComponent(q)}`}>{q}</a></li>
                 ))}
               </ul>

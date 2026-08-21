@@ -139,8 +139,9 @@ export default function ChatThread({
       })),
       onDone: (p) => {
         patch(id, (cur) => ({ status: cur.status === 'refused' ? 'refused' : 'done', slug: p.slug }));
-        // Only the opening question of a thread earns a permanent URL.
-        if (p.slug && id === 0) window.history.replaceState({}, '', `/q/${p.slug}`);
+        // No permanent URL. Questions used to get a shareable /q/<slug> page and
+        // this rewrote the address bar to it; those pages are gone because they
+        // published what people asked. The answer stays in the thread only.
         composerRef.current?.focus();
       },
       onError: (m) => { clearInterval(ticker); patch(id, () => ({ status: 'error', error: m })); },

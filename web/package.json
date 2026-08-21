@@ -7,7 +7,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "wrangler pages dev dist",
-    "deploy": "astro build && wrangler pages deploy dist --project-name sharp-ai"
+    "deploy": "astro build && wrangler pages deploy dist --project-name sharpftc",
+    "deploy:preview": "astro build && wrangler pages deploy dist --project-name sharp-ai"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.6.10",

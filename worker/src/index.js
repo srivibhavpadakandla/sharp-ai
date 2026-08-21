@@ -28,10 +28,9 @@ import { readUsage, recordTokens, tokenReport } from './lib/tokens.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
 import { verifyFirebaseToken } from './firebase.js';
 import {
-  readCache, writeAnswer, getAnswerBySlug, hydrateAnswerRow, logQuery, sha256hex, cacheKeyFor,
+  readCache, writeAnswer, logQuery, sha256hex, cacheKeyFor,
 } from './answers.js';
 import { MAX_QUESTION_CHARS } from './lib/query.js';
-import { CATEGORIES } from './lib/categories.js';
 
 /**
  * Refusals used to say one thing for two very different situations, and the
@@ -617,7 +616,7 @@ function streamPrerendered(payload, cors, meta = {}) {
         ...meta,
       })));
       controller.enqueue(encoder.encode(sse('token', { t: payload.answerMd })));
-      controller.enqueue(encoder.encode(sse('done', { slug: payload.slug || null })));
+      controller.enqueue(encoder.encode(sse('done', { slug: null })));
       controller.close();
     },
   });
@@ -649,52 +648,6 @@ function degradedMarkdown(chunks) {
     lines.push('');
   });
   return lines.join('\n');
-}
-
-async function handleAnswer(request, env, slug) {
-  const cors = corsHeaders(env, request);
-  const answer = await getAnswerBySlug(env, slug);
-  if (!answer) return json({ error: 'not-found' }, { status: 404 }, cors);
-  return json(answer, {}, { ...cors, 'cache-control': 'public, max-age=300, s-maxage=3600' });
-}
-
-async function handleAnswers(request, env, url) {
-  const cors = corsHeaders(env, request);
-  const category = url.searchParams.get('category');
-  const limit = Math.min(60, Number(url.searchParams.get('limit') || 24));
-  const sql = category
-    ? 'SELECT * FROM answers WHERE category = ? ORDER BY featured DESC, view_count DESC, created_at DESC LIMIT ?'
-    : 'SELECT * FROM answers ORDER BY featured DESC, view_count DESC, created_at DESC LIMIT ?';
-  const stmt = category
-    ? env.DB.prepare(sql).bind(category, limit)
-    : env.DB.prepare(sql).bind(limit);
-  const { results } = await stmt.all();
-  return json(
-    { answers: (results || []).map(hydrateAnswerRow) },
-    {},
-    { ...cors, 'cache-control': 'public, max-age=300, s-maxage=1800' },
-  );
-}
-
-async function handleCategories(request, env) {
-  const cors = corsHeaders(env, request);
-  const { results } = await env.DB.prepare(`
-    SELECT category, count(*) AS n FROM answers GROUP BY category
-  `).all();
-  const counts = Object.fromEntries((results || []).map((r) => [r.category, r.n]));
-
-  const { results: top } = await env.DB.prepare(`
-    SELECT slug, question, category FROM answers
-    ORDER BY featured DESC, view_count DESC, created_at DESC LIMIT 200
-  `).all();
-
-  return json({
-    categories: CATEGORIES.map((c) => ({
-      ...c,
-      count: counts[c.id] || 0,
-      questions: (top || []).filter((t) => t.category === c.id).slice(0, 6),
-    })),
-  }, {}, { ...cors, 'cache-control': 'public, max-age=300, s-maxage=1800' });
 }
 
 /** Retrieval only — no LLM, no Turnstile. Powers the "sources" pane and debugging. */
@@ -746,13 +699,6 @@ async function handleFeedback(request, env) {
     console.error('feedback failed', err.message);
   }
   return json({ ok: true }, {}, cors);
-}
-
-async function handleSitemap(request, env) {
-  const cors = corsHeaders(env, request);
-  const { results } = await env.DB
-    .prepare('SELECT slug, updated_at FROM answers ORDER BY updated_at DESC LIMIT 5000').all();
-  return json({ slugs: results || [] }, {}, cors);
 }
 
 /**
@@ -831,17 +777,21 @@ export default {
       }
       if (p === '/api/feedback' && request.method === 'POST') return handleFeedback(request, env);
       if (p === '/api/search') return handleSearch(request, env, url);
-      if (p === '/api/categories') return handleCategories(request, env);
-      if (p === '/api/answers') return handleAnswers(request, env, url);
-      if (p.startsWith('/api/answer/')) {
-        return handleAnswer(request, env, decodeURIComponent(p.slice('/api/answer/'.length)));
-      }
+
+      // The `answers` table is a PRIVATE cache, not a public corpus.
+      //
+      // /api/answers, /api/categories, /api/answer/:slug and /api/sitemap used to
+      // serve rows straight out of it, which published every question anyone had
+      // ever typed — including homework-help asks — to anyone who knew the URL,
+      // and fed the /q/<slug> pages to search engines via the sitemap. Questions
+      // are still stored (they make repeat asks free and instant) but they are no
+      // longer readable from outside. Do not re-add a route that selects from
+      // `answers` without deciding, deliberately, to publish student questions.
       if (p === '/api/usage') {
         // Read-only: polling this cannot spend a question.
         const [you, pool] = await Promise.all([ipUsage(env, request), llmUsage(env)]);
         return json({ you, pool }, {}, { ...cors, 'cache-control': 'no-store' });
       }
-      if (p === '/api/sitemap') return handleSitemap(request, env);
       if (p === '/api/manual') return handleManual(request, env);
       if (p === '/api/health' || p === '/') return handleHealth(request, env);
 

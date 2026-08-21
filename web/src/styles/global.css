@@ -141,6 +141,17 @@
 }
 [data-theme="light"] .scatter__card { background: var(--plate); }
 
+/* The browse tiles are a different case. Their artwork is baked navy — white
+   linework burned into the files, because a runtime blend broke the moment the
+   tiles were transformed — so light mode cannot recover it with a blend the way
+   the plates above can. Inverting turns the navy ground back to warm cream and
+   the white strokes back to dark ink, which is the drawing's original printed
+   form rather than a trick.
+   Lives here and not in browse.astro because Astro scopes a page's <style> to
+   that component, and a selector rooted at <html> can never match from there. */
+[data-theme="light"] .tile img,
+[data-theme="light"] .tile__vid { filter: invert(1); }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html {

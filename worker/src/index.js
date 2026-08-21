@@ -158,6 +158,27 @@ const GREETING_REPLY =
 // HTTP helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * What to search for, as opposed to what was asked.
+ *
+ * "Explain this lesson" carries no subject, so embedding it alone retrieves
+ * whatever is nearest the words "explain" and "lesson" — which is how a
+ * question asked on a page about polycarbonate came back with citations about
+ * part studios and Java classes, and an answer claiming the documentation
+ * covers no material selection while the student was reading the materials
+ * module. The page supplies the subject the question leaves out.
+ *
+ * Only short questions are augmented. A specific question already carries its
+ * own subject, and padding it with the page title would pull retrieval toward
+ * the lesson the student happens to be on rather than what they asked.
+ */
+function retrievalQuery(question, page) {
+  if (!page || !page.title) return question;
+  const words = question.trim().split(/\s+/).length;
+  if (words > 8) return question;
+  return [page.title, page.section, question].filter(Boolean).join(' — ');
+}
+
 function corsHeaders(env, request) {
   const origin = request.headers.get('origin') || '';
   const allowed = (env.SITE_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -298,7 +319,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const intent = intentOf(question);
   const teamNo = teamNumberIn(question);
   const [{ chunks, gate, stats }, teamData] = await Promise.all([
-    retrieve(env, question),
+    retrieve(env, retrievalQuery(question, page)),
     teamNo ? lookupTeam(teamNo, Number(env.FTC_SEASON || 2025)) : Promise.resolve(null),
   ]);
   const liveBlock = teamData ? describeTeam(teamData) : null;

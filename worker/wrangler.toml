@@ -50,7 +50,7 @@ MAX_OUTPUT_TOKENS      = "16384"
 MAX_OUTPUT_TOKENS_CODE = "32000"
 AGENTIC          = "true"
 # --- site ------------------------------------------------------------------
-SITE_ORIGIN      = "https://sharp-ai-8a1.pages.dev"
+SITE_ORIGIN = "https://sharp-ai-8a1.pages.dev,https://sharpfacerobotics.github.io"
 REQUIRE_TURNSTILE = "true"
 
 [ai]

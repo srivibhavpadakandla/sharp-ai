@@ -149,8 +149,16 @@
    form rather than a trick.
    Lives here and not in browse.astro because Astro scopes a page's <style> to
    that component, and a selector rooted at <html> can never match from there. */
+/* invert() alone leaves the ground beige: the baked plate is a blue, and the
+   inverse of a blue is a cream. Values measured off an actual extracted frame
+   rather than guessed — the ground is rgb(26,45,88), lighter and bluer than the
+   flat navy I first assumed, which is why a gentler correction still left a
+   warm cast at the edges. Desaturating to 0.2 and lifting brightness 1.28 puts
+   the ground on rgb(255,255,255) while the linework only moves to rgb(33,28,23),
+   so the drawings stay as dark as they were. Not saturate(0): a fifth of the
+   accent colour survives in the parts that have one. */
 [data-theme="light"] .tile img,
-[data-theme="light"] .tile__vid { filter: invert(1); }
+[data-theme="light"] .tile__vid { filter: invert(1) saturate(0.2) brightness(1.28); }
 
 *, *::before, *::after { box-sizing: border-box; }
 

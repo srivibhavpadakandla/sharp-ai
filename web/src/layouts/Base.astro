@@ -65,7 +65,7 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
         Sharp<em>AI</em>
       </a>
       <HeaderSearch client:idle />
-      <nav>
+      <nav id="site-nav">
         <a href="/chat">Chat</a>
         <a href="/season">Season</a>
         <a href="/browse">Browse</a>
@@ -73,6 +73,8 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
         <a href="/cad">CAD</a>
         <a href="/error">Paste an error</a>
         <a href="/about">About</a>
+      </nav>
+      <div class="site-head__tools">
         <button id="theme-toggle" type="button" class="themeswitch"
           aria-label="Switch between light and dark" title="Light / dark">
           <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" class="themeswitch__sun">
@@ -85,7 +87,11 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
               fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
           </svg>
         </button>
-      </nav>
+        <button id="nav-toggle" type="button" class="navtoggle"
+          aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -141,6 +147,26 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
     </div>
   </footer>}
   <script is:inline>
+    (function () {
+      var root = document.documentElement;
+      var btn = document.getElementById('nav-toggle');
+      var nav = document.getElementById('site-nav');
+      if (!btn || !nav) return;
+      var set = function (open) {
+        root.dataset.nav = open ? 'open' : 'closed';
+        btn.setAttribute('aria-expanded', String(open));
+        /* Hold the page still behind the drawer; a menu that scrolls the page
+           underneath it is the classic mobile-nav bug. */
+        document.body.style.overflow = open ? 'hidden' : '';
+      };
+      set(false);
+      btn.addEventListener('click', function () { set(root.dataset.nav !== 'open'); });
+      nav.addEventListener('click', function (e) { if (e.target.closest('a')) set(false); });
+      addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
+      /* Rotating to landscape can cross the breakpoint with the drawer open,
+         which would leave the body locked and the desktop nav already showing. */
+      addEventListener('resize', function () { if (innerWidth > 736) set(false); });
+    })();
     document.getElementById('theme-toggle')?.addEventListener('click', function () {
       var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
       document.documentElement.dataset.theme = next;

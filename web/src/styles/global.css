@@ -302,26 +302,76 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .site-head nav a { padding-bottom: 1px; border-bottom: 1px solid transparent; transition: border-color 0.2s var(--ease), color 0.2s var(--ease); }
 .site-head nav a:hover { color: var(--ink); border-bottom-color: var(--rule-strong); }
 
-/* On a phone five links wrapped into three ragged rows with the last one
-   clipped off the edge. Stack the header and let the nav scroll sideways as a
-   single row instead, so every destination stays reachable. */
+/* On a phone the row of destinations ran off the right edge. It was a sideways
+   scroller, so About and the theme switch were technically reachable — but a
+   scroller with no visible affordance is not reachable in practice, and nobody
+   swipes a nav bar. Below 46rem it becomes a real drawer with 44px rows, and
+   the theme switch moves out of it into the bar so it is never behind a menu. */
+.site-head__tools { display: flex; align-items: center; gap: 0.2rem; justify-self: end; }
+.navtoggle { display: none; }
+
 @media (max-width: 46rem) {
+  .site-head {
+    /* Was a fixed 4rem, which the stacked layout overflowed. */
+    height: auto;
+    min-height: var(--header-h);
+  }
   .site-head .wrap {
-    grid-template-columns: 1fr;
-    gap: 0.45rem;
-    padding-block: 0.5rem;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+    padding-block: 0.55rem;
   }
+
+  .navtoggle {
+    display: grid; align-content: center; gap: 4px;
+    width: 44px; height: 44px; padding: 0 11px;   /* 44px: the iOS target floor */
+    border: 0; background: transparent; cursor: pointer;
+  }
+  .navtoggle span {
+    display: block; height: 1.5px; border-radius: 2px; background: var(--ink-2);
+    transition: transform 0.24s var(--ease), opacity 0.18s var(--ease);
+  }
+  [data-nav="open"] .navtoggle span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  [data-nav="open"] .navtoggle span:nth-child(2) { opacity: 0; }
+  [data-nav="open"] .navtoggle span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
   .site-head nav {
+    position: fixed;
+    /* justify-self:end from the desktop rule still applies to this box and
+       shrink-wrapped it to 148px of the 390px screen, so the drawer opened as
+       a narrow column with the page showing beside it. */
     justify-self: stretch;
-    gap: 1.15rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    /* Bleed to the edges so the row reads as scrollable rather than cut. */
-    margin-inline: calc(var(--gutter) * -1);
-    padding-inline: var(--gutter);
+    top: var(--header-h); left: 0; right: auto;
+    width: 100vw;
+    max-height: calc(100dvh - var(--header-h));
+    overflow-y: auto;
+    display: block;
+    padding: 0.4rem var(--gutter) 1.4rem;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    font-size: 1.02rem;
+    /* Closed by default even before the script runs, so the drawer never
+       flashes open on a slow first paint. */
+    transform: translateY(-8px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s var(--ease), transform 0.24s var(--ease), visibility 0.24s;
   }
-  .site-head nav::-webkit-scrollbar { display: none; }
-  .site-head nav a { flex: none; white-space: nowrap; }
+  [data-nav="open"] .site-head nav {
+    transform: none; opacity: 1; visibility: visible;
+  }
+  .site-head nav a {
+    display: flex; align-items: center;
+    min-height: 48px;             /* comfortably past the 44px floor */
+    padding: 0 0.15rem;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink);
+  }
+  .site-head nav a:last-child { border-bottom: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-head nav, .navtoggle span { transition: none; }
 }
 
 /* --- footer -------------------------------------------------------------- */
@@ -831,3 +881,53 @@ main:focus { outline: none; }
 [data-theme="light"] .themeswitch__moon { display: block; }
 .themeswitch__moon { display: none; }
 [data-theme="dark"] .themeswitch__sun { display: block; }
+
+/* ---------------------------------------------------------------------------
+   Touch sizing.
+
+   WCAG 2.2 AA asks for 24px; the iOS guideline is 44, and this site gets used
+   one-handed beside a field with a phone in the other hand. The toolbars were
+   26-35px, which is fine with a mouse and a lottery with a thumb. Applied per
+   control rather than globally, so nothing that is meant to be small — the
+   citation chips inside prose — gets inflated into the text.
+   --------------------------------------------------------------------------- */
+/* Width alone, not `and (pointer: coarse)`. The pointer query did not match in
+   any emulator I could test with, which means I could not verify it applied on
+   a real phone either — and an accessibility fix I cannot check is not a fix.
+   A narrow desktop window getting larger targets is harmless. */
+@media (max-width: 46rem) {
+  .themeswitch,
+  .cad__bar button,
+  .cad__pick,
+  .plan__bar button,
+  .sim__tools button,
+  .sim__card button,
+  .sim__play,
+  .sim__add,
+  .sim__del,
+  .sim__share,
+  .sim__chains button,
+  .sim__codehead button,
+  .chat__starters button,
+  .turn__vote button {
+    min-height: 44px;
+  }
+  .themeswitch, .plan__bar button, .sim__tools button, .sim__del { min-width: 44px; }
+  /* The planner's controls stack rather than crowd: three 44px pills on one
+     390px row leaves no room for their labels. */
+  .sim__row { flex-wrap: wrap; }
+
+  /* Number fields: 16px or iOS zooms the whole page when they are focused. */
+  .cad__check input,
+  .sim__field input,
+  input[type="number"],
+  input[type="text"],
+  textarea {
+    min-height: 44px;
+    font-size: max(16px, 1em);
+  }
+  .cad__check input { min-height: 38px; }   /* inside a table row */
+
+  /* 11px labels are legible on a desktop at arm's length and not on a phone. */
+  .eyebrow { font-size: 0.75rem; }
+}

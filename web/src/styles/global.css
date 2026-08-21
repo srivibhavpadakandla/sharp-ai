@@ -646,7 +646,7 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 
 
 /* --- cosmos-style index: near-zero chrome, dense, content forward ------- */
-.browse { padding: clamp(3rem, 6vw, 4.5rem) 0 1rem; }
+.browse { padding: clamp(2.5rem, 5vw, 3.5rem) 0 1rem; }
 .browse__head { max-width: 44rem; margin-bottom: 2.4rem; }
 .browse__head p { color: var(--ink-3); font-size: 0.92rem; margin: 0.5rem 0 0; }
 
@@ -681,7 +681,7 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .cell__list a:hover { color: var(--accent); padding-left: 0.3rem; }
 
 /* --- how it works ------------------------------------------------------ */
-.how { padding: clamp(3.5rem, 7vw, 6rem) 0 1rem; }
+.how { padding: clamp(2.75rem, 5vw, 4.5rem) 0 1rem; }
 .how__grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
 @media (max-width: 52rem) { .how__grid { grid-template-columns: 1fr; } }
 .how__title { margin-top: 0.6rem; max-width: 12ch; }
@@ -767,7 +767,7 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .plan__note { max-width: 46rem; color: var(--ink-3); font-size: 0.86rem; line-height: 1.6; margin: 0 0 2rem; }
 
 /* Scroll sections: statement, then a panel that demonstrates it -------------- */
-.say { padding: 6.5rem 0 2.6rem; }
+.say { padding: 4rem 0 2rem; }
 .say h2 {
   font-family: var(--type-serif);
   font-size: clamp(2rem, 5.2vw, 4rem);
@@ -808,7 +808,7 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   font-family: var(--type-serif); font-size: 1.06rem; color: var(--ink-2);
 }
 
-.panel { padding-bottom: 5rem; }
+.panel { padding-bottom: 3rem; }
 .panel__box {
   display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
   gap: 2.5rem; align-items: center;
@@ -841,16 +841,46 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 }
 
 @media (max-width: 60rem) {
-  .trio__grid { grid-template-columns: 1fr; gap: 2rem; }
+  /* Stacked, these three plates are the tallest thing on the page after the
+     film. A 16/9 crop keeps the drawing readable and returns ~70px a card. */
+  .trio__grid { grid-template-columns: 1fr; gap: 1.25rem; }
+  .trio__art { aspect-ratio: 16 / 9; }
+  .trio__card > p { margin-top: 0.7rem; }
   .panel__box { grid-template-columns: 1fr; gap: 1.6rem; padding: 1.5rem; }
-  .say { padding: 4rem 0 2rem; }
+  .say { padding: 2.6rem 0 1.4rem; }
+
+  /* Seven category cards stacked ran 2.6 screens on a phone — the longest
+     block on the page and a wall to thumb past. As a snap rail they cost one
+     card height and stay browsable. The negative margin bleeds it to the
+     screen edges so the next card peeks in and it reads as scrollable. */
+  .browse .grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 78%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+    padding-bottom: 0.5rem;
+    scrollbar-width: none;
+  }
+  .browse .grid::-webkit-scrollbar { display: none; }
+  .browse .cell { scroll-snap-align: start; }
 }
 
 /* Film ---------------------------------------------------------------------- */
 /* Tall enough to give the morph somewhere to happen. The stage inside is
-   sticky, so the card holds still while the page scrolls past it. */
+   sticky, so the card holds still while the page scrolls past it.
+   The scrub distance is (height - 100vh), and paint() runs the morph over
+   p 0.30-0.96 of it. At 300vh that was 200vh of scrub — 132vh of morph after
+   a 60vh dead hold, and 40% of the entire page spent on one effect. 180vh
+   gives an 80vh scrub: ~53vh of morph after a ~24vh hold, same choreography,
+   a third of the scrolling. Phones get less again — three screens of pinned
+   video is most of a thumb-scroll session. */
 .film { padding: 4.5rem 0 1rem; }
-[data-film-stage] { height: 300vh; padding-top: 4.5rem; }
+[data-film-stage] { height: 180vh; padding-top: 4.5rem; }
+@media (max-width: 60rem) { [data-film-stage] { height: 150vh; } }
 .film__rail {
   position: sticky; top: 0; height: 100vh;
   display: flex; flex-direction: column; align-items: center; justify-content: center;

@@ -168,7 +168,7 @@ const jsonLd = {
 
       <div class="grid">
         {CATEGORIES.map((cat) => {
-          const seeds = SEED_QUESTIONS[cat.id] || [];
+          const seeds = (SEED_QUESTIONS[cat.id] || []).slice(0, 3);
           return (
             <article class="cell">
               <header class="cell__head">
@@ -177,7 +177,7 @@ const jsonLd = {
               </header>
               <p class="cell__blurb">{cat.blurb}</p>
               <ul class="cell__list">
-                {seeds.slice(0, 5).map((q) => (
+                {seeds.map((q) => (
                   <li><a href={`/ask?q=${encodeURIComponent(q)}`}>{q}</a></li>
                 ))}
               </ul>
@@ -207,11 +207,8 @@ const jsonLd = {
           <li>
             The model only ever sees the sections that came back. It has to say
             where each claim came from, and it is told not to invent part
-            numbers, gear ratios or rule numbers.
-          </li>
-          <li>
-            Answers keep a permanent link, with the sections they used sitting
-            next to them.
+            numbers, gear ratios or rule numbers. The sections it used sit next
+            to the answer, so you can check it.
           </li>
         </ol>
       </div>
@@ -247,33 +244,38 @@ const jsonLd = {
     const span = (p, a, b) => Math.max(0, Math.min(1, (p - a) / (b - a)));
     const mix = (from, to, t) => from + (to - from) * t;
 
+    // Every beat finishes by p 0.84, not 0.96. `is-bar` is what makes the bar a
+    // clickable link, and at the old thresholds it switched on in the last 5% of
+    // the scrub — about 30px of scroll, so the CTA at the end of the sequence was
+    // barely reachable, and once the stage got shorter it stopped latching at
+    // rest at all. Ending early leaves the last ~16% as a settled, clickable bar.
     const paint = (p) => {
-      const morph = eases.inOut(2)(span(p, 0.30, 0.78));
-      box.classList.toggle('is-morphing', p > 0.30);
-      box.classList.toggle('is-bar', p > 0.95);
+      const morph = eases.inOut(2)(span(p, 0.22, 0.68));
+      box.classList.toggle('is-morphing', p > 0.22);
+      box.classList.toggle('is-bar', p > 0.80);
 
       box.style.width = mix(full.w, target.w, morph) + 'px';
       box.style.height = mix(full.h, target.h, morph) + 'px';
       box.style.borderRadius = mix(32, 999, morph) + 'px';
 
-      const fade = span(p, 0.60, 0.78);
+      const fade = span(p, 0.52, 0.68);
       if (video) {
         video.style.opacity = String(1 - fade);
         if (fade > 0.5 && !video.paused) video.pause();
       }
-      if (toggle) toggle.style.opacity = String(1 - span(p, 0.30, 0.45));
+      if (toggle) toggle.style.opacity = String(1 - span(p, 0.22, 0.36));
       if (cue) {
-        cue.style.opacity = String(1 - span(p, 0.20, 0.34));
-        cue.style.transform = `translateY(${-8 * span(p, 0.20, 0.34)}px)`;
+        cue.style.opacity = String(1 - span(p, 0.14, 0.26));
+        cue.style.transform = `translateY(${-8 * span(p, 0.14, 0.26)}px)`;
       }
-      bar.style.opacity = String(eases.out(2)(span(p, 0.70, 0.86)));
+      bar.style.opacity = String(eases.out(2)(span(p, 0.60, 0.76)));
       if (prompt) {
-        const pr = eases.out(2)(span(p, 0.76, 0.94));
+        const pr = eases.out(2)(span(p, 0.66, 0.82));
         prompt.style.opacity = String(pr);
         prompt.style.transform = `translateY(${(1 - pr) * 14}px)`;
       }
       if (send) {
-        const s = eases.outBack(1.7)(span(p, 0.78, 0.96));
+        const s = eases.outBack(1.7)(span(p, 0.68, 0.84));
         send.style.transform = `scale(${mix(0.3, 1, s)})`;
       }
     };

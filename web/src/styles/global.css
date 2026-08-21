@@ -158,7 +158,21 @@
    so the drawings stay as dark as they were. Not saturate(0): a fifth of the
    accent colour survives in the parts that have one. */
 [data-theme="light"] .tile img,
-[data-theme="light"] .tile__vid { filter: invert(1) saturate(0.2) brightness(1.28); }
+[data-theme="light"] .tile__vid,
+/* The trio plates are the same baked navy drawings as the browse tiles. */
+[data-theme="light"] .trio__art img { filter: invert(1) saturate(0.2) brightness(1.28); }
+
+/* The film is not a drawing — it is a recording of this product's own dark
+   interface. Inverting it would send the green path magenta and show a UI that
+   has never existed, so the footage is left alone and framed instead: on light
+   paper it reads as a screen, which is what it is. A light re-record is the
+   real fix and needs the film re-shot, not a filter. */
+[data-theme="light"] .film__box {
+  border-color: var(--rule-strong);
+  box-shadow: 0 1px 2px rgba(18, 23, 29, 0.06), 0 12px 32px -12px rgba(18, 23, 29, 0.22);
+}
+[data-theme="light"] .trio__art--a,
+[data-theme="light"] .trio__art--b { background: var(--paper-raised); }
 
 *, *::before, *::after { box-sizing: border-box; }
 

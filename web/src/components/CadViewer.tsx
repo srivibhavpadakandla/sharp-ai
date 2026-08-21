@@ -191,7 +191,12 @@ export default function CadViewer() {
     gl.render(sc, cam);                       // guarantee a fresh frame
     const a = document.createElement('a');
     a.href = gl.domElement.toDataURL('image/png');
-    a.download = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+    // Drop any parenthetical and trim stray hyphens, or the sample exports as
+    // "sample-chassis-placeholder-not-your-robot-.png", which is not a filename
+    // anyone wants in an engineering notebook.
+    const stem = label.replace(/\s*\([^)]*\)/g, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'model';
+    a.download = `${stem}.png`;
     a.click();
   }, [label]);
 

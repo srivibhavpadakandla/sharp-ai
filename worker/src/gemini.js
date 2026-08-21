@@ -200,7 +200,7 @@ specs, what teams actually do now. Rules for this part:
   checking" are honest; false confidence is not.
 - No greetings, no sign-offs. Markdown for structure, no headings above ###.`;
 
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, page = null, uncovered = false, liveBlock = null, intent = 'lookup' } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, liveBlock = null, intent = 'lookup' } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -281,7 +281,16 @@ export function buildPrompt(question, chunks, { isError = false, isCode = false,
       + `If the question needs a detail they have not given, say which detail and ask for it rather than inventing a name.\n\n`
     : '';
 
+  // Tutor mode. The lesson panel shows no source list, so bracket numbers there
+  // point at nothing and read as broken formatting. It is also a conversation
+  // with the student rather than a reference page about them, which changes the
+  // voice more than it changes the content.
+  const chatBlock = chat
+    ? `HOW TO REPLY\n\nYou are talking to a student who has this lesson open. Reply the way a mentor would at the bench.\n\n- Speak to them as "you". Never write "the documentation", "the provided sections", or "Telemark's lesson" — they are reading it, so say "this lesson" or just explain the thing.\n- Do not attribute in prose either. No "as Game Manual 0 points out", no "according to the FTC docs". A mentor at the bench states the fact; where it came from is not the answer to the question.\n- No bracket numbers anywhere. No source list. No ===GROUNDED=== or ===BEYOND=== headers.\n- Lead with the answer in one or two sentences, then the why. Short paragraphs.\n- If the sections do not cover it, say so plainly in one line and give the best engineering answer you have, marked as your judgement rather than as something they can look up.\n- If they ask something vague like "explain this lesson", explain what the lesson is actually teaching and why it matters, not a summary of headings.\n\n`
+    : '';
+
   const prompt =
+    chatBlock +
     pageBlock +
     robotBlock +
     priorBlock +
@@ -304,8 +313,8 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, uncovered = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, uncovered, liveBlock, intent });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });
   const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   const body = {

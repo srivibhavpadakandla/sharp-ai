@@ -241,6 +241,9 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       }
     : null;
   const isCode = isCodeRequest(question);
+  // The lesson panel asks for a conversation; the public site asks for a
+  // citable answer page. Same retrieval, different voice.
+  const chat = body.chat === true;
 
   // --- 1. Who is asking -----------------------------------------------------
   // A verified account stands in for the CAPTCHA. Turnstile exists to prove a
@@ -288,7 +291,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const questionHash = await sha256hex(norm);
   // Keyed on the same subject retrieval used, so a deictic question cannot
   // serve one lesson's answer to another.
-  const cacheSubject = retrievalQuery(question, page);
+  const cacheSubject = (chat ? 'chat: ' : '') + retrievalQuery(question, page);
   const cached = isFollowUp ? null : await readCache(env, cacheSubject);
   if (cached) {
     ctx.waitUntil(logQuery(env, {
@@ -411,7 +414,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     }
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, uncovered, liveBlock, intent });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -477,7 +480,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       let usageMeta = null;
       const onUsage = (m) => { usageMeta = m; };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, uncovered, liveBlock, intent, onUsage })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent, onUsage })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());

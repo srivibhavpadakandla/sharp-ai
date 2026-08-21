@@ -59,7 +59,6 @@ export default function CadViewer() {
 
     // Three lights, not one: a single source makes every face the same value
     // and the geometry stops reading as solid.
-    sc.add(new THREE.HemisphereLight(0xdfeaff, 0x0b0e12, 1.5));
     const key = new THREE.DirectionalLight(0xffffff, 2.1);
     key.position.set(2, 3, 2);
     sc.add(key);
@@ -68,10 +67,25 @@ export default function CadViewer() {
     sc.add(rim);
 
     // A 12ft field tile grid, so the model has a sense of scale.
-    const grid = new THREE.GridHelper(3.6576, 12, 0x2a3a44, 0x1a242b);
-    (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.5;
-    sc.add(grid);
+    //
+    // WebGL cannot read a CSS variable, so the scene is told about the theme
+    // instead of being left as the one dark hole in a light page. The canvas
+    // itself is alpha, so the page's own paper shows through behind this.
+    let grid: THREE.GridHelper | null = null;
+    const paintGrid = () => {
+      if (grid) { sc.remove(grid); grid.dispose(); }
+      const light = document.documentElement.dataset.theme === 'light';
+      grid = new THREE.GridHelper(3.6576, 12,
+        light ? 0xb9c2cc : 0x2a3a44, light ? 0xd8dee5 : 0x1a242b);
+      (grid.material as THREE.Material).transparent = true;
+      (grid.material as THREE.Material).opacity = light ? 0.9 : 0.5;
+      sc.add(grid);
+      hemi.groundColor.set(light ? 0xd9d5cc : 0x0b0e12);
+    };
+    const hemi = new THREE.HemisphereLight(0xdfeaff, 0x0b0e12, 1.5);
+    sc.add(hemi);
+    paintGrid();
+    addEventListener('themechange', paintGrid);
 
     const orbit = new OrbitControls(cam, gl.domElement);
     orbit.enableDamping = true;
@@ -94,6 +108,7 @@ export default function CadViewer() {
     tick();
 
     return () => {
+      removeEventListener('themechange', paintGrid);
       cancelAnimationFrame(raf); ro.disconnect(); orbit.dispose();
       gl.dispose(); el.removeChild(gl.domElement);
     };

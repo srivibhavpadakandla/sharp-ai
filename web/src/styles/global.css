@@ -10,6 +10,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
+  color-scheme: dark;
   /* Sharp Face Robotics brand: near-black ground with the logo's blue-to-green
      gradient. The previous warm cream read as clinical rather than as a
      robotics team, which was the note from the captain. */
@@ -52,6 +53,17 @@
                radial-gradient(85% 62% at 78% -4%, rgba(110, 219, 154, 0.24), transparent 56%),
                radial-gradient(70% 55% at 48% 2%, rgba(79, 195, 232, 0.18), transparent 60%);
 
+  /* Text that sits on the gradient. The gradient is the brand and does not
+     change between themes, so neither does this. */
+  --on-grad: #08121a;
+
+  /* Hairlines drawn over artwork rather than over paper. */
+  --hairline:      rgba(255, 255, 255, 0.12);
+  --hairline-soft: rgba(255, 255, 255, 0.035);
+
+  /* The ground the technical drawings are printed on. */
+  --plate: #16233f;
+
   --r-sm: 10px;
   --r-md: 16px;
   --r-lg: 24px;
@@ -72,6 +84,62 @@
 
   --header-h: 4rem;
 }
+
+
+/* ---------------------------------------------------------------------------
+   Light.
+
+   Not the dark palette with its numbers flipped: the accent green that carries
+   a dark ground is 1.7:1 on white and unreadable, so light gets its own darker
+   green. The gradient is the brand and is identical in both.
+   --------------------------------------------------------------------------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --paper:        #f7f5f0;
+  --paper-sunk:   #efece4;
+  --paper-raised: #ffffff;
+
+  /* Against --paper: ink 15.8:1, ink-2 8.1:1, ink-3 4.7:1, ink-4 3.4:1. */
+  --ink:      #12171d;
+  --ink-2:    #46515c;
+  --ink-3:    #6d7883;
+  --ink-4:    #8b949d;
+
+  --rule:        #e3ded4;
+  --rule-strong: #cec7ba;
+
+  /* #6edb9a is 1.7:1 here. This is 4.6:1 and still reads as the same green. */
+  --accent:      #0b7a49;
+  --accent-deep: #08603a;
+  --accent-wash: rgba(11, 122, 73, 0.09);
+
+  --warn:      #b0522c;
+  --warn-wash: rgba(176, 82, 44, 0.10);
+
+  --grad-soft: linear-gradient(112deg,
+      rgba(74, 144, 226, 0.16) 0%, rgba(79, 195, 232, 0.13) 34%,
+      rgba(110, 219, 154, 0.14) 68%, rgba(155, 232, 112, 0.16) 100%);
+  --grad-veil: radial-gradient(105% 70% at 12% -8%, rgba(74, 144, 226, 0.16), transparent 58%),
+               radial-gradient(85% 62% at 78% -4%, rgba(110, 219, 154, 0.14), transparent 56%),
+               radial-gradient(70% 55% at 48% 2%, rgba(79, 195, 232, 0.10), transparent 60%);
+
+  --hairline:      rgba(18, 23, 29, 0.14);
+  --hairline-soft: rgba(18, 23, 29, 0.04);
+  --plate:         #eef1f6;
+}
+
+/* The drawings are hairline work printed dark-on-cream. Dark mode inverts them
+   to white lines and screens them onto the card. Light needs neither — the
+   original artwork is already right — but it does need multiply, or the plate's
+   own white ground paints a rectangle over the page. */
+[data-theme="light"] .scatter__card img,
+[data-theme="light"] .cl__orbit img,
+[data-theme="light"] .orbit-item img {
+  filter: none;
+  mix-blend-mode: multiply;
+}
+[data-theme="light"] .scatter__card { background: var(--plate); }
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -405,7 +473,7 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .btn--primary {
   border-color: transparent;
   background: var(--grad-warm);
-  color: #08121a;
+  color: var(--on-grad);
   font-weight: 600;
 }
 .btn--primary:hover { filter: brightness(1.08); background: var(--grad-warm); }
@@ -585,9 +653,9 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
      runtime filter or blend left to go wrong. */
   width: 100%; height: 100%; object-fit: cover; display: block;
 }
-.trio__art--a, .trio__art--b { background: #16233f; }
+.trio__art--a, .trio__art--b { background: var(--plate); }
 .trio__art--c {
-  background: #101a16;
+  background: var(--plate);
   padding: 2rem;
   display: grid; place-items: center;
 }
@@ -612,8 +680,8 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 }
 .panel__box:hover { border-color: var(--accent); }
 .panel__field { width: 100%; height: auto; border-radius: var(--r-lg); }
-.pf-bg { fill: rgba(255,255,255,0.035); }
-.pf-grid line { stroke: rgba(255,255,255,0.12); stroke-width: 0.6; }
+.pf-bg { fill: var(--hairline-soft); }
+.pf-grid line { stroke: var(--hairline); stroke-width: 0.6; }
 .pf-path { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; }
 .pf-pt { fill: var(--ink); }
 .pf-bot {
@@ -672,7 +740,7 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .film__send {
   margin-left: auto; display: grid; place-items: center;
   width: 1.85rem; height: 1.85rem; border-radius: 50%;
-  background: var(--grad-warm); color: #0b0e12;
+  background: var(--grad-warm); color: var(--on-grad);
 }
 .film__prompt {
   /* Sits above the bar in the same stacking flow; the morph fades it in as the
@@ -700,8 +768,8 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .film__v { width: 100%; height: 100%; object-fit: cover; display: block; }
 .film__toggle {
   position: absolute; top: 1rem; right: 1rem;
-  border: 1px solid rgba(255,255,255,0.28); background: rgba(11,14,18,0.55);
-  color: #fff; border-radius: var(--r-pill); padding: 0.3rem 0.9rem;
+  border: 1px solid var(--rule-strong); background: color-mix(in srgb, var(--paper) 62%, transparent);
+  color: var(--ink); border-radius: var(--r-pill); padding: 0.3rem 0.9rem;
   font-size: 0.78rem; cursor: pointer; backdrop-filter: blur(6px);
 }
 .film__toggle:hover { border-color: var(--accent); color: var(--accent); }
@@ -746,3 +814,20 @@ main:focus { outline: none; }
 
 .wordmark__mark { width: 1.55rem; height: 1.55rem; flex: none; display: block; }
 @media (max-width: 46rem) { .wordmark__mark { width: 1.35rem; height: 1.35rem; } }
+
+/* --- theme switch --------------------------------------------------------- */
+.themeswitch {
+  display: grid; place-items: center;
+  width: 1.9rem; height: 1.9rem; margin-left: 0.35rem;
+  border: 1px solid transparent; border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-3); cursor: pointer;
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+.themeswitch:hover { color: var(--ink); border-color: var(--rule-strong); }
+.themeswitch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Show the theme you would switch TO, which is what the control does. */
+.themeswitch__sun { display: none; }
+[data-theme="light"] .themeswitch__sun { display: none; }
+[data-theme="light"] .themeswitch__moon { display: block; }
+.themeswitch__moon { display: none; }
+[data-theme="dark"] .themeswitch__sun { display: block; }

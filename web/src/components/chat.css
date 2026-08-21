@@ -197,7 +197,7 @@
 .composer button:not(.composer__expand) {
   flex: none; display: grid; place-items: center;
   width: 2.15rem; height: 2.15rem;
-  border: 0; background: var(--grad-warm); color: #fff;
+  border: 0; background: var(--grad-warm); color: var(--on-grad);
   border-radius: var(--r-pill); cursor: pointer;
   transition: background 0.18s var(--ease), opacity 0.18s var(--ease);
 }

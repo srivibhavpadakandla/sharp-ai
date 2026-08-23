@@ -2,7 +2,6 @@
 import Base from '../layouts/Base.astro';
 import SearchBox from '../components/SearchBox.tsx';
 import ScatterField from '../components/ScatterField.tsx';
-import HeroStrands from '../components/HeroStrands.tsx';
 import { CATEGORIES, SEED_QUESTIONS, SITE_TAGLINE, SITE_URL } from '../lib/config';
 
 // These are example questions, not real ones. This grid used to render whatever
@@ -29,7 +28,6 @@ const jsonLd = {
   jsonLd={jsonLd}
 >
   <section class="hero">
-    <HeroStrands client:idle />
     <ScatterField client:idle />
     <div class="wrap">
       <p class="hero__mark rise d1">Sharp AI</p>

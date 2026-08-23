@@ -1,0 +1,16 @@
+.replystrands {
+  height: 3.1rem;
+  margin: 0 0 0.55rem;
+  /* Fades at both ends so the band belongs to the column rather than ending on
+     a hard edge against the rule. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  transition: height 0.4s var(--ease), opacity 0.4s var(--ease);
+}
+.replystrands--light { mix-blend-mode: multiply; }
+/* Speaking is taller as well as livelier: the band grows as the words start. */
+.replystrands--speaking { height: 3.9rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .replystrands { transition: none; }
+}

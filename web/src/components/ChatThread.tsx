@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import UsageMeter from './UsageMeter';
 import Mascot from './Mascot';
+import ReplyStrands from './ReplyStrands';
 import { API_BASE } from '../lib/config';
 import { ask, type Citation, type Excerpt, type Validation, type CiteCheck } from '../lib/ask';
 import { renderMarkdown } from '../lib/markdown';
@@ -394,11 +395,19 @@ function TurnView({ turn, index, stage, isActive, onFocus, patch }: {
       <div className="turn__reply">
         {turn.notice && <p className="turn__notice">{turn.notice}</p>}
 
+        {/* The strands run for the whole wait, not just the silent part of it:
+            thinking slow and dim, speaking quicker and brighter once words are
+            landing. Same band throughout, so it reads as one process changing
+            pace rather than two indicators swapping over. */}
+        {(turn.status === 'thinking' || turn.status === 'streaming') && (
+          <ReplyStrands state={turn.status === 'streaming' && (turn.answer || turn.beyond)
+            ? 'speaking' : 'thinking'} />
+        )}
+
         {(turn.status === 'thinking'
           || (turn.status === 'streaming' && !turn.answer && !turn.beyond)) && (
           <div className="turn__loading">
             <Mascot state="thinking" />
-            <span className="turn__bar" />
             {/* Retrieval finishing is not the answer starting. The indicator used
                 to stop the moment sections came back, leaving the reader looking
                 at sources and a blank space while the model was still writing. */}

@@ -16,7 +16,7 @@
  * Nothing in this file is traced from FIRST's field renderings. See NOTICE.
  */
 export type FieldMode = 'grid' | 'square' | 'square-inverted' | 'diamond'
-  | 'decode' | 'centerstage' | 'freight' | 'ultimate';
+  | 'decode' | 'centerstage' | 'powerplay' | 'freight' | 'ultimate';
 
 export interface FieldOption { id: FieldMode; label: string; note: string }
 
@@ -27,6 +27,7 @@ export const FIELD_OPTIONS: FieldOption[] = [
   { id: 'diamond', label: 'Diamond field', note: 'Perimeter rotated to the audience.' },
   { id: 'decode', label: 'DECODE 2025-26', note: 'Full tape layout, from the official FIELD Setup Guide.' },
   { id: 'centerstage', label: 'CENTERSTAGE 2023-24', note: 'Wings and pixel stack locators. Backstage needs the truss position.' },
+  { id: 'powerplay', label: 'PowerPlay 2022-23', note: 'Signal lines and cone stack lines. Terminals and substations are figure-only.' },
   { id: 'freight', label: 'Freight Frenzy 2021-22', note: 'Barcodes and alliance hub markers, at the measured offsets.' },
   { id: 'ultimate', label: 'Ultimate Goal 2020-21', note: 'Launch line and starter stacks.' },
 ];
@@ -139,9 +140,26 @@ export const CENTERSTAGE_TAPE: Tape[] = [
   ]),
 ];
 
+/** 2022-2023, PowerPlay. */
+export const POWERPLAY_TAPE: Tape[] = [
+  // Cone stack lines: bisecting the third tile in along the audience and far
+  // walls, tape edge 10.5in from the near tile seam. C is blue, D is red.
+  line(2 * T, 11.5, 3 * T, 11.5, 'blue'),
+  line(3 * T, 11.5, 4 * T, 11.5, 'red'),
+  line(2 * T, 6 * T - 11.5, 3 * T, 6 * T - 11.5, 'blue'),
+  line(3 * T, 6 * T - 11.5, 4 * T, 6 * T - 11.5, 'red'),
+  // Signal lines: 2x4in centred on tiles B2, B5 (blue) and E2, E5 (red), long
+  // edge parallel to the driver station.
+  ...[[1.5, 1.5], [1.5, 4.5]].flatMap(([cx, cy]) =>
+    box(cx * T - 1, cy * T - 2, 2, 4, 'blue')),
+  ...[[4.5, 1.5], [4.5, 4.5]].flatMap(([cx, cy]) =>
+    box(cx * T - 1, cy * T - 2, 2, 4, 'red')),
+];
+
 export const SEASON_TAPE: Partial<Record<FieldMode, Tape[]>> = {
   decode: DECODE_TAPE,
   centerstage: CENTERSTAGE_TAPE,
+  powerplay: POWERPLAY_TAPE,
   freight: FREIGHT_TAPE,
   ultimate: ULTIMATE_TAPE,
 };

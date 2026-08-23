@@ -1,0 +1,14 @@
+.herostrands {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(96vh, 900px);
+  z-index: 0;
+  pointer-events: none;
+  /* Fades out downward so the field belongs to the hero rather than ending on
+     a hard edge partway down the page. */
+  -webkit-mask-image: linear-gradient(#000 40%, transparent 96%);
+  mask-image: linear-gradient(#000 40%, transparent 96%);
+}
+/* Additive light does not register on paper; multiply lets the same strands
+   tint it instead. */
+.herostrands--light { mix-blend-mode: multiply; }

@@ -52,3 +52,23 @@ What was taken, and what was changed:
   centerstage.webp). Apache-2.0 covers that repository's own work; the FTC
   field artwork depicted is FIRST's, and the licence does not grant rights to
   it.
+
+
+---
+
+Strands (WebGL background on the home page)
+    https://reactbits.dev/animations/strands
+    Copyright (c) 2026 David Haz
+    MIT + Commons Clause License Condition v1.0
+
+    Vendored at web/src/components/vendor/Strands.tsx because the site's CSP
+    only permits scripts from its own origin. Modified in three marked places
+    to respect prefers-reduced-motion and to stop rendering when the hero is
+    off screen or the tab is in the background.
+
+    The Commons Clause forbids selling, sublicensing or redistributing the
+    component itself. Sharp AI does none of those: it is a free site with no
+    advertising, no paid tier and no sponsorship, and the component is used as
+    part of the site rather than offered for download.
+
+    Depends on ogl (MIT), https://github.com/oframe/ogl

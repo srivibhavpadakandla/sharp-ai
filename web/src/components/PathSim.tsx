@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { animate } from 'animejs';
-import { FIELD_OPTIONS, type FieldMode } from '../lib/field';
+import { DECODE_TAPE, FIELD_OPTIONS, type FieldMode } from '../lib/field';
 import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
   sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath, parseJava,
@@ -234,7 +234,20 @@ export default function PathSim() {
     // --- alliance areas and perimeter -------------------------------------
     // Geometry the FTC Docs state: origin at centre, and the square or diamond
     // perimeter. No season's tape layout is drawn — see lib/field.ts.
-    if (field !== 'grid') {
+    if (field === 'decode') {
+      // Tape, drawn at its real 1in width. Colours are the site's, not the
+      // vinyl's, so it reads on both themes.
+      const TAPE = { white: 'rgba(255,255,255,0.62)', red: 'rgba(224,90,74,0.75)', blue: 'rgba(74,144,226,0.75)' };
+      ctx.lineCap = 'butt';
+      ctx.lineWidth = Math.max(1.5, 1 * k);
+      for (const t of DECODE_TAPE) {
+        ctx.strokeStyle = TAPE[t.c];
+        ctx.beginPath(); ctx.moveTo(X(t.x1), Y(t.y1)); ctx.lineTo(X(t.x2), Y(t.y2)); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, css - 1, css - 1);
+    } else if (field !== 'grid') {
       const RED = 'rgba(224,90,74,0.55)';
       const BLUE = 'rgba(74,144,226,0.55)';
       const wall = (x1: number, y1: number, x2: number, y2: number, c: string) => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { animate } from 'animejs';
-import { DECODE_TAPE, FIELD_OPTIONS, type FieldMode } from '../lib/field';
+import { SEASON_TAPE, FIELD_OPTIONS, type FieldMode } from '../lib/field';
 import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
   sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath, parseJava,
@@ -234,13 +234,14 @@ export default function PathSim() {
     // --- alliance areas and perimeter -------------------------------------
     // Geometry the FTC Docs state: origin at centre, and the square or diamond
     // perimeter. No season's tape layout is drawn — see lib/field.ts.
-    if (field === 'decode') {
+    const tape = SEASON_TAPE[field];
+    if (tape) {
       // Tape, drawn at its real 1in width. Colours are the site's, not the
       // vinyl's, so it reads on both themes.
       const TAPE = { white: 'rgba(255,255,255,0.62)', red: 'rgba(224,90,74,0.75)', blue: 'rgba(74,144,226,0.75)' };
       ctx.lineCap = 'butt';
       ctx.lineWidth = Math.max(1.5, 1 * k);
-      for (const t of DECODE_TAPE) {
+      for (const t of tape) {
         ctx.strokeStyle = TAPE[t.c];
         ctx.beginPath(); ctx.moveTo(X(t.x1), Y(t.y1)); ctx.lineTo(X(t.x2), Y(t.y2)); ctx.stroke();
       }

@@ -15,7 +15,8 @@
  *
  * Nothing in this file is traced from FIRST's field renderings. See NOTICE.
  */
-export type FieldMode = 'grid' | 'square' | 'square-inverted' | 'diamond' | 'decode';
+export type FieldMode = 'grid' | 'square' | 'square-inverted' | 'diamond'
+  | 'decode' | 'centerstage' | 'freight' | 'ultimate';
 
 export interface FieldOption { id: FieldMode; label: string; note: string }
 
@@ -24,7 +25,10 @@ export const FIELD_OPTIONS: FieldOption[] = [
   { id: 'square', label: 'Square field', note: 'Alliance walls facing each other.' },
   { id: 'square-inverted', label: 'Square, inverted', note: 'The arrangement the docs describe for DECODE.' },
   { id: 'diamond', label: 'Diamond field', note: 'Perimeter rotated to the audience.' },
-  { id: 'decode', label: 'DECODE 2025-26', note: 'Tape laid out from the official FIELD Setup Guide.' },
+  { id: 'decode', label: 'DECODE 2025-26', note: 'Full tape layout, from the official FIELD Setup Guide.' },
+  { id: 'centerstage', label: 'CENTERSTAGE 2023-24', note: 'Wings and pixel stack locators. Backstage needs the truss position.' },
+  { id: 'freight', label: 'Freight Frenzy 2021-22', note: 'Barcodes and alliance hub markers, at the measured offsets.' },
+  { id: 'ultimate', label: 'Ultimate Goal 2020-21', note: 'Launch line and starter stacks.' },
 ];
 
 /**
@@ -83,3 +87,61 @@ export const DECODE_TAPE: Tape[] = [
 
 /** Inside faces of the perimeter panels: 3580mm, per the FTC Docs measurements. */
 export const INSIDE_SPAN_IN = 3580 / 25.4;
+
+/**
+ * Earlier seasons, from their own Field Setup Guides.
+ *
+ * These are partial and the picker says so. Each guide describes some tape
+ * against the tile grid or with a stated measurement — those are transcribed
+ * exactly — and some relative to field elements whose positions the text never
+ * gives (CENTERSTAGE's Backstage runs "along the edge of the tiles closest to
+ * the Backdrop", and the Backdrop's own placement is in a figure). Those lines
+ * are left out rather than estimated: a planner that draws tape in roughly the
+ * right place is the failure mode worth avoiding.
+ *
+ * Viewed from the audience at y = 0, blue is on the left, as the guides state.
+ */
+const sq = (cx: number, cy: number, side: number, c: Tape['c']): Tape[] =>
+  box(cx - side / 2, cy - side / 2, side, side, c);
+
+/** 2020-2021, Ultimate Goal. Launch line 80in from the audience wall. */
+export const ULTIMATE_TAPE: Tape[] = [
+  line(0, 80, 6 * T, 80, 'white'),
+  // Starter stacks: front edge of the tile, 3rd row back, 2nd column in.
+  ...sq(36, 2 * T, 2, 'blue'),
+  ...sq(6 * T - 36, 2 * T, 2, 'red'),
+];
+
+/** 2021-2022, Freight Frenzy. */
+export const FREIGHT_TAPE: Tape[] = [
+  // Alliance hub markers: over the 2nd tile seam in, centred on the 3rd tile.
+  ...sq(2 * T, 2.5 * T, 2, 'blue'),
+  ...sq(4 * T, 2.5 * T, 2, 'red'),
+  // Barcodes: closest edge 34.25in from the alliance-wall tile edge; sets at
+  // 25.75in and 73in from the near wall; squares 8.38in apart.
+  ...[25.75, 73].flatMap((y0) => [0, 8.38, 16.76].flatMap((dy) => [
+    ...sq(34.25 + 1, y0 + dy + 1, 2, 'blue'),
+    ...sq(6 * T - 34.25 - 1, y0 + dy + 1, 2, 'red'),
+  ])),
+];
+
+/** 2023-2024, CENTERSTAGE. */
+export const CENTERSTAGE_TAPE: Tape[] = [
+  // Wings: corner diagonals touching one tile, on the side opposite each
+  // Backdrop. The blue Wing sits in the corner opposite the blue Backdrop.
+  line(0, T, T, 0, 'blue'),
+  line(6 * T - T, 0, 6 * T, T, 'red'),
+  // Pixel stack locators: six 6in white lines against the far wall, set 11in
+  // either side of the seam between tiles D and E, plus one on the seam.
+  ...[4 * T, 4 * T - 11 - 6, 4 * T + 11].flatMap((x) => [
+    line(x, 6 * T, x + 6, 6 * T, 'white'),
+    line(6 * T - x - 6, 6 * T, 6 * T - x, 6 * T, 'white'),
+  ]),
+];
+
+export const SEASON_TAPE: Partial<Record<FieldMode, Tape[]>> = {
+  decode: DECODE_TAPE,
+  centerstage: CENTERSTAGE_TAPE,
+  freight: FREIGHT_TAPE,
+  ultimate: ULTIMATE_TAPE,
+};

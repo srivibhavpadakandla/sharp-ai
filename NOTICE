@@ -91,8 +91,18 @@ Path planner field backdrops
     SECRET TUNNEL lines 16.75in inside seam V or Z). The guide places tape
     against the TILE grid, so the grid is what the code follows.
 
-    No FIRST field rendering is used, traced or reproduced, and no other
-    season's tape layout is drawn. Those are not in the index, and a planner that draws tape in
+    CENTERSTAGE (2023-2024), Freight Frenzy (2021-2022) and Ultimate Goal
+    (2020-2021) are transcribed the same way from their own Field Setup Guides,
+    and are partial by design. Each guide places some tape against the tile grid
+    or with a stated measurement, and some relative to field elements whose
+    positions appear only in a figure. The first are transcribed exactly; the
+    second are omitted rather than estimated, and the picker says which is which.
+
+    PowerPlay (2022-2023), Skystone (2019-2020), Rover Ruckus (2018-2019) and
+    Relic Recovery (2017-2018) are not included: their setup guides are no longer
+    at any URL on FIRST's archive or blob storage that could be found.
+
+    No FIRST field rendering is used, traced or reproduced. Those are not in the index, and a planner that draws tape in
     the wrong place is worse than one that draws none. A team that wants a
     specific season's field supplies its own image, which is read in the browser
     and never uploaded.

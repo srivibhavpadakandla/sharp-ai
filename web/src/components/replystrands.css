@@ -1,15 +1,24 @@
 .replystrands {
-  height: 3.1rem;
+  height: 4.4rem;
   margin: 0 0 0.55rem;
-  /* Fades at both ends so the band belongs to the column rather than ending on
-     a hard edge against the rule. */
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  /* Fades on all four edges, intersected. A horizontal fade alone still let the
+     strands meet the top and bottom of the box and stop dead there — measured
+     light at 20-25% of peak on the very first and last row, which is a cut, not
+     an ending. The box is also taller than the strands now reach, so the fade
+     has something to fade. */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent);
+  mask-composite: intersect;
   transition: height 0.4s var(--ease), opacity 0.4s var(--ease);
 }
 .replystrands--light { mix-blend-mode: multiply; }
 /* Speaking is taller as well as livelier: the band grows as the words start. */
-.replystrands--speaking { height: 3.9rem; }
+.replystrands--speaking { height: 5.4rem; }
 
 @media (prefers-reduced-motion: reduce) {
   .replystrands { transition: none; }

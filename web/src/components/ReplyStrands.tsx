@@ -57,7 +57,7 @@ export default function ReplyStrands({ state }: { state: 'thinking' | 'speaking'
         colors={BRAND}
         count={speaking ? 6 : 4}
         speed={speaking ? 0.75 : 0.3}
-        amplitude={speaking ? 2.3 : 1.6}
+        amplitude={speaking ? 1.5 : 1.05}
         waviness={speaking ? 2.4 : 1.6}
         thickness={light ? 0.26 : 0.3}
         glow={light ? 1.5 : 2.0}

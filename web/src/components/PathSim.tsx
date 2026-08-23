@@ -584,41 +584,50 @@ export default function PathSim() {
             <strong>{(u * sched.totalSeconds).toFixed(1)}s</strong> / {sched.totalSeconds.toFixed(1)}s
             <em>({sched.totalInches.toFixed(0)} in)</em>
           </span>
-          <label className="sim__field" title="What the path is drawn over">
-            <span className="sr-only">Field</span>
-            <select value={field} onChange={(e) => setField(e.target.value as FieldMode)}>
-              {FIELD_OPTIONS.map((o) => (
-                <option key={o.id} value={o.id} title={o.note}>
-                  {o.label}{seasons.some((x) => x.id === o.id) ? ' \u00b7 image' : ''}
-                </option>
-              ))}
-              {/* Seasons that exist only as an image, with no drawing behind them. */}
-              {seasons.filter((x) => !FIELD_OPTIONS.some((o) => o.id === x.id)).map((x) => (
-                <option key={x.id} value={x.id} title="Field image">{`${x.label} \u00b7 image`}</option>
-              ))}
-            </select>
-          </label>
-          <label className="sim__fieldimg" title="Use your own field image; it stays on this machine">
-            <input
-              type="file" accept="image/*"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = '';
-                if (!f) return;
-                const url = URL.createObjectURL(f);
-                const img = new Image();
-                img.onload = () => { setFieldImg(img); setFieldName(f.name); URL.revokeObjectURL(url); };
-                img.onerror = () => URL.revokeObjectURL(url);
-                img.src = url;
-              }}
-            />
-            {fieldImg ? 'Change image' : 'Field image'}
-          </label>
-          {fieldImg && (
-            <button type="button" className="sim__fieldclear"
-              onClick={() => { setFieldImg(null); setFieldName(''); }}
-              title={`Remove ${fieldName}`}>×</button>
-          )}
+          <div className="sim__fieldgroup">
+            <label className="sim__field" title="What the path is drawn over">
+              <span className="sr-only">Field</span>
+              <select value={field} onChange={(e) => setField(e.target.value as FieldMode)}>
+                {FIELD_OPTIONS.map((o) => (
+                  <option key={o.id} value={o.id} title={o.note}>
+                    {o.label}{seasons.some((x) => x.id === o.id) ? ' \u00b7 image' : ''}
+                  </option>
+                ))}
+                {/* Seasons that exist only as an image, with no drawing behind them. */}
+                {seasons.filter((x) => !FIELD_OPTIONS.some((o) => o.id === x.id)).map((x) => (
+                  <option key={x.id} value={x.id} title="Field image">{`${x.label} \u00b7 image`}</option>
+                ))}
+              </select>
+            </label>
+            <label className={`sim__fieldimg${fieldImg ? ' is-on' : ''}`}
+              title={fieldImg ? `Showing ${fieldName}` : 'Use your own field image; it stays on this machine'}>
+              <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="1.4" y="2.6" width="13.2" height="10.8" rx="1.8"
+                  fill="none" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M1.8 11.2 5.6 7.6l2.6 2.4 2.6-2.9 3.4 3.6" fill="none"
+                  stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span>{fieldImg ? 'Image' : 'Field image'}</span>
+              <input
+                type="file" accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!f) return;
+                  const url = URL.createObjectURL(f);
+                  const img = new Image();
+                  img.onload = () => { setFieldImg(img); setFieldName(f.name); URL.revokeObjectURL(url); };
+                  img.onerror = () => URL.revokeObjectURL(url);
+                  img.src = url;
+                }}
+              />
+            </label>
+            {fieldImg && (
+              <button type="button" className="sim__fieldclear"
+                onClick={() => { setFieldImg(null); setFieldName(''); }}
+                title={`Remove ${fieldName}`} aria-label="Remove the field image">×</button>
+            )}
+          </div>
           <span className="sim__tools">
             <button type="button" onClick={undo} title="Undo (Cmd Z)" aria-label="Undo">⤺</button>
             <button type="button" className={ghosts ? 'is-on' : ''} onClick={() => setGhosts((g) => !g)}

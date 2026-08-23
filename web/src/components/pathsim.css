@@ -218,18 +218,74 @@
 .sim__action { display: grid; gap: 0.3rem; margin-top: 0.55rem; font-size: 0.8rem; color: var(--ink-2); }
 
 /* --- field backdrop ------------------------------------------------------- */
-.sim__field select, .sim__fieldimg {
-  font: inherit; font-size: 0.76rem; cursor: pointer;
-  padding: 0.22rem 0.5rem; border-radius: var(--r-sm);
-  border: 1px solid var(--rule-strong); background: transparent; color: var(--ink-2);
+/*
+ * The field controls are one group, not three loose items. A native <select>
+ * was rendering as a white OS dropdown in the middle of a dark toolbar, at a
+ * different height to everything beside it — the single thing that made this
+ * strip look unfinished.
+ */
+.sim__fieldgroup {
+  display: inline-flex; align-items: stretch;
+  border: 1px solid var(--rule); border-radius: 9px;
+  background: var(--paper-raised); overflow: hidden;
 }
-.sim__field select:hover, .sim__fieldimg:hover { color: var(--accent); border-color: var(--accent); }
-.sim__fieldimg { display: inline-flex; align-items: center; }
+.sim__fieldgroup > * + * { border-left: 1px solid var(--rule); }
+
+.sim__field { position: relative; display: inline-flex; align-items: center; }
+.sim__field select {
+  appearance: none; -webkit-appearance: none;
+  font: inherit; font-size: 0.78rem; line-height: 1;
+  height: 2rem; padding: 0 1.7rem 0 0.7rem;
+  border: 0; background: transparent; color: var(--ink-2); cursor: pointer;
+  max-width: 13rem; text-overflow: ellipsis;
+}
+.sim__field select:hover { color: var(--accent); }
+.sim__field select:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sim__field option { background: var(--paper-raised); color: var(--ink); }
+/* Drawn, because a native arrow cannot be recoloured per theme. */
+.sim__field::after {
+  content: ''; position: absolute; right: 0.62rem; top: 50%;
+  width: 0.42rem; height: 0.42rem; margin-top: -0.28rem;
+  border-right: 1.4px solid currentColor; border-bottom: 1.4px solid currentColor;
+  transform: rotate(45deg); color: var(--ink-4); pointer-events: none;
+}
+
+.sim__fieldimg {
+  display: inline-flex; align-items: center; gap: 0.34rem;
+  height: 2rem; padding: 0 0.7rem;
+  font: inherit; font-size: 0.78rem; line-height: 1;
+  background: transparent; color: var(--ink-3); cursor: pointer;
+  transition: color 0.16s var(--ease);
+}
+.sim__fieldimg:hover { color: var(--accent); }
 .sim__fieldimg input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.sim__fieldimg:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sim__fieldimg:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sim__fieldimg.is-on { color: var(--accent); }
+
 .sim__fieldclear {
-  font: inherit; line-height: 1; cursor: pointer;
-  border: 1px solid var(--rule-strong); border-radius: var(--r-sm);
-  background: transparent; color: var(--ink-3); padding: 0.18rem 0.42rem;
+  height: 2rem; width: 1.9rem; padding: 0;
+  font: inherit; font-size: 0.95rem; line-height: 1; cursor: pointer;
+  border: 0; background: transparent; color: var(--ink-4);
+  transition: color 0.16s var(--ease);
 }
-.sim__fieldclear:hover { color: var(--warn); border-color: var(--warn); }
+.sim__fieldclear:hover { color: var(--warn); }
+
+/* The strip reads left to right as: where you are, what you are over, tools. */
+.sim__toolbar { gap: 0.75rem; }
+.sim__toolbar .sim__clock { margin-right: auto; }
+.sim__toolbar .sim__tools { margin-left: auto; }
+
+@media (max-width: 46rem) {
+  /* One row could not hold the clock, the field group and four tools: the
+     select was squeezed until only its arrow showed and the clock wrapped
+     mid-figure. The clock takes its own line and the controls share the next. */
+  .sim__toolbar { flex-wrap: wrap; row-gap: 0.55rem; }
+  .sim__clock { width: 100%; margin-right: 0; white-space: nowrap; }
+  /* basis 0, not auto: an auto basis is the group's content width, which fills
+     the row on its own and pushes the tools onto a third line. */
+  .sim__fieldgroup { flex: 1 1 0; min-width: 0; }
+  .sim__field { flex: 1; min-width: 0; }
+  .sim__field select { max-width: none; width: 100%; min-width: 6.5rem; }
+  .sim__fieldimg span { display: none; }   /* icon only when space is tight */
+  .sim__tools { margin-left: auto; flex: none; }
+}

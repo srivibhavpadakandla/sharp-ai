@@ -16,7 +16,7 @@
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
 import { retrieve, retrieveMulti, chunksForUrl } from './retrieval.js';
-import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond } from './gemini.js';
+import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond, needsDepth } from './gemini.js';
 import { classify } from './lib/topic.js';
 import { teamNumberIn, lookupTeam, describeTeam } from './lib/ftcscout.js';
 import { intentOf } from './lib/intent.js';
@@ -388,7 +388,8 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // the answer itself, and if the ceiling refuses them we simply proceed with
   // what fusion already found.
   let finalChunks = chunks;
-  const agent = { escalated: false, queries: null, interpretation: null, reranked: false };
+  // Recorded so the routing is checkable from outside rather than only in a log.
+  const agent = { escalated: false, queries: null, interpretation: null, reranked: false, deep: false };
 
   if (String(env.AGENTIC ?? 'true') !== 'false'
       && (isFollowUp || needsEscalation(question, stats, gate))) {
@@ -466,6 +467,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     const splitter = createAnswerSplitter();
 
     try {
+      agent.deep = needsDepth({ isCode, isError, intent, question, history });
       await writer.write(encoder.encode(sse('meta', {
         question, citations, excerpts, category,
         cached: false, degraded: false,

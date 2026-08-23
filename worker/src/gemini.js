@@ -94,12 +94,35 @@ Rules you must follow without exception:
    code (for example "rule I101"), and tell the reader to check the manual for
    the exact wording. Being precise about what a rule demands matters here:
    getting it wrong costs a team a match.
-8. Be brief. Lead with the direct answer in the first sentence, add only the
-   detail that changes what someone actually does, and stop. Two or three short
-   paragraphs is the target and rarely worth exceeding; one is often right. Cut
-   background the reader did not ask for, restatements of the question, and any
-   sentence that would still be true of a different robot. If a list is genuinely
-   a list, four items beat eight.
+8a. Never open with what the documentation lacks.
+   Sentences of the form "the provided documentation does not explicitly
+   detail...", "the sections do not cover...", "while the docs don't state
+   directly..." are banned as an opener, in any wording. They tell the reader
+   about the index instead of about their robot, and they make a good answer
+   read like a bad one — the answer that follows is usually fine, which is
+   exactly why leading with the disclaimer is wrong.
+   Open with the substance. If something genuinely is not covered, say so once,
+   at the end, in a single clause: "The manual does not give a number for X."
+   A reader who asked how to fix drift wants the causes first and the caveat
+   last, in that order.
+
+8. Be brief, and let the shape follow the question.
+   Brevity is about content, not format: lead with the direct answer in the first
+   sentence, add only the detail that changes what someone actually does, and
+   stop. Cut background the reader did not ask for, restatements of the question,
+   and any sentence that would still be true of a different robot.
+   Then match the form to what was asked, the way a knowledgeable person would:
+   - One thing asked, one thing answered: prose, a paragraph or two. No headings,
+     no list. Most questions are this.
+   - Several things asked ("the three most likely causes", "compare X and Y",
+     "what do I check"): a short list, each item leading with the thing itself in
+     bold, then the sentence that matters. Four items beat eight.
+   - An order that must be followed (a procedure, a tuning sequence): numbered
+     steps, each one action.
+   Never impose structure on an answer that does not have any — a heading above a
+   single paragraph makes a simple answer look evasive. Never flatten a genuine
+   list into prose either; if the reader asked for three causes, three visible
+   items is the answer and one dense paragraph is a worse version of it.
 9a. A block marked LIVE DATA is current information fetched from FTC Scout, not
    an indexed section. Use it, name FTC Scout in the prose, give its link, and
    never give it a bracket citation number — those belong to sections only. Say
@@ -309,13 +332,44 @@ import { CODE_SYSTEM_ADDENDUM } from './codegen.js';
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+/** Questions that need reasoning rather than retrieval. */
+export function needsDepth({ isCode = false, isError = false, intent = 'lookup', question = '', history = [] } = {}) {
+  if (isCode || isError) return true;                 // writing code, reading a stack trace
+  if (intent === 'advice' || intent === 'debug') return true;
+  const q = String(question);
+  // Several asks in one sentence, or an explicit request to compare or choose.
+  if (/\b(vs\.?|versus|compare|trade-?offs?|which is better|pros and cons)\b/i.test(q)) return true;
+  if ((q.match(/\?/g) || []).length > 1) return true;
+  if (/\b(and then|as well as|also)\b/i.test(q) && q.length > 90) return true;
+  if (q.length > 180) return true;                    // a long question is rarely a lookup
+  // Deep in a conversation the reader is usually past simple facts.
+  if (Array.isArray(history) && history.length >= 4) return true;
+  return false;
+}
+
+function pickModel(env, opts) {
+  const deep = env.GEMINI_DEEP_MODEL || 'gemini-3.1-pro-preview';
+  const fast = env.GEMINI_MODEL || 'gemini-3.7-flash';
+  if (env.DEEP_ROUTING === 'off') return fast;
+  return needsDepth(opts) ? deep : fast;
+}
+
 /**
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
 export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
   const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });
-  const model = env.GEMINI_MODEL || 'gemini-3.5-flash';
+  // Which model answers is decided per question, not per site.
+  //
+  // Measured on the same drivetrain-diagnosis question at the same budget:
+  // 3.5-flash spent 1341 tokens thinking and emitted 55, truncating itself;
+  // 3.7-flash produced a usable answer; the Pro model produced the only one
+  // that named the actual test — four scales under the wheels, 10-15% spread.
+  // A lookup does not need that and should not wait 15s for it, so the depth
+  // follows the question: anything that has to reason gets the Pro model, and
+  // anything that is fetching a fact gets the fast one.
+  const model = pickModel(env, { isCode, isError, intent, question, history });
 
   const body = {
     systemInstruction: {

@@ -29,6 +29,39 @@ export default function PathSim() {
   });
   const [fieldImg, setFieldImg] = useState<HTMLImageElement | null>(null);
   const [fieldName, setFieldName] = useState<string>('');
+  // Seasons that ship an image. Read from a manifest rather than compiled in,
+  // so adding a season is dropping a file in web/public/fields/ and adding a
+  // line — no rebuild of this component, and no code review to add a picture.
+  const [seasons, setSeasons] = useState<{ id: string; label: string; file: string }[]>([]);
+  useEffect(() => {
+    fetch('/fields/manifest.json')
+      .then((r) => r.json())
+      .then((j) => setSeasons((j.seasons || []).filter((x: any) => x && x.file)))
+      .catch(() => setSeasons([]));
+  }, []);
+
+  // A season image replaces the drawn tape for that season rather than sitting
+  // under it: two versions of the same lines, slightly out of register, is
+  // worse than either alone.
+  const seasonImg = seasons.find((x) => x.id === field);
+  const fromSeason = useRef(false);
+  useEffect(() => {
+    if (!seasonImg) {
+      // Switching to a season with no image must clear the last one, or the
+      // previous season's field stays under the new season's tape. A picture
+      // the user opened themselves is left alone.
+      if (fromSeason.current) { setFieldImg(null); setFieldName(''); fromSeason.current = false; }
+      return;
+    }
+    let live = true;
+    const img = new Image();
+    img.onload = () => {
+      if (!live) return;
+      setFieldImg(img); setFieldName(seasonImg.label); fromSeason.current = true;
+    };
+    img.src = `/fields/${seasonImg.file}`;
+    return () => { live = false; };
+  }, [seasonImg?.file]);
   useEffect(() => { try { localStorage.setItem('field', field); } catch { /* private mode */ } }, [field]);
   const [model, setModel] = useState<PathModel>(starterPath);
   /** Every chain, in run order. The edited `model` is whichever is active. */
@@ -234,7 +267,7 @@ export default function PathSim() {
     // --- alliance areas and perimeter -------------------------------------
     // Geometry the FTC Docs state: origin at centre, and the square or diamond
     // perimeter. No season's tape layout is drawn — see lib/field.ts.
-    const tape = SEASON_TAPE[field];
+    const tape = seasonImg ? undefined : SEASON_TAPE[field];
     if (tape) {
       // Tape, drawn at its real 1in width. Colours are the site's, not the
       // vinyl's, so it reads on both themes.
@@ -555,7 +588,13 @@ export default function PathSim() {
             <span className="sr-only">Field</span>
             <select value={field} onChange={(e) => setField(e.target.value as FieldMode)}>
               {FIELD_OPTIONS.map((o) => (
-                <option key={o.id} value={o.id} title={o.note}>{o.label}</option>
+                <option key={o.id} value={o.id} title={o.note}>
+                  {o.label}{seasons.some((x) => x.id === o.id) ? ' \u00b7 image' : ''}
+                </option>
+              ))}
+              {/* Seasons that exist only as an image, with no drawing behind them. */}
+              {seasons.filter((x) => !FIELD_OPTIONS.some((o) => o.id === x.id)).map((x) => (
+                <option key={x.id} value={x.id} title="Field image">{`${x.label} \u00b7 image`}</option>
               ))}
             </select>
           </label>

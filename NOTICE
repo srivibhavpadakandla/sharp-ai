@@ -72,3 +72,20 @@ Strands (the band a reply arrives on, in the chat)
     part of the site rather than offered for download.
 
     Depends on ogl (MIT), https://github.com/oframe/ogl
+
+
+---
+
+Path planner field backdrops
+
+    The perimeter arrangements drawn in web/src/lib/field.ts and PathSim.tsx —
+    square, square with inverted alliance areas, and diamond — are our own line
+    drawings of geometry the FTC Docs state in the *FIRST* Tech Challenge Field
+    Coordinate System Definition: origin at the centre of the field, 6x6 tiles
+    of 24 inches, 3580mm between the inside faces of the perimeter panels.
+
+    No FIRST field rendering is used, traced or reproduced, and no season's tape
+    layout is drawn. Those are not in the index, and a planner that draws tape in
+    the wrong place is worse than one that draws none. A team that wants a
+    specific season's field supplies its own image, which is read in the browser
+    and never uploaded.

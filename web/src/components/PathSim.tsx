@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { animate } from 'animejs';
+import { FIELD_OPTIONS, type FieldMode } from '../lib/field';
 import {
   FIELD_IN, TILE_IN, bezierAt, generateJava, legPoints, poseAtLength, robotCorners,
   sampleChain, starterPath, validate, clampField, round2, encodePath, decodePath, parseJava,
@@ -22,6 +23,13 @@ const readDims = () => {
 
 export default function PathSim() {
   const canvas = useRef<HTMLCanvasElement>(null);
+  // Remembered, because a team works one season at a time.
+  const [field, setField] = useState<FieldMode>(() => {
+    try { return (localStorage.getItem('field') as FieldMode) || 'grid'; } catch { return 'grid'; }
+  });
+  const [fieldImg, setFieldImg] = useState<HTMLImageElement | null>(null);
+  const [fieldName, setFieldName] = useState<string>('');
+  useEffect(() => { try { localStorage.setItem('field', field); } catch { /* private mode */ } }, [field]);
   const [model, setModel] = useState<PathModel>(starterPath);
   /** Every chain, in run order. The edited `model` is whichever is active. */
   const [chains, setChains] = useState<Chain[]>(() => {
@@ -204,6 +212,15 @@ export default function PathSim() {
 
     ctx.fillStyle = 'rgba(255,255,255,0.02)';
     ctx.fillRect(0, 0, css, css);
+
+    // A field image sits under everything, scaled to the tile grid. Read from a
+    // local file and never uploaded, so an unreleased field render stays put.
+    if (fieldImg) {
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(fieldImg, 0, 0, css, css);
+      ctx.globalAlpha = 1;
+    }
+
     ctx.strokeStyle = 'rgba(255,255,255,0.10)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= FIELD_IN / TILE_IN; i += 1) {
@@ -213,6 +230,36 @@ export default function PathSim() {
     }
     ctx.strokeStyle = 'rgba(255,255,255,0.28)';
     ctx.strokeRect(0.5, 0.5, css - 1, css - 1);
+
+    // --- alliance areas and perimeter -------------------------------------
+    // Geometry the FTC Docs state: origin at centre, and the square or diamond
+    // perimeter. No season's tape layout is drawn — see lib/field.ts.
+    if (field !== 'grid') {
+      const RED = 'rgba(224,90,74,0.55)';
+      const BLUE = 'rgba(74,144,226,0.55)';
+      const wall = (x1: number, y1: number, x2: number, y2: number, c: string) => {
+        ctx.strokeStyle = c; ctx.lineWidth = 6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(X(x1), Y(y1)); ctx.lineTo(X(x2), Y(y2)); ctx.stroke();
+      };
+      if (field === 'diamond') {
+        const m = FIELD_IN / 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.30)'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(X(m), Y(FIELD_IN)); ctx.lineTo(X(FIELD_IN), Y(m));
+        ctx.lineTo(X(m), Y(0)); ctx.lineTo(X(0), Y(m)); ctx.closePath(); ctx.stroke();
+        wall(0, m, m, 0, RED);
+        wall(m, FIELD_IN, FIELD_IN, m, BLUE);
+      } else {
+        const inverted = field === 'square-inverted';
+        wall(0, 0, FIELD_IN, 0, inverted ? BLUE : RED);
+        wall(0, FIELD_IN, FIELD_IN, FIELD_IN, inverted ? RED : BLUE);
+      }
+      // The origin the field coordinate system is defined around.
+      ctx.strokeStyle = 'rgba(255,255,255,0.34)'; ctx.lineWidth = 1;
+      const c0 = FIELD_IN / 2;
+      ctx.beginPath(); ctx.moveTo(X(c0 - 4), Y(c0)); ctx.lineTo(X(c0 + 4), Y(c0)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(X(c0), Y(c0 - 4)); ctx.lineTo(X(c0), Y(c0 + 4)); ctx.stroke();
+    }
 
     for (const o of obstacles) {
       ctx.fillStyle = 'rgba(255,143,107,0.14)';
@@ -330,7 +377,7 @@ export default function PathSim() {
       ctx.lineTo(X(corners[1].x), Y(corners[1].y));
       ctx.stroke();
     }
-  }, [model, sel, u, total, table, dims, obstacles, atDistance, ghosts, chains, activeChain]);
+  }, [model, sel, u, total, table, dims, obstacles, atDistance, ghosts, chains, activeChain, field, fieldImg]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -490,6 +537,35 @@ export default function PathSim() {
             <strong>{(u * sched.totalSeconds).toFixed(1)}s</strong> / {sched.totalSeconds.toFixed(1)}s
             <em>({sched.totalInches.toFixed(0)} in)</em>
           </span>
+          <label className="sim__field" title="What the path is drawn over">
+            <span className="sr-only">Field</span>
+            <select value={field} onChange={(e) => setField(e.target.value as FieldMode)}>
+              {FIELD_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id} title={o.note}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="sim__fieldimg" title="Use your own field image; it stays on this machine">
+            <input
+              type="file" accept="image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (!f) return;
+                const url = URL.createObjectURL(f);
+                const img = new Image();
+                img.onload = () => { setFieldImg(img); setFieldName(f.name); URL.revokeObjectURL(url); };
+                img.onerror = () => URL.revokeObjectURL(url);
+                img.src = url;
+              }}
+            />
+            {fieldImg ? 'Change image' : 'Field image'}
+          </label>
+          {fieldImg && (
+            <button type="button" className="sim__fieldclear"
+              onClick={() => { setFieldImg(null); setFieldName(''); }}
+              title={`Remove ${fieldName}`}>×</button>
+          )}
           <span className="sim__tools">
             <button type="button" onClick={undo} title="Undo (Cmd Z)" aria-label="Undo">⤺</button>
             <button type="button" className={ghosts ? 'is-on' : ''} onClick={() => setGhosts((g) => !g)}

@@ -30,11 +30,11 @@ export default function HeroStrands() {
         speed={0.34}
         amplitude={1.05}
         waviness={0.85}
-        thickness={light ? 0.55 : 0.7}
-        glow={light ? 1.5 : 2.4}
+        thickness={light ? 0.42 : 0.5}
+        glow={light ? 1.25 : 1.85}
         taper={2.6}
-        spread={1.15}
-        intensity={light ? 0.5 : 0.62}
+        spread={1.3}
+        intensity={light ? 0.5 : 0.5}
         saturation={light ? 2.2 : 1.35}
         opacity={light ? 0.5 : 0.62}
         scale={1.9}

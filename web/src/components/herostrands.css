@@ -1,7 +1,12 @@
 .herostrands {
   position: absolute;
   inset: 0 0 auto 0;
-  height: min(96vh, 900px);
+  /* The shader's bright band sits at the container's vertical centre. At full
+     hero height that centre landed on the body copy — measured 94 mean
+     luminance behind the lede against 66 behind the headline, i.e. the glow was
+     brightest exactly where the smallest text is. Shortening the box lifts the
+     band onto the headline, where bright type can carry it. */
+  height: min(78vh, 760px);
   z-index: 0;
   pointer-events: none;
   /* Fades out downward so the field belongs to the hero rather than ending on

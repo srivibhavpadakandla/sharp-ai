@@ -564,7 +564,12 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
   font-weight: 500;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  /* Sits inside the Strands field, where the background is not a known colour.
+     --ink-3 measured 1.10:1 against the glow — invisible. A step up in weight
+     plus a halo in the page's own paper gives it a ground of its own, so it
+     stays legible wherever a strand happens to pass behind it. */
+  color: var(--ink-2);
+  text-shadow: 0 0 10px var(--paper), 0 0 3px var(--paper);
   margin: 0 0 1.4rem;
 }
 .hero__title {

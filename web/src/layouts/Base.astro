@@ -54,17 +54,6 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
   <link rel="icon" href="/logo.svg?v=3" type="image/svg+xml" />
   <link rel="icon" href="/favicon.png?v=3" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3" />
-
-  <!-- Installable. iOS ignores the manifest's theme_color and display mode, so
-       it needs its own tags; without them the icon opens Safari with its chrome
-       and it reads as a bookmark rather than an app. -->
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Sharp AI" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#0b0e12" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)" />
   {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 </head>
 <body>
@@ -158,14 +147,6 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
       </p>
     </div>
   </footer>}
-  <script is:inline>
-    /* Registered after load so it never competes with the first paint. */
-    if ('serviceWorker' in navigator) {
-      addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').catch(function () {});
-      });
-    }
-  </script>
   <script is:inline>
     (function () {
       var root = document.documentElement;

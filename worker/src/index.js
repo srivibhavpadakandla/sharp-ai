@@ -388,6 +388,9 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // the answer itself, and if the ceiling refuses them we simply proceed with
   // what fusion already found.
   let finalChunks = chunks;
+  const t = { start: Date.now() };
+  const mark = (k) => { t[k] = Date.now() - t.start; };
+  mark('retrieve');
   // Recorded so the routing is checkable from outside rather than only in a log.
   const agent = { escalated: false, queries: null, interpretation: null, reranked: false, deep: false };
 
@@ -397,17 +400,20 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       const planBudget = await reserveLlmCall(env);
       if (planBudget.granted) {
         const plan = await planSearch(env, question, chunks.map((c) => c.headingPath), history);
+        mark('plan');
         const queries = [question, ...(plan.queries || [])].slice(0, 5);
         agent.escalated = true;
         agent.queries = plan.queries || [];
         agent.interpretation = plan.interpretation || null;
 
         const wide = await retrieveMulti(env, queries);
+        mark('retrieveMulti');
         const candidates = wide.chunks.length ? wide.chunks : chunks;
 
         const rerankBudget = await reserveLlmCall(env);
         if (rerankBudget.granted && candidates.length > Number(env.TOP_K || 6)) {
           finalChunks = await rerank(env, question, candidates, Number(env.TOP_K || 6));
+          mark('rerank');
           agent.reranked = true;
         } else {
           finalChunks = candidates.slice(0, Number(env.TOP_K || 6));
@@ -468,6 +474,8 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
 
     try {
       agent.deep = needsDepth({ isCode, isError, intent, question, history });
+      mark('beforeGeneration');
+      agent.timings = t;
       await writer.write(encoder.encode(sse('meta', {
         question, citations, excerpts, category,
         cached: false, degraded: false,

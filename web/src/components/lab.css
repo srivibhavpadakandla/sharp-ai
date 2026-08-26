@@ -1,0 +1,61 @@
+.lab { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 22rem); gap: 1.2rem; align-items: start; }
+.lab__stage {
+  aspect-ratio: 4 / 3; min-height: 24rem;
+  border: 1px solid var(--rule); border-radius: var(--r-lg);
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%), var(--paper-sunk);
+  overflow: hidden; cursor: grab;
+}
+.lab__stage:active { cursor: grabbing; }
+.lab__stage canvas { display: block; width: 100%; height: 100%; }
+
+.lab__side { display: grid; gap: 0.9rem; min-width: 0; }
+.lab__card { border: 1px solid var(--rule); border-radius: var(--r-md); padding: 0.85rem 0.95rem; }
+.lab__card h2 { font-size: 0.85rem; margin: 0 0 0.6rem; letter-spacing: 0.02em; }
+
+.lab__list { list-style: none; margin: 0 0 0.6rem; padding: 0; display: grid; gap: 0.25rem; }
+.lab__list button {
+  width: 100%; display: flex; align-items: center; gap: 0.5rem;
+  font: inherit; font-size: 0.86rem; text-align: left; cursor: pointer;
+  padding: 0.4rem 0.5rem; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent; color: var(--ink-2);
+}
+.lab__list button:hover { border-color: var(--rule-strong); color: var(--ink); }
+.lab__list button.is-on { border-color: var(--accent); color: var(--ink); background: var(--accent-wash); }
+.lab__list em { margin-left: auto; font-style: normal; font-family: var(--type-mono); font-size: 0.72rem; color: var(--ink-3); }
+.lab__dot { width: 0.7rem; height: 0.7rem; border-radius: 3px; flex: none; }
+
+.lab__row { display: flex; gap: 0.4rem; }
+.lab__row button, .lab__card select {
+  font: inherit; font-size: 0.8rem; cursor: pointer; padding: 0.3rem 0.7rem;
+  border: 1px solid var(--rule-strong); border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-2);
+}
+.lab__row button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.lab__row button:disabled { opacity: 0.4; cursor: default; }
+
+.lab__f { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; font-size: 0.8rem; }
+.lab__f > span { width: 6.5rem; color: var(--ink-3); flex: none; }
+.lab__f input, .lab__f select {
+  flex: 1; min-width: 0; font: inherit; font-size: 0.8rem; font-family: var(--type-mono);
+  padding: 0.24rem 0.45rem; border-radius: var(--r-sm);
+  border: 1px solid var(--rule-strong); background: transparent; color: var(--ink);
+}
+.lab__f em { font-style: normal; font-size: 0.72rem; color: var(--ink-4); }
+.lab__f input:focus-visible, .lab__f select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.lab__checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.lab__checks li { display: grid; gap: 0.1rem; font-size: 0.8rem; padding-left: 0.6rem; border-left: 2px solid var(--rule-strong); }
+.lab__checks strong { font-weight: 500; }
+.lab__checks span { color: var(--ink-3); }
+.lab__checks li.is-fail { border-left-color: var(--warn); }
+.lab__checks li.is-fail strong { color: var(--warn); }
+.lab__checks li.is-warn { border-left-color: var(--ink-4); }
+.lab__checks li.is-ok { border-left-color: var(--accent); }
+.lab__checks li.is-ok strong { color: var(--accent); }
+
+.lab__note { font-size: 0.74rem; color: var(--ink-4); margin: 0.7rem 0 0; }
+
+@media (max-width: 62rem) {
+  .lab { grid-template-columns: 1fr; }
+  .lab__stage { aspect-ratio: 1 / 1; min-height: 0; }
+}

@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import Lab from '../components/Lab.tsx';
+---
+<Base
+  title="Speculation lab — Sharp AI"
+  description="Design a hypothetical FTC game element, place it on a real 12ft field, and check whether a legal robot could actually handle it."
+>
+  <section class="wrap prose-page">
+    <p class="eyebrow">Speculation lab</p>
+    <h1>Invent the game.</h1>
+    <p class="lede">
+      Describe a field element by its shape and its dimensions, place it on a real
+      12ft field, and see whether a robot that starts inside the 18in cube could
+      actually pick it up. Geometry is built from the numbers you give, so a piece
+      is exactly the size it claims to be.
+    </p>
+    <Lab client:only="react" />
+  </section>
+</Base>

@@ -59,3 +59,16 @@
   .lab { grid-template-columns: 1fr; }
   .lab__stage { aspect-ratio: 1 / 1; min-height: 0; }
 }
+
+/* --- view switch ---------------------------------------------------------- */
+.lab__stagewrap { display: grid; gap: 0.6rem; min-width: 0; }
+/* A plan drawing sits on paper, not on a lit stage. */
+.lab__stage--plan { background: var(--paper-sunk); }
+.lab__view { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.lab__view button {
+  font: inherit; font-size: 0.78rem; cursor: pointer; padding: 0.3rem 0.75rem;
+  border: 1px solid var(--rule-strong); border-radius: var(--r-pill);
+  background: transparent; color: var(--ink-3);
+}
+.lab__view button:hover { color: var(--accent); border-color: var(--accent); }
+.lab__view button.is-on { color: var(--accent); border-color: var(--accent); background: var(--accent-wash); }

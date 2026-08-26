@@ -38,6 +38,12 @@ export default function Lab() {
   const group = useRef<THREE.Group | null>(null);
   const [elements, setElements] = useState<Element[]>(STARTERS);
   const [sel, setSel] = useState(0);
+  const [plan, setPlan] = useState(false);
+  const cams = useRef<{ persp: THREE.PerspectiveCamera; ortho: THREE.OrthographicCamera } | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const planRef = useRef(false);
+  planRef.current = plan;
 
   useEffect(() => {
     const el = host.current;
@@ -70,6 +76,17 @@ export default function Lab() {
 
     const g = new THREE.Group(); sc.add(g); group.current = g;
 
+    // A second, orthographic camera looking straight down. Official field
+    // drawings are plan views without perspective, so a speculative field only
+    // reads like one if it is drawn the same way — parallel lines stay parallel
+    // and a tile at the far edge is the same size as one at the near edge.
+    const half = span / 2 * 1.06;
+    const ortho = new THREE.OrthographicCamera(-half, half, half, -half, 0.01, 100);
+    ortho.position.set(0, span, 0.0001);
+    ortho.lookAt(0, 0, 0);
+    cams.current = { persp: cam, ortho };
+    rendererRef.current = gl; sceneRef.current = sc;
+
     cam.position.set(span * 0.75, span * 0.6, span * 0.9);
     const orbit = new OrbitControls(cam, gl.domElement);
     orbit.enableDamping = true; orbit.dampingFactor = 0.08;
@@ -80,12 +97,21 @@ export default function Lab() {
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = el;
       if (!w || !h) return;
-      cam.aspect = w / h; cam.updateProjectionMatrix(); gl.setSize(w, h, false);
+      cam.aspect = w / h; cam.updateProjectionMatrix();
+      const a = w / h;
+      ortho.left = -half * a; ortho.right = half * a;
+      ortho.top = half; ortho.bottom = -half;
+      ortho.updateProjectionMatrix();
+      gl.setSize(w, h, false);
     };
     resize();
     const ro = new ResizeObserver(resize); ro.observe(el);
     let raf = 0;
-    const tick = () => { orbit.update(); gl.render(sc, cam); raf = requestAnimationFrame(tick); };
+    const tick = () => {
+      orbit.update();
+      gl.render(sc, planRef.current ? ortho : cam);
+      raf = requestAnimationFrame(tick);
+    };
     tick();
     return () => {
       cancelAnimationFrame(raf); ro.disconnect(); orbit.dispose();
@@ -121,6 +147,17 @@ export default function Lab() {
     setElements((prev) => prev.map((e, n) => (n === i ? { ...e, dims: { ...e.dims, [key]: v } } : e)));
   }, []);
 
+  /** The view, as a PNG — a plan drawing you can put in a notebook. */
+  const capture = useCallback(() => {
+    const gl = rendererRef.current, sc = sceneRef.current, c = cams.current;
+    if (!gl || !sc || !c) return;
+    gl.render(sc, plan ? c.ortho : c.persp);
+    const a = document.createElement('a');
+    a.href = gl.domElement.toDataURL('image/png');
+    a.download = plan ? 'field-plan.png' : 'field-view.png';
+    a.click();
+  }, [plan]);
+
   const findings = check(elements);
   const cur = elements[sel];
   const DIMS: Record<Shape, [string, string][]> = {
@@ -134,7 +171,14 @@ export default function Lab() {
 
   return (
     <div className="lab">
-      <div className="lab__stage" ref={host} />
+      <div className="lab__stagewrap">
+        <div className={`lab__stage${plan ? ' lab__stage--plan' : ''}`} ref={host} />
+        <div className="lab__view">
+          <button type="button" className={plan ? '' : 'is-on'} onClick={() => setPlan(false)}>Perspective</button>
+          <button type="button" className={plan ? 'is-on' : ''} onClick={() => setPlan(true)}>Plan view</button>
+          <button type="button" onClick={capture}>Save a PNG</button>
+        </div>
+      </div>
 
       <div className="lab__side">
         <section className="lab__card">

@@ -42,7 +42,11 @@ MAX_QUESTION_CHARS = "500"
 # --- model -----------------------------------------------------------------
 GEMINI_MODEL     = "gemini-3.7-flash"
 # Questions that have to reason rather than fetch are answered by this one.
-GEMINI_DEEP_MODEL = "gemini-3.1-pro-preview"
+# Back to Flash. Pro answered harder questions better, but it costs several
+# times as much per call and I never checked what that did to the bill before
+# switching hard questions onto it. Set this back to a Pro model once billing
+# is sorted and the difference is worth paying for.
+GEMINI_DEEP_MODEL = "gemini-3.7-flash"
 # Planning and reranking are short structured calls; the lite model is enough
 # and keeps the agentic pass affordable against the same daily ceiling.
 GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"

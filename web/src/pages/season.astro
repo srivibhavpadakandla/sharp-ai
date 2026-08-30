@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { SEASON, ANGLES } from '../lib/season';
+import { MANUAL_CHANGES, CHANGE_COUNT } from '../lib/manualChanges';
 import { API_BASE } from '../lib/config';
 
 // Read live rather than baked in: the moment the manual is re-ingested after
@@ -56,6 +57,33 @@ const sections = manual?.sectionCount ?? null;
       ))}
     </ol>
 
+    <h2>What changed from DECODE</h2>
+    <p>
+      {CHANGE_COUNT} differences between the DECODE manual and BIOBUZZ V0, compiled by
+      the team. Rule and page numbers are kept exactly so you can open the manual and
+      check a line rather than take this on trust — this is our reading of the changes,
+      not a <em>FIRST</em> publication, and where the two disagree the manual is right.
+    </p>
+
+    {(['major', 'robot', 'minor'] as const).map((group) => (
+      <section class="changes">
+        <h3>
+          {group === 'major' ? 'Major changes' : group === 'robot' ? 'Robot changes' : 'Minor changes'}
+          <span>{MANUAL_CHANGES[group].length}</span>
+        </h3>
+        <ul>
+          {MANUAL_CHANGES[group].map((c) => (
+            <li>
+              <p class="changes__head"><strong>{c.title}</strong> <code>{c.ref}</code></p>
+              {c.points.length > 0 && (
+                <ul class="changes__points">{c.points.map((t) => <li>{t}</li>)}</ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+
     <p class="season__note">
       Each question runs through the normal ask flow, so every claim comes back with the manual
       section behind it. This page deliberately contains no analysis of its own: an unsourced
@@ -81,6 +109,29 @@ const sections = manual?.sectionCount ?? null;
   .season__angles a { font-size: 1rem; color: var(--ink); border-bottom: 1px solid var(--rule-strong); }
   .season__angles a:hover { color: var(--accent); border-color: var(--accent); }
   .season__angles p { margin: 0.3rem 0 0; font-size: 0.86rem; color: var(--ink-3); max-width: 62ch; }
+
+  .changes { margin-top: 1.8rem; }
+  .changes h3 {
+    display: flex; align-items: baseline; gap: 0.55rem;
+    font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-3); padding-bottom: 0.45rem; margin-bottom: 0.9rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .changes h3 span {
+    font-family: var(--type-mono); font-size: 0.7rem; letter-spacing: 0;
+    color: var(--ink-4); border: 1px solid var(--rule-strong);
+    border-radius: 999px; padding: 0 0.4rem;
+  }
+  .changes > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+  .changes__head { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+  .changes__head strong { font-weight: 500; }
+  .changes__head code {
+    font-family: var(--type-mono); font-size: 0.72rem; color: var(--ink-3);
+    border: 1px solid var(--rule); border-radius: 4px; padding: 0 0.32rem;
+    white-space: nowrap;
+  }
+  .changes__points { margin: 0.35rem 0 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; }
+  .changes__points li { font-size: 0.87rem; color: var(--ink-2); line-height: 1.55; }
 
   .season__note { margin-top: 2rem; font-size: 0.84rem; color: var(--ink-3); max-width: 66ch; }
 </style>

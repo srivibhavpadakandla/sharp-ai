@@ -369,7 +369,7 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
   // A lookup does not need that and should not wait 15s for it, so the depth
   // follows the question: anything that has to reason gets the Pro model, and
   // anything that is fetching a fact gets the fast one.
-  const model = pickModel(env, { isCode, isError, intent, question, history });
+  let model = pickModel(env, { isCode, isError, intent, question, history });
 
   const body = {
     systemInstruction: {
@@ -435,10 +435,22 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     res = await call(noTools);
   }
 
+  // A quota or billing refusal on the deep model must not take the site down
+  // with it. Pro is the expensive one and the first to be cut off; the fast
+  // model often still has quota, and a fast answer beats no answer.
+  if (res.status === 429 && model !== (env.GEMINI_MODEL || 'gemini-3.7-flash')) {
+    const detail = await res.text().catch(() => '');
+    console.warn(`deep model refused (${res.status}), falling back to the fast one`, detail.slice(0, 140));
+    model = env.GEMINI_MODEL || 'gemini-3.7-flash';
+    res = await call(body.tools ? { ...body, tools: undefined } : body);
+  }
+
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => '');
+    const quota = res.status === 429 && /credit|billing|quota/i.test(detail);
     throw Object.assign(new Error(`Gemini ${res.status}: ${detail.slice(0, 300)}`), {
       status: res.status,
+      quota,
     });
   }
 

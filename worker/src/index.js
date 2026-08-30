@@ -526,7 +526,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         console.error('empty generation', { isCode, chars: grounded.length });
         await writer.write(encoder.encode(sse('degrade', {
           reason: 'empty-generation',
-          answerMd: degradedMarkdown(finalChunks),
+          answerMd: degradedMarkdown(finalChunks, 'empty'),
         })));
         await writer.write(encoder.encode(sse('done', { slug: null })));
         return;
@@ -591,8 +591,8 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       // Degrade in place: the reader already has the sources, give them the
       // excerpt fallback rather than an error page.
       await writer.write(encoder.encode(sse('degrade', {
-        reason: 'llm-unavailable',
-        answerMd: degradedMarkdown(finalChunks),
+        reason: err?.quota ? 'llm-quota' : 'llm-unavailable',
+        answerMd: degradedMarkdown(finalChunks, 'unavailable'),
       })));
       await writer.write(encoder.encode(sse('done', { slug: null })));
     } finally {
@@ -639,13 +639,26 @@ function streamPrerendered(payload, cors, meta = {}) {
   });
 }
 
-/** The no-LLM fallback: real excerpts with links, clearly labelled as such. */
-function degradedMarkdown(chunks) {
-  const lines = [
-    '_Sharp AI has reached its daily answer limit. Here are the documentation '
-    + 'sections that match your question, unsummarised._',
-    '',
-  ];
+/**
+ * The no-LLM fallback: real excerpts with links, clearly labelled as such.
+ *
+ * The reason matters and used to be thrown away. Every path through here said
+ * "reached its daily answer limit", including the one taken when the model
+ * refused the request outright — so a dead API key looked to everyone, me
+ * included, like an ordinary quota reset that would clear on its own. It cost
+ * a day of the site answering nothing while appearing to be working as designed.
+ */
+function degradedMarkdown(chunks, reason = 'ceiling') {
+  const why = {
+    ceiling: 'Sharp AI has reached its daily answer limit. Here are the documentation '
+      + 'sections that match your question, unsummarised.',
+    unavailable: 'Sharp AI could not reach the model that writes answers, so this is '
+      + 'not an answer — it is the documentation the question matched, unsummarised. '
+      + 'The sections are real and the links work.',
+    empty: 'Sharp AI did not produce an answer for this one. Here are the sections it '
+      + 'retrieved, unsummarised.',
+  }[reason] || 'Here are the documentation sections that match your question, unsummarised.';
+  const lines = [`_${why}_`, ''];
   chunks.forEach((c, i) => {
     lines.push(`### ${i + 1}. ${c.pageTitle} › ${c.sectionTitle}`);
     lines.push(`[${c.sourceName} →](${c.sourceUrl})`);

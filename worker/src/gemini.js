@@ -14,6 +14,19 @@
  * use", nobody wants a paragraph about what the corpus does and does not
  * contain before the number.
  */
+const OFF_TOPIC_ADDENDUM = `
+
+THIS QUESTION IS OUTSIDE THE INDEXED DOCUMENTATION.
+Answer it anyway, from ordinary knowledge, and answer it properly — a short,
+direct, correct answer, not a redirection back to FTC. Do not apologise for the
+subject, do not explain what this site is for, and do not suggest they ask
+somewhere else.
+Keep it to a few sentences unless the question genuinely needs more: this is a
+courtesy answer on a site about robots, not the main event. Put all of it below
+the BEYOND marker — nothing here is supported by a retrieved section, so none of
+it may carry a citation.
+`;
+
 const ADVICE_ADDENDUM = `
 
 THIS QUESTION ASKS FOR JUDGEMENT, NOT A LOOKUP.
@@ -223,7 +236,7 @@ specs, what teams actually do now. Rules for this part:
   checking" are honest; false confidence is not.
 - No greetings, no sign-offs. Markdown for structure, no headings above ###.`;
 
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, liveBlock = null, intent = 'lookup' } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup' } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -358,7 +371,7 @@ function pickModel(env, opts) {
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
   const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });
   // Which model answers is decided per question, not per site.
   //
@@ -369,17 +382,23 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
   // A lookup does not need that and should not wait 15s for it, so the depth
   // follows the question: anything that has to reason gets the Pro model, and
   // anything that is fetching a fact gets the fast one.
-  let model = pickModel(env, { isCode, isError, intent, question, history });
+  // Off topic never escalates. The site answers these as a courtesy; it does
+  // not spend its most expensive model on them.
+  let model = offTopic
+    ? (env.GEMINI_MODEL || 'gemini-3.7-flash')
+    : pickModel(env, { isCode, isError, intent, question, history });
 
   const body = {
     systemInstruction: {
       parts: [{
         text: uncovered
-          ? UNCOVERED_PROMPT + (intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : '')
+          ? UNCOVERED_PROMPT + (offTopic ? OFF_TOPIC_ADDENDUM
+            : intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : '')
           : SYSTEM_PROMPT
             + (isError ? ERROR_SYSTEM_ADDENDUM : '')
             + (isCode ? CODE_SYSTEM_ADDENDUM : '')
-            + (intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : ''),
+            + (offTopic ? OFF_TOPIC_ADDENDUM
+              : intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : ''),
       }],
     },
     contents: [{ role: 'user', parts: [{ text: prompt }] }],

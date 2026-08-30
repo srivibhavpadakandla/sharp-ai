@@ -340,6 +340,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // FTC robots. The answer then comes from the model's own knowledge, under the
   // BEYOND marker the UI already labels as unverified, and is never persisted.
   let uncovered = false;
+  let offTopic = false;
   if (!gate.pass || !chunks.length) {
     // Scored rather than an AND of two weak signals. Domain-only words decide
     // alone, ordinary engineering words need company, and a confident embedding
@@ -366,18 +367,16 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       // having a gap is. Answer it, and be explicit that it is unverified.
       uncovered = true;
     } else {
-      // Genuinely off topic. This site is scoped to FTC, and answering anything
-      // at all would also make it a free general-purpose model for anyone.
-      ctx.waitUntil(logQuery(env, {
-        question, questionHash, cacheHit: false, belowThreshold: true, llmCalled: false,
-        bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
-        latencyMs: Date.now() - started,
-      }));
-      return streamPrerendered(
-        { question, answerMd: OFF_TOPIC_REFUSAL, citations: [], excerpts: [], slug: null },
-        cors,
-        { refused: true, uncovered: false, gate },
-      );
+      // Off topic, and answered anyway. Refusing was the wrong shape of honest:
+      // the model knows the answer to "what is a lead screw" perfectly well, and
+      // being told the index does not cover it helps nobody.
+      //
+      // The guard that refusing provided was financial, not editorial — an open
+      // endpoint is a free general-purpose model for anyone who finds it. That
+      // guard is kept in a cheaper form: off-topic answers are short, always run
+      // on the fast model, and still count against the same daily ceiling.
+      uncovered = true;
+      offTopic = true;
     }
   }
 
@@ -437,7 +436,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     ].slice(0, Number(env.TOP_K || 16) + pageChunks.length);
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, uncovered, offTopic, liveBlock, intent });
   const category = finalChunks[0]?.category || null;
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
@@ -506,7 +505,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       let usageMeta = null;
       const onUsage = (m) => { usageMeta = m; };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent, onUsage })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, uncovered, offTopic, liveBlock, intent, onUsage })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());

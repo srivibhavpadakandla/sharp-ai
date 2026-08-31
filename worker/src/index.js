@@ -760,13 +760,53 @@ async function handleManual(request, env) {
   }, {}, cors);
 }
 
+/**
+ * How many distinct people asked something, and how many questions a day.
+ *
+ * There is no analytics here and there deliberately never was: the query log
+ * stores no IP, user agent, referrer or country, so "who" is unanswerable from
+ * it by design. The one countable trace is the rate-limit key, which exists to
+ * ration questions and expires after about a day. That makes this a live
+ * figure, not history — yesterday's askers are already gone, and that is the
+ * intended trade, not a gap to fix by starting to retain them.
+ *
+ * Counts keys, never reads them: the id half is a salted hash and stays that
+ * way. Behind ?deep=1 because listing KV on every health poll would spend
+ * operations for a number almost no caller wants.
+ */
+async function audience(env) {
+  const today = new Date().toISOString().slice(0, 10);
+  let askers = 0;
+  let cursor;
+  try {
+    do {
+      const page = await env.RATE.list({ prefix: 'rl:d:', cursor, limit: 1000 });
+      // The day sits at the END of the key (`rl:d:<id>:<day>`), so it cannot be
+      // narrowed by prefix and has to be filtered here.
+      askers += page.keys.filter((k) => k.name.endsWith(`:${today}`)).length;
+      cursor = page.list_complete ? null : page.cursor;
+    } while (cursor);
+  } catch {
+    return null;
+  }
+  // Questions per day is safe to keep: it counts asks, not askers.
+  const daily = await env.DB.prepare(
+    `SELECT substr(ts, 1, 10) AS day, count(*) AS questions,
+            sum(cache_hit) AS from_cache
+       FROM query_log GROUP BY day ORDER BY day DESC LIMIT 14`,
+  ).all().catch(() => null);
+  return { askersToday: askers, daily: daily?.results || [] };
+}
+
 async function handleHealth(request, env) {
   const cors = corsHeaders(env, request);
-  const [chunkRow, answerRow, usage, tokens] = await Promise.all([
+  const deep = new URL(request.url).searchParams.get('deep') === '1';
+  const [chunkRow, answerRow, usage, tokens, people] = await Promise.all([
     env.DB.prepare('SELECT count(*) AS n FROM chunks').first().catch(() => null),
     env.DB.prepare('SELECT count(*) AS n FROM answers').first().catch(() => null),
     llmUsage(env).catch(() => null),
     tokenReport(env).catch(() => null),
+    deep ? audience(env).catch(() => null) : null,
   ]);
   return json({
     ok: true,
@@ -774,6 +814,7 @@ async function handleHealth(request, env) {
     answers: answerRow?.n ?? null,
     llm: usage,
     tokens,
+    ...(people ? { audience: people } : {}),
     bindings: {
       d1: !!env.DB, vectorize: !!env.VECTORIZE, ai: !!env.AI,
       cache: !!env.CACHE, rate: !!env.RATE,

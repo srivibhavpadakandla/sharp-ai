@@ -462,13 +462,18 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
   // Only the transient kind is retried. "Credits depleted" is a a wall, not a
   // queue, and retrying it just makes the reader wait longer to be told no.
   const transient = async (r) => {
+    // 503 "experiencing high demand" is the free tier's other way of saying
+    // come back in a moment, and it was not covered: a busy model dumped raw
+    // documentation on the reader as if the answer had failed.
+    if (r.status === 503) return true;
     if (r.status !== 429) return false;
     const body = await r.clone().text().catch(() => '');
     return !/credit|billing|depleted/i.test(body);
   };
-  for (let attempt = 0; attempt < 2 && await transient(res); attempt += 1) {
+  for (let attempt = 0; attempt < 3 && await transient(res); attempt += 1) {
+    // Rising delay: a spike that has not cleared in 1.2s often has by 3.6s.
     const wait = 1200 * (attempt + 1);
-    console.warn(`rate limited, retrying in ${wait}ms`);
+    console.warn(`model busy (${res.status}), retrying in ${wait}ms`);
     await new Promise((r) => setTimeout(r, wait));
     res = await call(body);
   }

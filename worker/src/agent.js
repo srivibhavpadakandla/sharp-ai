@@ -13,6 +13,8 @@
  * daily ceiling is spent where it changes the answer.
  */
 
+import { readUsage, recordTokens } from './lib/tokens.js';
+
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /** Cheap, non-streaming, JSON-only call used for planning and reranking. */
@@ -38,6 +40,13 @@ async function jsonCall(env, { system, user, schema, maxTokens = 512 }) {
   });
   if (!res.ok) throw new Error(`plan/rerank ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
+  // Both of these calls reserve a slot from the daily pool, so leaving their
+  // tokens unrecorded made the ledger disagree with the counter it is supposed
+  // to explain: a hard question spends three calls and reported one. The point
+  // of the ledger is knowing what a question really costs, and it was missing
+  // the whole agentic layer. Recorded separately from `answer` so the cost of
+  // being agentic stays legible rather than blended into generation.
+  await recordTokens(env, 'agent', readUsage(data?.usageMetadata));
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
   return JSON.parse(text);
 }

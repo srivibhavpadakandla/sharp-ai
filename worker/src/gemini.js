@@ -454,6 +454,25 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     res = await call(noTools);
   }
 
+  // The free tier limits requests per minute, and this site spends up to three
+  // calls on one question. Two students asking at once is enough to trip it, and
+  // that kind of 429 clears in seconds — degrading to raw sections because the
+  // minute was busy throws away an answer that was one short wait from working.
+  //
+  // Only the transient kind is retried. "Credits depleted" is a a wall, not a
+  // queue, and retrying it just makes the reader wait longer to be told no.
+  const transient = async (r) => {
+    if (r.status !== 429) return false;
+    const body = await r.clone().text().catch(() => '');
+    return !/credit|billing|depleted/i.test(body);
+  };
+  for (let attempt = 0; attempt < 2 && await transient(res); attempt += 1) {
+    const wait = 1200 * (attempt + 1);
+    console.warn(`rate limited, retrying in ${wait}ms`);
+    await new Promise((r) => setTimeout(r, wait));
+    res = await call(body);
+  }
+
   // A quota or billing refusal on the deep model must not take the site down
   // with it. Pro is the expensive one and the first to be cut off; the fast
   // model often still has quota, and a fast answer beats no answer.

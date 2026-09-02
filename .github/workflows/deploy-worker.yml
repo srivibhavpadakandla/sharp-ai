@@ -1,0 +1,47 @@
+# Push to main -> https://sharp-ai.srivibhavp.workers.dev
+name: Deploy worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No package-lock.json here — the Worker has no runtime dependencies,
+      # only wrangler itself, so `npm ci` would fail for want of a lockfile.
+      - name: Install wrangler
+        working-directory: worker
+        run: npm install
+
+      # Bundles and typechecks the Worker without publishing it, so a syntax
+      # error fails here rather than half-way through replacing a live script.
+      - name: Check it builds
+        working-directory: worker
+        run: npx wrangler deploy --dry-run --outdir /tmp/worker-build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          # Secrets already set on the Worker (GEMINI_API_KEY, TURNSTILE_SECRET)
+          # survive a deploy — wrangler does not clear them — so CI never needs
+          # to hold them.
+          command: deploy

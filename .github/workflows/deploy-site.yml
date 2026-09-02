@@ -1,0 +1,59 @@
+# Push to main -> https://sharpftc.pages.dev
+#
+# Only fires when web/ changes, so a Worker-only commit does not churn a new
+# Pages deployment (and vice versa in deploy-worker.yml).
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+
+# Two pushes in quick succession must not race to publish; the newer commit
+# wins rather than whichever build happens to finish last.
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci
+
+      - name: Build
+        working-directory: web
+        # web/.env is gitignored, so the runner has none of this. These are the
+        # PUBLIC_* values Astro bakes into the client bundle — they are already
+        # readable by anyone who opens the site, so they are config, not
+        # secrets. Keep them in step with web/.env; if they drift, the built
+        # site silently points at the wrong API or writes wrong canonical URLs.
+        env:
+          PUBLIC_SITE_URL: https://sharpftc.pages.dev
+          PUBLIC_API_BASE: https://sharp-ai.srivibhavp.workers.dev
+          PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: web
+          # Project name matters: sharp-ai is an older, second Pages project
+          # for the same code, and deploying there looks like it worked while
+          # changing nothing anyone can see.
+          command: pages deploy dist --project-name sharpftc

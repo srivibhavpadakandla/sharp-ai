@@ -10,9 +10,19 @@ export const TURNSTILE_SITE_KEY =
   (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined)
   || '1x00000000000000000000AA';
 
+/**
+ * The fallback is production, not the old project.
+ *
+ * web/.env is gitignored, so any build without PUBLIC_SITE_URL set — a fresh
+ * clone, or CI before the variable was added — silently used
+ * sharp-ai-8a1.pages.dev, a second, older Pages project for the same code.
+ * Every canonical URL, the sitemap and og:image would have pointed at a
+ * deployment nobody visits, and the build would have succeeded without a word.
+ * Defaulting to the real site makes the failure mode harmless.
+ */
 export const SITE_URL =
   (import.meta.env.PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '')
-  || 'https://sharp-ai-8a1.pages.dev';
+  || 'https://sharpftc.pages.dev';
 
 export const SDK_VERSION = '11.2.1';
 

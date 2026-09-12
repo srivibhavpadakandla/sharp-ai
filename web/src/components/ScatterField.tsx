@@ -42,7 +42,12 @@ const ORBITERS: Orbiter[] = Array.from({ length: COUNT }, (_, i) => {
   // orbit enough that neighbouring cards touched at the ellipse's narrow ends.
   const ring = (i % 4) / 3;
   return {
-    src: `/art/cat-${ART[(i * 3) % ART.length]}.webp`,
+    // scatter/ rather than art/: these plates are drawn at most ~7.8rem across
+    // (the `size` below), and the full-size files are 900px wide. The home
+    // page was fetching 220k of artwork to render it at 60-75px — 12 to 15
+    // times more pixels than any of it could show. The 300px variants are
+    // still oversampled for a retina screen at that size.
+    src: `/art/scatter/cat-${ART[(i * 3) % ART.length]}.webp`,
     angle: (i / COUNT) * Math.PI * 2 + (i % 2 ? 0.35 : 0),
     ring,
     // Revolutions per second. The old 0.0075 was one lap every 133 seconds,

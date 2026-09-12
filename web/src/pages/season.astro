@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import { SEASON, ANGLES } from '../lib/season';
+import { SEASON, ANGLES, GAME_SHAPE } from '../lib/season';
 import { MANUAL_CHANGES, CHANGE_COUNT } from '../lib/manualChanges';
 import { API_BASE } from '../lib/config';
 
@@ -17,14 +17,18 @@ const sections = manual?.sectionCount ?? null;
 ---
 <Base
   title={`${SEASON.game} ${SEASON.years} — Sharp AI`}
-  description={`What the ${SEASON.years} FIRST Tech Challenge manual actually says so far about ${SEASON.game}, and what a team can act on before the game is revealed.`}
+  description={`What the ${SEASON.years} FIRST Tech Challenge manual actually says about ${SEASON.game} — the game, the scoring and the robot rules, every answer cited.`}
 >
   <section class="wrap prose-page">
     <p class="eyebrow">Season</p>
-    <h1>{SEASON.game}, before the game.</h1>
+    <h1>{SEASON.game} is here.</h1>
     <p class="lede">
       {SEASON.years} is <strong>{SEASON.first}</strong>, and the <em>FIRST</em> Tech Challenge game
       inside it is <strong>{SEASON.game}</strong> presented by {SEASON.presentedBy}. {SEASON.theme}
+    </p>
+    <p>
+      {GAME_SHAPE.summary} A MATCH is {GAME_SHAPE.auto} of autonomous, a {GAME_SHAPE.transition}
+      transition, then {GAME_SHAPE.teleop} of driver control.
     </p>
 
     <div class="season__status">
@@ -33,19 +37,19 @@ const sections = manual?.sectionCount ?? null;
       </p>
       <p>
         {published
-          ? 'The manual now carries the game sections. Re-run the questions below — the answers are generated from the index, so they reflect the published rules.'
-          : 'The manual is at V0. Sections on the game itself are placeholders until kickoff, so nobody — including this site — knows what BIOBUZZ is yet. Anything you read claiming otherwise is guessing.'}
+          ? 'The V1 manual is indexed, game sections and all. Every answer below is generated from it, so it reflects the published rules rather than a summary of them.'
+          : 'The indexed manual does not carry the game sections yet, so nobody — including this site — can tell you how BIOBUZZ is played. Anything claiming otherwise is guessing.'}
         {sections && ` ${sections} sections are indexed today.`}
       </p>
     </div>
 
-    <h2>What is already settled</h2>
+    <h2>Where to start</h2>
     <p>
-      The useful thing about a V0 manual is that a lot of it is not provisional. The robot
-      construction rules, the motor and actuator limits, the control system, inspection,
-      advancement and every judged award are published in full. They constrain your design and
-      your season plan right now, whatever the game turns out to be — which is why the questions
-      below are worth asking in August rather than in September.
+      Kickoff answers the big question and opens a hundred smaller ones. These are the ones worth
+      asking in week one — how scoring actually breaks down, what the two SCORING ELEMENTS demand
+      of an intake, and what R105 now permits once the MATCH starts. Each runs through the normal
+      ask flow, so the answer arrives with the manual section behind it rather than as a claim you
+      have to trust.
     </p>
 
     <ol class="season__angles">
@@ -59,8 +63,10 @@ const sections = manual?.sectionCount ?? null;
 
     <h2>What changed from DECODE</h2>
     <p>
-      {CHANGE_COUNT} differences between the DECODE manual and BIOBUZZ V0, compiled by
-      the team. Rule and page numbers are kept exactly so you can open the manual and
+      {CHANGE_COUNT} differences between the DECODE manual and BIOBUZZ, compiled by
+      the team before kickoff from the V0 manual. The rule changes they cover are
+      structural and still stand in V1; the game sections they could not see are
+      answered by the questions above. Rule and page numbers are kept exactly so you can open the manual and
       check a line rather than take this on trust — this is our reading of the changes,
       not a <em>FIRST</em> publication, and where the two disagree the manual is right.
     </p>
@@ -86,8 +92,8 @@ const sections = manual?.sectionCount ?? null;
 
     <p class="season__note">
       Each question runs through the normal ask flow, so every claim comes back with the manual
-      section behind it. This page deliberately contains no analysis of its own: an unsourced
-      opinion about an unreleased game is exactly the thing this site exists not to produce.
+      section behind it. This page deliberately contains no analysis of its own: a confident
+      unsourced take on a four-day-old game is exactly the thing this site exists not to produce.
     </p>
   </section>
 </Base>

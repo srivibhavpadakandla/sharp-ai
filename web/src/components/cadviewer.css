@@ -83,3 +83,19 @@
 .cad__check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .cad__prov { font-size: 0.78rem; color: var(--ink-3); margin: 0.75rem 0 0; max-width: 70ch; }
 .cad__prov a { color: var(--accent); }
+
+/* Which rule the loaded model is judged against. A robot has two legal sizes
+   now that R105 carries numbers, so this is a real choice rather than a view
+   option — it is styled as a segmented control, not as two loose buttons. */
+.cad__phase { display: flex; gap: 0; margin-left: auto; }
+.cad__phase button {
+  font-family: var(--type-mono); font-size: 0.68rem; letter-spacing: 0.04em;
+  text-transform: uppercase; padding: 0.2rem 0.6rem; cursor: pointer;
+  color: var(--ink-3); background: none;
+  border: 1px solid var(--rule);
+}
+.cad__phase button:first-child { border-radius: 999px 0 0 999px; }
+.cad__phase button:last-child { border-radius: 0 999px 999px 0; border-left: 0; }
+.cad__phase button[aria-pressed='true'] { color: var(--ink-1); border-color: currentColor; }
+.cad__phase button:hover { color: var(--ink-1); }
+.cad__phase button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

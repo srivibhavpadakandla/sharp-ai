@@ -16,7 +16,7 @@
  * Nothing in this file is traced from FIRST's field renderings. See NOTICE.
  */
 export type FieldMode = 'grid' | 'square' | 'square-inverted' | 'diamond'
-  | 'decode' | 'centerstage' | 'powerplay' | 'freight' | 'ultimate';
+  | 'biobuzz' | 'decode' | 'centerstage' | 'powerplay' | 'freight' | 'ultimate';
 
 export interface FieldOption { id: FieldMode; label: string; note: string }
 
@@ -25,6 +25,7 @@ export const FIELD_OPTIONS: FieldOption[] = [
   { id: 'square', label: 'Square field', note: 'Alliance walls facing each other.' },
   { id: 'square-inverted', label: 'Square, inverted', note: 'The arrangement the docs describe for DECODE.' },
   { id: 'diamond', label: 'Diamond field', note: 'Perimeter rotated to the audience.' },
+  { id: 'biobuzz', label: 'BIOBUZZ 2026-27', note: 'LOADING ZONES at the measured 11in. GARDENS are figure-only, so they are not drawn.' },
   { id: 'decode', label: 'DECODE 2025-26', note: 'Full tape layout, from the official FIELD Setup Guide.' },
   { id: 'centerstage', label: 'CENTERSTAGE 2023-24', note: 'Wings and pixel stack locators. Backstage needs the truss position.' },
   { id: 'powerplay', label: 'PowerPlay 2022-23', note: 'Signal lines and cone stack lines. Terminals and substations are figure-only.' },
@@ -156,7 +157,47 @@ export const POWERPLAY_TAPE: Tape[] = [
     box(cx * T - 1, cy * T - 2, 2, 4, 'red')),
 ];
 
+
+/**
+ * BIOBUZZ tape, in planner inches, with the audience wall at y = 0.
+ *
+ * Transcribed from the 2026-2027 Event FIELD Setup Guide V1.0, section 8 "Tape
+ * Placement", not traced from a rendering. The guide uses the same grid
+ * convention DECODE did — columns A-F are 24in tiles from x = 0, rows 1-6 are
+ * 24in tiles from y = 0 at the audience side — so tile A5 spans x 0..24,
+ * y 96..120, and tile F2 spans x 120..144, y 24..48.
+ *
+ * Section 8.3 dimensions the LOADING ZONES exactly: three segments per zone,
+ * two of them 11in (+/- 0.125in) running inward from the field perimeter along
+ * the tile's two seams, joined by a third spanning between them. That is the
+ * whole of what is drawn here.
+ *
+ * Two things in section 8 are deliberately NOT drawn:
+ *
+ *   - The GARDENS (8.4) sit on tiles A1 and F6, but the guide fixes the line
+ *     only in a figure, and its orientation within those corner tiles could not
+ *     be read with confidence. A planner that puts a scoring zone in the wrong
+ *     place is worse than one that omits it — somebody plans an auto against it
+ *     — which is the failure this file's header exists to prevent.
+ *   - The ALLIANCE AREAS (8.5) are 54in deep and lie OUTSIDE the perimeter.
+ *     They are human-player space, not robot geometry, so they are not field
+ *     tape in any sense the planner cares about.
+ */
+const LOADING_IN = 11;              // 8.3, +/- 0.125in
+
+export const BIOBUZZ_TAPE: Tape[] = [
+  // Red LOADING ZONE, tile A5, opening onto the left perimeter wall.
+  line(0, 96, LOADING_IN, 96, 'red'),
+  line(0, 120, LOADING_IN, 120, 'red'),
+  line(LOADING_IN, 96, LOADING_IN, 120, 'red'),
+  // Blue LOADING ZONE, tile F2, mirrored onto the right perimeter wall.
+  line(144, 24, 144 - LOADING_IN, 24, 'blue'),
+  line(144, 48, 144 - LOADING_IN, 48, 'blue'),
+  line(144 - LOADING_IN, 24, 144 - LOADING_IN, 48, 'blue'),
+];
+
 export const SEASON_TAPE: Partial<Record<FieldMode, Tape[]>> = {
+  biobuzz: BIOBUZZ_TAPE,
   decode: DECODE_TAPE,
   centerstage: CENTERSTAGE_TAPE,
   powerplay: POWERPLAY_TAPE,

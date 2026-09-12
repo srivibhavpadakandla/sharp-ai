@@ -1,6 +1,7 @@
 {
   "comment": "Season field images. Drop a file in web/public/fields/ and add an entry here; the planner picks it up with no code change. 'id' must match a FieldMode in src/lib/field.ts for the drawn layouts to be replaced, or be a new id for a season we have no drawing for. Square images work best — they are stretched to the 144in field.",
   "seasons": [
+    { "id": "biobuzz", "label": "BIOBUZZ 2026-27", "file": "" },
     { "id": "decode", "label": "DECODE 2025-26", "file": "" },
     { "id": "intothedeep", "label": "Into the Deep 2024-25", "file": "" },
     { "id": "centerstage", "label": "CENTERSTAGE 2023-24", "file": "" },

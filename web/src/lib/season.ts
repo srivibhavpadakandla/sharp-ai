@@ -3,10 +3,12 @@
  *
  * Names are quoted from the manual rather than from memory: section 2 calls the
  * FIRST-wide season CANOPY, and section 1.4.1 calls the FTC game BIOBUZZ
- * presented by RTX. No kickoff date is asserted — the manual does not carry one
- * in the indexed sections, and a countdown to a date nobody sourced is worse
- * than no countdown. Whether the game has dropped is read from the index at
- * request time instead.
+ * presented by RTX. Whether the game has dropped is still read from the index
+ * at request time rather than hard-coded to a date — the page follows the
+ * corpus, so it cannot claim a game the index cannot answer questions about.
+ *
+ * The game was revealed at kickoff on 12 September 2026 and the V1 manual is
+ * indexed, so this file no longer frames the season as pending.
  */
 export const SEASON = {
   first: 'FIRST CANOPY',
@@ -18,39 +20,65 @@ export const SEASON = {
 } as const;
 
 /**
- * What is worth asking before the game is known. Each runs through the normal
+ * How the MATCH is played, in the manual's own vocabulary (section 10.1).
+ * Stated here so the page can orient a reader in two sentences without
+ * reproducing FIRST's text; everything quantitative stays behind the ask flow,
+ * where it comes back cited.
+ */
+export const GAME_SHAPE = {
+  auto: '30 seconds',
+  transition: '8 seconds',
+  teleop: '2 minutes',
+  elements: ['POLLEN', 'NECTAR'],
+  summary:
+    'ROBOTS collect POLLEN and NECTAR, move them to their GARDEN, place them into FLOWERS, '
+    + 'and LAUNCH them into their CELLS to tip a HIVE. Each HIVE TIP releases more NECTAR into '
+    + 'play, and in the last minute ALLIANCES can enter all of it. MATCHES end with ROBOTS '
+    + 'claiming FLOWERS and returning to their LOADING ZONE.',
+} as const;
+
+/**
+ * What is worth asking now that the game is known. Each runs through the normal
  * ask flow, so every answer is cited and checkable — the point of the page is
  * that the analysis is grounded, not that it is confident.
+ *
+ * These replaced the pre-kickoff set, which asked what could be inferred from a
+ * manual whose game sections were still placeholders. Those questions were
+ * answerable in August and are dead weight in September.
  */
 export interface Angle { q: string; why: string }
 
 export const ANGLES: Angle[] = [
   {
-    q: 'What robot construction rules are already published for the 2026-2027 season?',
-    why: 'Section 12 is published while the game is not. These constrain your design today.',
+    q: 'How do you score points in BIOBUZZ?',
+    why: 'The whole point table in one answer: what each action is worth in AUTO and in TELEOP.',
   },
   {
-    q: 'What does R102 require for the starting configuration?',
-    why: 'The 18in cube is fixed regardless of what the game turns out to be.',
+    q: 'What are POLLEN and NECTAR, and how do they differ?',
+    why: 'There are two SCORING ELEMENTS this season. Your intake has to handle both.',
   },
   {
-    q: 'What motors and actuators are legal this season?',
-    why: 'Motor and servo limits decide your mechanism count before you know what to build.',
+    q: 'How does a HIVE TIP work and what does it release?',
+    why: 'It is the 20-point action and it gates how much NECTAR enters play. Start here.',
   },
   {
-    q: 'How does advancement and ranking work this season?',
-    why: 'Advancement points are published, and they shape whether you optimise for awards or play.',
+    q: 'What can a robot do in the 30-second autonomous period?',
+    why: 'AUTO is unchanged in length but now has an 8-second transition after it. Plan both.',
   },
   {
-    q: 'What is judged for the Control Award and the Innovate Award?',
-    why: 'Both are published now, and both reward work you should be starting before kickoff.',
+    q: 'How much can a robot expand once the match starts?',
+    why: 'R105 finally has numbers: a fixed expanded volume, held mechanically and not in software.',
   },
   {
-    q: 'What has FIRST said is changing about competition integrity this season?',
-    why: 'Section 1.4.1 flags changes to game and field design. It is the closest thing to a hint.',
+    q: 'How does an alliance own a FLOWER, and when can it start?',
+    why: 'FLOWER scoring unlocks late in the MATCH, so it is an endgame plan rather than a cycle.',
   },
   {
-    q: 'What should an FTC team build or practise before the game is revealed?',
-    why: 'Drivetrain, odometry and autonomous transfer between seasons. This is where to spend August.',
+    q: 'What are the ranking points this season and how do you earn them?',
+    why: 'Ranking is not just wins. Which RPs you chase changes what you build.',
+  },
+  {
+    q: 'How is the BIOBUZZ manual written differently, and what is the spirit of the rule?',
+    why: 'FIRST rewrote the manual around intent and referee judgement. It changes how rules are read.',
   },
 ];

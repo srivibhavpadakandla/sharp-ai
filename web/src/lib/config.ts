@@ -17,7 +17,7 @@ export const SITE_URL =
 export const SDK_VERSION = '11.2.1';
 
 /** Indexed section count. Update with the ingest, not by editing prose. */
-export const CORPUS_SECTIONS = 3562;
+export const CORPUS_SECTIONS = 3706;
 
 /**
  * When the corpus was last rebuilt. Surfaced in the footer because the index
@@ -25,7 +25,7 @@ export const CORPUS_SECTIONS = 3562;
  * re-ingests automatically, and a reader has no other way to tell how old an
  * answer's evidence is. Run ingest/scripts/refresh.sh and update this.
  */
-export const CORPUS_UPDATED = '18 August 2026';
+export const CORPUS_UPDATED = '12 September 2026';
 
 export const SITE_NAME = 'Sharp AI';
 export const SITE_TAGLINE = 'Answers from the FTC documentation, with the source next to them.';

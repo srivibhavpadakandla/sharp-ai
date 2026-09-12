@@ -38,6 +38,55 @@ const HEADING = /^\s{0,6}(?:(\d{2}(?:\.\d{1,2}){0,2})\s+|(\d(?:\.\d{1,2}){0,2})\
 /** Rule codes such as A201, GS02, RE14. */
 const RULE = /\b([A-Z]{1,2}\d{2,3})\b/g;
 
+/** The same code at the START of a line, which is how the manual opens a rule. */
+const RULE_START = /^[A-Z]{1,2}\d{2,3}\s/;
+const TARGET_CHARS = 2600;
+const MAX_CHARS = 3600;
+
+/**
+ * Break a section into units that can stand on their own.
+ *
+ * Blank lines alone were not enough. `pdftotext -layout` does not leave a
+ * blank line between paragraphs inside a section, so a 192-line section
+ * arrived as a single "paragraph" and the size guard never fired: section 6.2
+ * became one 14,556-character chunk covering nine separate award rules.
+ * Retrieval then had to haul all nine in to answer about one, and prompt
+ * tokens are already ~96% of what a question costs.
+ *
+ * A rules manual has a better seam than a blank line anyway — every rule
+ * begins a line with its own code — so "what does R505 say" can retrieve R505
+ * instead of R501 through R505.
+ */
+function splitUnits(body) {
+  const lines = body.split('\n');
+  if (!lines.some((l) => RULE_START.test(l))) {
+    return body.split(/\n\s*\n/).flatMap(packLines);
+  }
+  const units = [];
+  let cur = [];
+  for (const line of lines) {
+    if (RULE_START.test(line) && cur.length) { units.push(cur.join('\n')); cur = []; }
+    cur.push(line);
+  }
+  if (cur.length) units.push(cur.join('\n'));
+  return units.flatMap(packLines);
+}
+
+/** Last resort, so no single unit can exceed the target on its own. */
+function packLines(unit) {
+  if (unit.length <= MAX_CHARS) return [unit];
+  const out = [];
+  let buf = [];
+  let len = 0;
+  for (const line of unit.split('\n')) {
+    if (len && len + line.length > TARGET_CHARS) { out.push(buf.join('\n')); buf = []; len = 0; }
+    buf.push(line);
+    len += line.length + 1;
+  }
+  if (buf.length) out.push(buf.join('\n'));
+  return out;
+}
+
 export function loadChunks() {
   const file = path.join(process.cwd(), 'vendor', 'first-manual', 'manual.txt');
   if (!fs.existsSync(file)) {
@@ -71,14 +120,15 @@ export function loadChunks() {
     const body = s.body.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     if (body.length < 200) continue;                 // headers, page furniture
 
-    // Long sections split on blank lines, never mid-paragraph.
+    // One rule per unit where the section is a rule list, then packed back up
+    // to the target size. Never splits a single rule across two chunks.
     const parts = [];
     let buf = [];
     let len = 0;
-    for (const para of body.split(/\n\s*\n/)) {
-      if (len && len + para.length > 2600) { parts.push(buf.join('\n\n')); buf = []; len = 0; }
-      buf.push(para);
-      len += para.length + 2;
+    for (const unit of splitUnits(body)) {
+      if (len && len + unit.length > TARGET_CHARS) { parts.push(buf.join('\n\n')); buf = []; len = 0; }
+      buf.push(unit);
+      len += unit.length + 2;
     }
     if (buf.length) parts.push(buf.join('\n\n'));
 

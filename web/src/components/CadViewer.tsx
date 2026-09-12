@@ -3,7 +3,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { DEFAULT_LIMIT, LIMIT_SOURCE, checkSize, type AxisCheck, type Limit } from '../lib/inspect';
+import {
+  DEFAULT_LIMIT, LIMIT_SOURCE, EXPANSION_SOURCE, checkSize, checkExpansion,
+  type AxisCheck, type Limit,
+} from '../lib/inspect';
 import './cadviewer.css';
 
 /**
@@ -39,6 +42,10 @@ export default function CadViewer() {
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [limit, setLimit] = useState<Limit>(DEFAULT_LIMIT);
+  // Which rule the loaded model is being judged against. A robot has two legal
+  // sizes now that R105 has numbers, and the same mesh is compliant under one
+  // and not the other, so the viewer has to ask which one it is looking at.
+  const [phase, setPhase] = useState<'start' | 'expanded'>('start');
   const [checks, setChecks] = useState<AxisCheck[] | null>(null);
   const [zUp, setZUp] = useState(false);
 
@@ -171,8 +178,9 @@ export default function CadViewer() {
 
   // Re-run whenever either side of the comparison changes.
   useEffect(() => {
-    setChecks(raw.current ? checkSize(raw.current, limit) : null);
-  }, [limit, dims]);
+    if (!raw.current) { setChecks(null); return; }
+    setChecks(phase === 'start' ? checkSize(raw.current, limit) : checkExpansion(raw.current));
+  }, [limit, dims, phase]);
 
   /** Onshape exports Z-up; three.js is Y-up, so a robot can arrive on its side. */
   const flipUp = useCallback(() => {
@@ -306,6 +314,12 @@ export default function CadViewer() {
         <section className="cad__check" aria-live="polite">
           <header>
             <h2>Sizing</h2>
+            <div className="cad__phase" role="group" aria-label="Which sizing rule to check against">
+              <button type="button" aria-pressed={phase === 'start'}
+                onClick={() => setPhase('start')}>Starting (R102)</button>
+              <button type="button" aria-pressed={phase === 'expanded'}
+                onClick={() => setPhase('expanded')}>Expanded (R105)</button>
+            </div>
             <span className={checks.every((c) => c.pass) ? 'cad__verdict cad__verdict--ok' : 'cad__verdict cad__verdict--bad'}>
               {checks.every((c) => c.pass) ? 'Fits' : 'Over'}
             </span>
@@ -319,14 +333,20 @@ export default function CadViewer() {
                   <td>{c.label}</td>
                   <td>{c.actual.toFixed(2)} in</td>
                   <td>
-                    <input
-                      type="number" min={1} max={200} step={0.5} value={c.limit}
-                      aria-label={`${c.label} limit in inches`}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        if (Number.isFinite(v) && v > 0) setLimit((l) => ({ ...l, [c.axis]: v }));
-                      }}
-                    />
+                    {phase === 'start' ? (
+                      <input
+                        type="number" min={1} max={200} step={0.5} value={c.limit}
+                        aria-label={`${c.label} limit in inches`}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          if (Number.isFinite(v) && v > 0) setLimit((l) => ({ ...l, [c.axis]: v }));
+                        }}
+                      />
+                    ) : (
+                      /* Not editable: R105's footprint is one box either way round,
+                         so a per-axis field would misstate the rule. */
+                      <span>{c.limit} in</span>
+                    )}
                   </td>
                   <td>{c.pass ? `${(c.limit - c.actual).toFixed(2)} in spare` : `${c.over.toFixed(2)} in over`}</td>
                 </tr>
@@ -336,8 +356,13 @@ export default function CadViewer() {
 
           {/* Never let this be mistaken for the rule itself. */}
           <p className="cad__prov">
-            {LIMIT_SOURCE.provisional ? 'Checked against ' : 'Rule: '}
-            <strong>{LIMIT_SOURCE.label}</strong>, editable above. {LIMIT_SOURCE.note}{' '}
+            {phase === 'start' ? (
+              <>Rule: <strong>{LIMIT_SOURCE.label}</strong>, editable above. {LIMIT_SOURCE.note}{' '}</>
+            ) : (
+              <>Rule: <strong>{EXPANSION_SOURCE.label}</strong>. The footprint is checked either
+                way round, because the rule fixes only the height as vertical.
+                {' '}{EXPANSION_SOURCE.note}{' '}</>
+            )}
             <a href="/ask?q=what%20are%20the%20robot%20sizing%20rules%20for%20inspection">
               Ask Sharp AI what the manual says →
             </a>

@@ -137,9 +137,38 @@ export function check(elements: Element[]): Finding[] {
   return out;
 }
 
+/**
+ * The real BIOBUZZ SCORING ELEMENTS, from the V1 Competition Manual section 9.
+ *
+ * Before kickoff the lab opened on invented geometry, because inventing it was
+ * the only option. It no longer is, and an intake sized against a made-up
+ * 4in hex is worth nothing now that the actual balls are specified.
+ *
+ * Figures are the manual's own: POLLEN are "approximately 2.8 in. (7.1 cm)"
+ * and NECTAR "approximately 3.6 in. (9.1 cm)" Gopher ResisDent polyethylene
+ * balls. The FLOWER's opening is 4in across and sits 21.5in above the TILES,
+ * which is the height an intake has to deliver to.
+ *
+ * The manual's warning is worth repeating wherever these numbers are used:
+ * POLLEN and NECTAR "are not perfectly spherical and may vary in size", so a
+ * mechanism built to exactly 2.8in will jam on a real ball. The lab models the
+ * nominal size; the tolerance is the designer's problem.
+ */
+export const POLLEN_IN = 2.8;
+export const NECTAR_IN = 3.6;
+export const FLOWER_OPENING_IN = 4;
+export const FLOWER_HEIGHT_IN = 21.5;
+
 export const STARTERS: Element[] = [
-  { id: 'hex', name: 'Hex token', kind: 'scoring-element', shape: 'hex-prism',
-    dims: { acrossFlats: 4, height: 1.5 }, colour: '#6edb9a', x: 48, y: 48, z: 0.75, rot: 0 },
-  { id: 'goal', name: 'Stack post', kind: 'field-element', shape: 'cylinder',
-    dims: { diameter: 3, height: 24 }, colour: '#4a90e2', x: 72, y: 96, z: 12, rot: 0 },
+  { id: 'pollen', name: 'POLLEN', kind: 'scoring-element', shape: 'sphere',
+    dims: { diameter: POLLEN_IN }, colour: '#e8c33a',
+    x: 48, y: 48, z: POLLEN_IN / 2, rot: 0 },
+  { id: 'nectar', name: 'NECTAR', kind: 'scoring-element', shape: 'sphere',
+    dims: { diameter: NECTAR_IN }, colour: '#d0453f',
+    x: 60, y: 48, z: NECTAR_IN / 2, rot: 0 },
+  // The FLOWER is modelled as its opening at its real height: the number an
+  // intake or launcher actually has to hit.
+  { id: 'flower', name: 'FLOWER opening', kind: 'field-element', shape: 'ring',
+    dims: { diameter: FLOWER_OPENING_IN, tube: 0.5 }, colour: '#7fb7e8',
+    x: 72, y: 120, z: FLOWER_HEIGHT_IN, rot: 0 },
 ];

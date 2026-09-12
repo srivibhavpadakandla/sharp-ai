@@ -747,10 +747,15 @@ async function handleFeedback(request, env) {
  */
 async function handleManual(request, env) {
   const cors = corsHeaders(env, request);
+  // Grouped by page_title, which carries the section NUMBER, not by
+  // section_title alone. Two different sections can share a name — BIOBUZZ has
+  // "SCORING ELEMENTS" at both 9.8 and 10.3.1 — and grouping by the bare name
+  // merged them, so the page under-reported its own index and listed one
+  // section where there are two.
   const rows = await env.DB.prepare(
-    `SELECT section_title AS title, source_url AS url, sum(char_len) AS chars
+    `SELECT page_title AS title, source_url AS url, sum(char_len) AS chars
        FROM chunks WHERE source_name = 'FTC Competition Manual'
-      GROUP BY section_title ORDER BY min(ordinal)`,
+      GROUP BY page_title ORDER BY min(ordinal)`,
   ).all().catch(() => null);
 
   const sections = rows?.results || [];
@@ -771,7 +776,11 @@ async function handleManual(request, env) {
     gamePublished: gameSections.length > 0,
     gameSections: gameSections.map((s) => s.title),
     manualUrl: sections[0]?.url || 'https://ftc-resources.firstinspires.org/ftc/game/manual',
-  }, {}, cors);
+    // no-store because the season page renders this and it changes the moment
+    // the manual is re-ingested. Without it the edge served the old section
+    // count after a publish, which is the one moment the page most needs to be
+    // right.
+  }, {}, { ...cors, 'cache-control': 'no-store' });
 }
 
 /**

@@ -589,9 +589,14 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       console.error('ask failed', err.stack || err.message);
       // Degrade in place: the reader already has the sources, give them the
       // excerpt fallback rather than an error page.
+      // The reason and the message must agree. They did not: the reason
+      // distinguished a quota refusal from an unreachable model while the
+      // markdown was hard-coded to 'unavailable', so a reader who hit the rate
+      // limit was told the model could not be reached.
+      const rateLimited = Boolean(err?.quota);
       await writer.write(encoder.encode(sse('degrade', {
-        reason: err?.quota ? 'llm-quota' : 'llm-unavailable',
-        answerMd: degradedMarkdown(finalChunks, 'unavailable'),
+        reason: rateLimited ? 'llm-quota' : 'llm-unavailable',
+        answerMd: degradedMarkdown(finalChunks, rateLimited ? 'upstream-limit' : 'unavailable'),
       })));
       await writer.write(encoder.encode(sse('done', { slug: null })));
     } finally {
@@ -654,6 +659,15 @@ function degradedMarkdown(chunks, reason = 'ceiling') {
     unavailable: 'Sharp AI could not reach the model that writes answers, so this is '
       + 'not an answer — it is the documentation the question matched, unsummarised. '
       + 'The sections are real and the links work.',
+    // A fourth case, distinct from all three of the others: the model was
+    // reached and refused because too much was asked of it at once. It is not
+    // our daily ceiling, the site is not broken, and the reader's connection
+    // is fine — the only useful instruction is to wait. Saying 'could not
+    // reach the model' here sent people to check their wifi, which fixes
+    // nothing, when the answer was thirty seconds away.
+    'upstream-limit': 'Sharp AI is being asked more questions right now than its free tier '
+      + 'allows, so this is not an answer — it is the documentation the question matched, '
+      + 'unsummarised. Ask again in a minute and you should get a written answer.',
     empty: 'Sharp AI did not produce an answer for this one. Here are the sections it '
       + 'retrieved, unsummarised.',
   }[reason] || 'Here are the documentation sections that match your question, unsummarised.';

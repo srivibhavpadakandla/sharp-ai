@@ -26,9 +26,31 @@ echo "==> eval (regressions show here, before anything ships)"; node src/eval.js
 
 cat <<'NEXT'
 
-==> local artifacts rebuilt. To publish:
-    cd worker && ./scripts/load-d1.sh remote
-    npx wrangler vectorize upsert sharp-ai-chunks --file=../ingest/data/vectors.ndjson
+==> local artifacts rebuilt. To publish — all five steps, or it is half done:
+
+ 1. Snapshot the ids that are live RIGHT NOW, before anything deletes them.
+    Chunk ids are content hashes, so unchanged sections keep theirs and only
+    the rest need retiring:
+      cd ../worker && npx wrangler d1 execute sharp-ai --remote --json \
+        --command "SELECT chunk_id FROM chunks" > /tmp/live-ids.json
+
+ 2. cd worker && ./scripts/load-d1.sh remote
+    (the generated SQL deletes each source before inserting it, so this is a
+    clean replace rather than a merge)
+
+ 3. Delete the ids that were live in step 1 and are absent from
+    ../ingest/data/chunks.ndjson. Skipping this leaves orphan vectors in
+    Vectorize pointing at rows D1 no longer has:
+      npx wrangler vectorize delete-vectors sharp-ai-chunks --ids <id> ...
+
+ 4. npx wrangler vectorize upsert sharp-ai-chunks --file=../ingest/data/vectors.ndjson
     npx wrangler deploy
-    # then bump CORPUS_SECTIONS and CORPUS_UPDATED in web/src/lib/config.ts
+
+ 5. Bump CORPUS_EPOCH in worker/wrangler.toml, and CORPUS_SECTIONS (all chunks
+    minus telemark) and CORPUS_UPDATED in web/src/lib/config.ts.
+    CORPUS_EPOCH is part of the answer cache key. Without it the 30-day KV
+    cache keeps serving answers written against the index you just replaced —
+    which at kickoff meant telling teams this season's expansion limits were
+    "not stated". Then: npm --prefix ../worker run warm
+
 NEXT

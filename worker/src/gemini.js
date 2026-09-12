@@ -21,6 +21,13 @@ Answer it anyway, from ordinary knowledge, and answer it properly — a short,
 direct, correct answer, not a redirection back to FTC. Do not apologise for the
 subject, do not explain what this site is for, and do not suggest they ask
 somewhere else.
+Rule 4's one-sentence concession DOES NOT APPLY here and is forbidden. The
+reader did not ask what the index contains, so saying the documentation does
+not cover their question tells them nothing they wanted and delays the thing
+they did want. Open with the answer itself — first sentence, first word if it
+fits. "The capital of France is Paris." is the whole of a good answer; "The
+indexed documentation does not cover geography. The capital of France is
+Paris." is the same answer made worse.
 Keep it to a few sentences unless the question genuinely needs more: this is a
 courtesy answer on a site about robots, not the main event. Put all of it below
 the BEYOND marker — nothing here is supported by a retrieved section, so none of
@@ -89,10 +96,14 @@ Rules you must follow without exception:
    establish principles that bear on the question without settling it, give
    those principles and say what they imply for the case asked about — that is
    an answer, not a miss. Only when the sections offer nothing relevant at all
-   do you say so, in one sentence, and let the part below carry it. A bare
+   may you say so — in one sentence, AFTER the substance rather than before it,
+   and never as your opening line. A bare
    "the documentation does not provide this" above a full answer below is a
    failure: whatever you knew well enough to write there, you should have
    reasoned toward here if the sections supported it.
+   The index is your evidence, not your subject. The reader asked about their
+   robot; what the corpus happens to contain is a fact about this website, and
+   it interests them only when it changes what they should do next.
 5. NEVER invent part numbers, SKUs, gear ratios, motor specifications, tick
    counts, dimensions, or rule numbers. Deriving a figure from stated ones and
    showing the working is fine, and saying so is required. If a specific number is not written in a
@@ -540,10 +551,71 @@ export const BEYOND_MARKER = '===BEYOND===';
  * BEYOND marker is grounded and persistable; text after it is not, and is never
  * written to D1 or KV.
  */
+/**
+ * Rule 8a, enforced instead of requested.
+ *
+ * The prompt has banned opening with what the index lacks for two revisions
+ * now, and the model keeps doing it: "The indexed documentation does not
+ * contain information about who wrote the book Dune. Frank Herbert wrote..."
+ * A negative instruction is a preference; this is a guarantee. The reader
+ * asked about their robot, and what this site happens to have indexed is a
+ * fact about the site.
+ *
+ * Only the FIRST sentence of the grounded half is eligible, and only when
+ * something survives it — saying the manual does not state a torque figure is
+ * legitimate and required mid-answer (rule 5), it is only an opener that
+ * wastes the reader's first line. A sentence carrying a real contrast
+ * ("...does not cover X, but the principle is Y") is kept, because dropping it
+ * would take the substance with it.
+ */
+const DEFLECTION = /^[\s*_#>-]*(?:the\s+|this\s+|while\s+the\s+|although\s+the\s+)?(?:provided\s+|indexed\s+|available\s+|retrieved\s+|supplied\s+)?(?:documentation|docs|sections?|index|corpus)\b[^.!?]{0,220}?\b(?:does\s+not|do\s+not|doesn't|don't|lacks?|contains?\s+no|is\s+silent|says?\s+nothing)\b/i;
+/** A held-back opener is released unjudged past this, so nothing can stall. */
+const OPENER_MAX = 400;
+
+function dropDeflection(text, moreFollows = false) {
+  const m = text.match(/^(\s*[^.!?]*[.!?])([\s\S]*)$/);
+  if (!m) return text;
+  const [, first, rest] = m;
+  // Keep it when nothing would survive the cut. `moreFollows` is how the
+  // caller says the rest of the answer is real but lives past the BEYOND
+  // marker, which is the usual shape of an off-topic reply.
+  if (!rest.trim() && !moreFollows) return text;
+  if (!DEFLECTION.test(first.trim())) return text;
+  if (/\b(but|however|though|whereas)\b/i.test(first)) return text;
+  return rest.replace(/^\s+/, '');
+}
+
 export function createAnswerSplitter() {
   let buffer = '';
   let inBeyond = false;
   let headerDone = false;
+  // The grounded half's opening sentence is held until it can be judged.
+  let opener = '';
+  let openerDone = false;
+
+  /** Gate the first sentence of grounded text through dropDeflection. */
+  function gateOpener(text) {
+    if (openerDone) return text;
+    if (!text) return '';
+    opener += text;
+    // Wait for a sentence end AND the start of what follows. Deciding at the
+    // bare full stop judged the sentence with nothing after it yet, concluded
+    // it was the entire answer, and kept every opener it was meant to remove.
+    if (!/[.!?]["')\]]?\s+\S/.test(opener) && opener.length < OPENER_MAX) return '';
+    openerDone = true;
+    const out = dropDeflection(opener);
+    opener = '';
+    return out;
+  }
+
+  /** Release anything still held, judged as far as it got. */
+  function flushOpener(moreFollows = false) {
+    if (openerDone) return '';
+    openerDone = true;
+    const out = dropDeflection(opener, moreFollows);
+    opener = '';
+    return out;
+  }
 
   /**
    * Consume a leading ===GROUNDED=== if one is there.
@@ -597,7 +669,15 @@ export function createAnswerSplitter() {
         buffer = '';
       }
 
-      return { grounded: stripGroundedMarker(grounded), beyond };
+      // Crossing into BEYOND ends the grounded half, so a held opener has to be
+      // released here — and the beyond text is the content that follows it.
+      let out = gateOpener(stripGroundedMarker(grounded));
+      // Passing the marker is proof that more answer follows, even though the
+      // text after it has not streamed yet. Testing `beyond` for content here
+      // read empty on the push that completed the marker, and every off-topic
+      // deflection survived on that technicality.
+      if (inBeyond) out += flushOpener(true);
+      return { grounded: out, beyond };
     },
     /** Flush whatever is still held back. */
     end() {
@@ -605,8 +685,8 @@ export function createAnswerSplitter() {
       const rest = buffer;
       buffer = '';
       return inBeyond
-        ? { grounded: '', beyond: rest }
-        : { grounded: stripGroundedMarker(rest), beyond: '' };
+        ? { grounded: flushOpener(Boolean(rest.trim())), beyond: rest }
+        : { grounded: gateOpener(stripGroundedMarker(rest)) + flushOpener(), beyond: '' };
     },
     get startedBeyond() { return inBeyond; },
   };

@@ -8,7 +8,8 @@
     "deploy": "wrangler deploy",
     "schema:local": "wrangler d1 execute sharp-ai --local --file=sql/0000_schema.sql",
     "schema:remote": "wrangler d1 execute sharp-ai --remote --file=sql/0000_schema.sql",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.87.0"

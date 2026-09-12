@@ -286,7 +286,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   }
 
   // --- 4. Cache -------------------------------------------------------------
-  const { norm } = await cacheKeyFor(question);
+  const { norm } = await cacheKeyFor(env, question);
   const questionHash = await sha256hex(norm);
   // Keyed on the same subject retrieval used, so a deictic question cannot
   // serve one lesson's answer to another.
@@ -707,7 +707,7 @@ async function handleFeedback(request, env) {
   if (!verdict || !question) return json({ error: 'bad-request' }, { status: 400 }, cors);
 
   try {
-    const { norm } = await cacheKeyFor(question);
+    const { norm } = await cacheKeyFor(env, question);
     await env.DB.prepare(`
       INSERT INTO feedback (ts, question, question_hash, slug, verdict, reason, chunk_ids, source_ids, best_cosine, best_bm25)
       VALUES (?,?,?,?,?,?,?,?,?,?)

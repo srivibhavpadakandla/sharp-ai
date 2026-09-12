@@ -11,13 +11,28 @@ export async function sha256hex(text) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function cacheKeyFor(question) {
+/**
+ * The cache key carries the corpus epoch.
+ *
+ * Without it a re-ingest silently kept serving the old corpus's answers for up
+ * to CACHE_TTL. That was survivable while the index only gained pages; it
+ * stopped being survivable at kickoff, when the Competition Manual was
+ * replaced wholesale and every cached rules answer became a confident
+ * statement about last season — including the one that said this season's
+ * expansion limits "are not stated".
+ *
+ * Bumping CORPUS_EPOCH in wrangler.toml after an ingest makes every old entry
+ * unreachable at once. Nothing is deleted; the orphans expire on their own
+ * TTL, so this costs no writes and cannot fail halfway.
+ */
+export async function cacheKeyFor(env, question) {
   const norm = normalizeQuestion(question);
-  return { norm, key: `ans:${await sha256hex(norm)}` };
+  const epoch = env?.CORPUS_EPOCH || '0';
+  return { norm, key: `ans:${epoch}:${await sha256hex(norm)}` };
 }
 
 export async function readCache(env, question) {
-  const { key } = await cacheKeyFor(question);
+  const { key } = await cacheKeyFor(env, question);
   const hit = await env.CACHE.get(key, 'json');
   return hit || null;
 }
@@ -30,8 +45,8 @@ export async function readCache(env, question) {
  *   still records the question the student actually typed.
  */
 export async function writeAnswer(env, { question, cacheSubject, answerMd, citations, excerpts, category, model, topScore }) {
-  const { norm } = await cacheKeyFor(question);
-  const { key } = await cacheKeyFor(cacheSubject || question);
+  const { norm } = await cacheKeyFor(env, question);
+  const { key } = await cacheKeyFor(env, cacheSubject || question);
   const hash = await sha256hex(norm);
   const now = new Date().toISOString();
 

@@ -107,7 +107,11 @@ import CadViewer from '../components/CadViewer.tsx';
 
   .cadref__grid {
     display: grid; gap: 2rem 2.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+    /* min() so the column can go under 19rem when the screen is narrower than
+       one. Without it the 304px floor is wider than a 320px phone's content
+       box, and the whole page scrolled sideways by 4px — the kind of drift
+       that makes a site feel broken without ever looking broken. */
+    grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
   }
 
   .cadref__group h3 {

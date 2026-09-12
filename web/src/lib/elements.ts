@@ -158,6 +158,8 @@ export const POLLEN_IN = 2.8;
 export const NECTAR_IN = 3.6;
 export const FLOWER_OPENING_IN = 4;
 export const FLOWER_HEIGHT_IN = 21.5;
+/** Rim thickness. Not from the manual — chosen so the hole reads as a hole. */
+const FLOWER_TUBE_IN = 0.25;
 
 export const STARTERS: Element[] = [
   { id: 'pollen', name: 'POLLEN', kind: 'scoring-element', shape: 'sphere',
@@ -166,9 +168,19 @@ export const STARTERS: Element[] = [
   { id: 'nectar', name: 'NECTAR', kind: 'scoring-element', shape: 'sphere',
     dims: { diameter: NECTAR_IN }, colour: '#d0453f',
     x: 60, y: 48, z: NECTAR_IN / 2, rot: 0 },
-  // The FLOWER is modelled as its opening at its real height: the number an
-  // intake or launcher actually has to hit.
-  { id: 'flower', name: 'FLOWER opening', kind: 'field-element', shape: 'ring',
-    dims: { diameter: FLOWER_OPENING_IN, tube: 0.5 }, colour: '#7fb7e8',
-    x: 72, y: 120, z: FLOWER_HEIGHT_IN, rot: 0 },
+  // The FLOWER, modelled as its rim at its real height: the aperture a launcher
+  // actually has to hit.
+  //
+  // The arithmetic matters and was wrong at first. For a ring, `diameter` is
+  // the CENTRELINE and extents() reports diameter/2 + tube, so a 4in diameter
+  // with a 0.5in tube drew a 5.0in outer rim around a 3.0in hole — and the
+  // panel listed "FLOWER opening 5.0in" next to a manual that says 4in. A team
+  // sizing a launcher off that number would build for the wrong aperture.
+  // Centreline 4.5 with a 0.25 tube puts the hole at exactly 4.00in, and the
+  // name carries the authoritative figure so the listed outer size cannot be
+  // mistaken for it.
+  { id: 'flower', name: `FLOWER rim (${FLOWER_OPENING_IN}in opening)`, kind: 'field-element',
+    shape: 'ring',
+    dims: { diameter: FLOWER_OPENING_IN + 2 * FLOWER_TUBE_IN, tube: FLOWER_TUBE_IN },
+    colour: '#7fb7e8', x: 72, y: 120, z: FLOWER_HEIGHT_IN, rot: 0 },
 ];

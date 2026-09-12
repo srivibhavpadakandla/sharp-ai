@@ -657,7 +657,8 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  /* Same guard as .cadref__grid: a fixed floor cannot shrink on a narrow phone. */
+  grid-template-columns: repeat(auto-fill, minmax(min(15.5rem, 100%), 1fr));
   gap: 0.6rem;
 }
 .cell {

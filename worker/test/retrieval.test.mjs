@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { passesRelevanceGate, DEFAULT_THRESHOLDS, fuse } from '../src/lib/fusion.js';
-import { buildFtsQuery, termCoverage, tokenize } from '../src/lib/query.js';
+import { buildFtsQuery, termCoverage, tokenize, cacheTerms } from '../src/lib/query.js';
 import { normalizeQuestion, questionSlug } from '../src/lib/slug.js';
 import { readUsage } from '../src/lib/tokens.js';
 
@@ -117,4 +117,38 @@ test('usage parsing survives the fields Gemini omits', () => {
   const t = readUsage({ promptTokenCount: 10, toolUsePromptTokenCount: 5, totalTokenCount: 99 });
   assert.equal(t.prompt, 15);
   assert.equal(t.total, 99);
+});
+
+// --- cache identity ---------------------------------------------------------
+// Every uncached question costs a model call on a free tier, so wording
+// variants sharing one answer is real savings. The risk is collapsing two
+// questions that are not the same, which would serve a wrong answer instantly
+// and look authoritative doing it.
+
+const id = (q) => cacheTerms(q).join(' ');
+
+test('the same question worded differently shares one cache entry', () => {
+  assert.equal(id('how do I mount odometry pods'), id('where should I mount my odometry pods'));
+  assert.equal(id('What is a servo?'), id('what is a servo'));
+  assert.equal(id('can I use a brushless motor'), id("can't I use a brushless motor"));
+});
+
+test('negation is never dropped from cache identity', () => {
+  // contentTerms() discards "not" because search does not need it. Cache
+  // identity does: answering "what is not a servo" with the answer to "what
+  // is a servo" is not a hit, it is a confident wrong answer.
+  assert.notEqual(id('what is a servo'), id('what is not a servo'));
+  assert.notEqual(id('motors I can use'), id('motors I can not use'));
+  assert.match(id('what is not a servo'), /\bnot\b/);
+});
+
+test('argument order is never collapsed', () => {
+  // Identical term sets, opposite questions. Sorting terms would merge them.
+  assert.notEqual(id('does R102 apply to R105'), id('does R105 apply to R102'));
+});
+
+test('a question of nothing but stopwords still yields an identity', () => {
+  // cacheKeyFor falls back to the normalised string when this is empty, so it
+  // must not throw or produce something that collides with a real question.
+  assert.equal(cacheTerms('what is it').length, 0);
 });

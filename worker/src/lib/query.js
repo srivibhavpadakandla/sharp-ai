@@ -50,6 +50,41 @@ export function contentTerms(text) {
 }
 
 /**
+ * Stopwords that flip a question's meaning. Search can drop them — BM25 does
+ * not care and the embedding carries the sense — but cache identity cannot.
+ */
+const NEGATIONS = new Set(['no', 'nor', 'not', 'dont', "don't"]);
+
+/**
+ * Content terms for CACHE IDENTITY, which is a stricter job than search.
+ *
+ * Two questions should share a cached answer when they are the same question
+ * worded differently — "how do I mount odometry pods" and "where should I
+ * mount my odometry pods" both reduce to `mount odometry pods`, and on a free
+ * tier where every uncached question costs a model call, generating that
+ * answer twice is waste a reader never benefits from.
+ *
+ * Two rules keep it from collapsing questions that only look alike:
+ *
+ *   - ORDER IS KEPT. "does R102 apply to R105" and "does R105 apply to R102"
+ *     have identical term sets and opposite meanings; sorting would merge them.
+ *   - NEGATIONS ARE KEPT. contentTerms() drops "not", so "what is a servo" and
+ *     "what is not a servo" both reduce to `servo`. Answering the second with
+ *     the first is not a cache hit, it is a wrong answer delivered instantly.
+ */
+export function cacheTerms(text) {
+  const seen = new Set();
+  const out = [];
+  for (const t of tokenize(text)) {
+    if (STOPWORDS.has(t) && !NEGATIONS.has(t)) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
+/**
  * Build an FTS5 MATCH expression. Every term is double-quoted, which makes the
  * expression injection-proof: a user cannot smuggle in FTS operators.
  * OR-of-terms plus BM25 ranking behaves better on natural questions than AND,

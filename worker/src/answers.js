@@ -3,6 +3,7 @@
  * (permanent, server-rendered /q/<slug> pages), plus the anonymised query log.
  */
 import { normalizeQuestion, questionSlug } from './lib/slug.js';
+import { cacheTerms } from './lib/query.js';
 
 export const CACHE_TTL = 60 * 60 * 24 * 30; // 30 days
 
@@ -28,13 +29,32 @@ export async function sha256hex(text) {
 export async function cacheKeyFor(env, question) {
   const norm = normalizeQuestion(question);
   const epoch = env?.CORPUS_EPOCH || '0';
-  return { norm, key: `ans:${epoch}:${await sha256hex(norm)}` };
+  // Keyed on content terms rather than the whole normalised string, so the
+  // same question asked in different words shares one answer instead of
+  // spending a second model call. See cacheTerms for what it refuses to
+  // collapse. `norm` is unchanged and still identifies the row in D1.
+  const identity = cacheTerms(question).join(' ') || norm;
+  return {
+    norm,
+    key: `ans:${epoch}:${await sha256hex(identity)}`,
+    // The key this question had under the previous scheme. Reads fall back to
+    // it so changing how identity is computed does not throw away a warm
+    // cache — which would otherwise mean every question going slow again, at
+    // exactly the moment the change was meant to make things cheaper.
+    legacyKey: `ans:${epoch}:${await sha256hex(norm)}`,
+  };
 }
 
 export async function readCache(env, question) {
-  const { key } = await cacheKeyFor(env, question);
+  const { key, legacyKey } = await cacheKeyFor(env, question);
   const hit = await env.CACHE.get(key, 'json');
-  return hit || null;
+  if (hit) return hit;
+  // Only reached on a miss, and only until the old entries age out.
+  if (legacyKey && legacyKey !== key) {
+    const legacy = await env.CACHE.get(legacyKey, 'json');
+    if (legacy) return legacy;
+  }
+  return null;
 }
 
 /**

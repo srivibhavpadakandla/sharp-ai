@@ -86,6 +86,26 @@ const QUESTIONS = [
  * its own source; the earlier eval set tested only gm0 and ftc-docs, so a
  * regression here would have been invisible.
  */
+/**
+ * Does each source surface for the topic it owns?
+ *
+ * `source` is the source that should appear. `answeredBy` lists sources whose
+ * appearance is an equally good outcome, and exists because two of these
+ * failed while the system was behaving correctly.
+ *
+ * `rev` and `ctrlaltftc` are LINK-ONLY: their chunks hold a title and a URL
+ * and about 200 characters, because their text is not ours to store. They
+ * therefore cannot out-rank a full-text chunk on a generic topical query, and
+ * should not. Asked "closed loop control theory feedforward", retrieval
+ * returns gm0's "Control Loops > Feedforward Control" — an actual explanation
+ * — instead of a ctrlaltftc link, and asked "REV expansion hub firmware" it
+ * returns ftc-docs' "Updating the Expansion Hub Firmware". Both are the better
+ * answer. Scoring those as misses reported 11/13 for a system doing the right
+ * thing, which is how a future reader gets sent to fix working code.
+ *
+ * A query that NAMES a link-only source ("REV through bore encoder wiring")
+ * still has to route to it, and does.
+ */
 const ROUTING = [
   { q: 'how do I tune pedro pathing',                 source: 'pedropathing' },
   { q: 'pedro pathing installation',                  source: 'pedropathing' },
@@ -95,8 +115,8 @@ const ROUTING = [
   { q: 'ftclib command base',                         source: 'ftclib' },
   { q: 'ftclib subsystem and command scheduler',      source: 'ftclib' },
   { q: 'REV through bore encoder wiring',             source: 'rev' },
-  { q: 'REV expansion hub firmware',                  source: 'rev' },
-  { q: 'closed loop control theory feedforward',      source: 'ctrlaltftc' },
+  { q: 'REV expansion hub firmware',                  source: 'rev', answeredBy: ['ftc-docs'] },
+  { q: 'closed loop control theory feedforward',      source: 'ctrlaltftc', answeredBy: ['gm0', 'telemark'] },
   { q: 'where is the official competition manual',    source: 'first-rules' },
   { q: 'what does DcMotorEx setVelocity do',          source: 'ftc-sdk-api' },
   { q: 'official sample opmode for mecanum teleop',   source: 'ftc-sdk-samples' },
@@ -259,8 +279,12 @@ for (const [i, r] of ROUTING.entries()) {
   const f = fuse({ keyword: kw, semantic: sm }, TOP_K);
   const sources = f.results.map((x) => srcOf.get(x.chunkId));
   const at = sources.indexOf(r.source);
-  if (at !== -1) routed += 1;
-  console.log(`  ${at === -1 ? 'MISS' : `@${at + 1}  `}  ${r.source.padEnd(16)} ${r.q}`);
+  // A named stand-in only counts when the expected source is genuinely absent.
+  const standIn = at === -1 && (r.answeredBy || []).find((s2) => sources.includes(s2));
+  if (at !== -1 || standIn) routed += 1;
+  const mark = at !== -1 ? `@${at + 1}  ` : standIn ? '~   ' : 'MISS';
+  const note = standIn ? `  (answered by ${standIn}, which has the text)` : '';
+  console.log(`  ${mark}  ${r.source.padEnd(16)} ${r.q}${note}`);
 }
 console.log(`\n  routed ${routed}/${ROUTING.length}`);
 

@@ -42,7 +42,7 @@ MAX_QUESTION_CHARS = "500"
 # --- model -----------------------------------------------------------------
 # Bump after every corpus ingest: it is part of the answer cache key, so
 # changing it retires every answer generated against the previous index.
-CORPUS_EPOCH     = "2026-09-12"
+CORPUS_EPOCH     = "2026-09-12b"
 GEMINI_MODEL     = "gemini-3.7-flash"
 # Questions that have to reason rather than fetch are answered by this one.
 # Back to Flash. Pro answered harder questions better, but it costs several

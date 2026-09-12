@@ -29,6 +29,13 @@ jobs:
         working-directory: worker
         run: npm install
 
+      # The answer splitter was wrong three ways before it was right, and every
+      # bug only appeared when text arrived in small pieces. These run first so
+      # a regression fails the build rather than reaching a reader.
+      - name: Test
+        working-directory: worker
+        run: npm test
+
       # Bundles and typechecks the Worker without publishing it, so a syntax
       # error fails here rather than half-way through replacing a live script.
       - name: Check it builds

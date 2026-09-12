@@ -1,4 +1,4 @@
-import { bezierAt, bezierTangent, sampleChain, poseAtLength, generateJava, starterPath, validate, shortestDelta, robotCorners } from '../src/lib/pedro';
+import { bezierAt, bezierTangent, sampleChain, poseAtLength, generateJava, starterPath, validate, shortestDelta, robotCorners } from '../src/lib/pedro.ts';
 
 let fail = 0;
 const ok = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); fail++; } else console.log('ok  ', m); };
@@ -42,7 +42,7 @@ for (const frag of ['new BezierLine(startPose, scorePose)','new BezierCurve(scor
 console.log(fail ? `\n${fail} FAILED` : '\nall passed');
 
 // --- sharing round-trip -----------------------------------------------------
-import { encodePath, decodePath } from '../src/lib/pedro';
+import { encodePath, decodePath } from '../src/lib/pedro.ts';
 {
   let f2 = 0;
   const ok2 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f2++; } else console.log('ok  ', m); };
@@ -66,7 +66,7 @@ import { encodePath, decodePath } from '../src/lib/pedro';
 }
 
 // --- java import ------------------------------------------------------------
-import { parseJava } from '../src/lib/pedro';
+import { parseJava } from '../src/lib/pedro.ts';
 {
   let f3 = 0;
   const ok3 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f3++; } else console.log('ok  ', m); };
@@ -111,7 +111,7 @@ import { parseJava } from '../src/lib/pedro';
 }
 
 // --- timing and obstacles ---------------------------------------------------
-import { runTime, schedule, hitsObstacle, DEFAULT_LIMITS, robotCorners as rc2 } from '../src/lib/pedro';
+import { runTime, schedule, hitsObstacle, DEFAULT_LIMITS, robotCorners as rc2 } from '../src/lib/pedro.ts';
 {
   let f4 = 0;
   const ok4 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f4++; } else console.log('ok  ', m); };
@@ -148,7 +148,7 @@ import { runTime, schedule, hitsObstacle, DEFAULT_LIMITS, robotCorners as rc2 } 
   console.log(f4 ? `${f4} TIMING FAILED` : 'timing ok');
 }
 
-import { distanceAtTime } from '../src/lib/pedro';
+import { distanceAtTime } from '../src/lib/pedro.ts';
 {
   let f5 = 0;
   const ok5 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f5++; } else console.log('ok  ', m); };
@@ -167,7 +167,7 @@ import { distanceAtTime } from '../src/lib/pedro';
 }
 
 // --- directional velocity (ported model) ------------------------------------
-import { speedAt, DEFAULT_LIMITS as DL } from '../src/lib/pedro';
+import { speedAt, DEFAULT_LIMITS as DL } from '../src/lib/pedro.ts';
 {
   let f6 = 0;
   const ok6 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f6++; } else console.log('ok  ', m); };
@@ -195,7 +195,7 @@ import { speedAt, DEFAULT_LIMITS as DL } from '../src/lib/pedro';
 }
 
 // --- multiple path chains ---------------------------------------------------
-import { generateJavaChains, chainIdent, CHAIN_COLORS, type Chain } from '../src/lib/pedro';
+import { generateJavaChains, chainIdent, CHAIN_COLORS, type Chain } from '../src/lib/pedro.ts';
 {
   let f7 = 0;
   const ok7 = (c: boolean, m: string) => { if (!c) { console.log('FAIL', m); f7++; } else console.log('ok  ', m); };

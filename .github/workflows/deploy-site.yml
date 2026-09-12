@@ -34,6 +34,14 @@ jobs:
         working-directory: web
         run: npm ci
 
+      - name: Typecheck
+        working-directory: web
+        run: npx tsc --noEmit -p .
+
+      - name: Test
+        working-directory: web
+        run: npm test
+
       - name: Build
         working-directory: web
         # web/.env is gitignored, so the runner has none of this. These are the

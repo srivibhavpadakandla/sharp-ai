@@ -1,9 +1,17 @@
 import seedQuestions from '../../../worker/src/lib/seed-questions.json';
 
-/** Worker origin. Overridden at build time with PUBLIC_API_BASE. */
+/**
+ * Worker origin. Overridden at build time with PUBLIC_API_BASE.
+ *
+ * The account's workers.dev subdomain changed once already, which took the
+ * site's answers down without changing a line of code — the pages loaded, the
+ * chat just never returned. If this host moves again it has to be changed in
+ * four places: here, web/.env, the CSP connect-src in web/public/_headers,
+ * and PUBLIC_API_BASE in .github/workflows/deploy-site.yml.
+ */
 export const API_BASE =
   (import.meta.env.PUBLIC_API_BASE as string | undefined)?.replace(/\/+$/, '')
-  || 'http://127.0.0.1:8787';
+  || 'https://sharp-ai.driveforge-ftc.workers.dev';
 
 /** Cloudflare's public testing site key — always passes. Replace for production. */
 export const TURNSTILE_SITE_KEY =
@@ -35,7 +43,7 @@ export const CORPUS_SECTIONS = 3743;
  * re-ingests automatically, and a reader has no other way to tell how old an
  * answer's evidence is. Run ingest/scripts/refresh.sh and update this.
  */
-export const CORPUS_UPDATED = '12 September 2026';
+export const CORPUS_UPDATED = '19 September 2026';
 
 export const SITE_NAME = 'Sharp AI';
 export const SITE_TAGLINE = 'Answers from the FTC documentation, with the source next to them.';

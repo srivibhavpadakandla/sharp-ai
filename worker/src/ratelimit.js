@@ -28,22 +28,22 @@ async function bump(kv, key, ttl) {
 }
 
 /**
- * @param identity Optional signed-in subject, as {uid}. When present the limit
- *   is keyed to the account instead of the address, which is the whole reason
- *   signing in is worth asking for: a school shares one IP across a lab, so an
- *   address limit rations a class by whoever asks first, and an anonymous
- *   visitor can reset one by changing networks. An account can do neither.
+ * Limits are keyed to a hashed IP.
+ *
+ * There was a second subject here: a signed-in account, which is the better
+ * one — a school shares one address across a lab, so an address limit rations
+ * a class by whoever asks first, and an anonymous visitor can reset one by
+ * changing networks. It required a sign-in that only the removed embedding
+ * site offered, so nothing could present an account any more.
  */
-export async function checkRateLimit(env, request, identity = null) {
+export async function checkRateLimit(env, request) {
   const ip = request.headers.get('cf-connecting-ip')
     || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || '0.0.0.0';
-  const id = identity?.uid ? `u:${identity.uid}` : await hashIp(ip);
+  const id = await hashIp(ip);
 
   const perMin = Number(env.RATE_PER_MIN || 10);
-  const perDay = identity?.uid
-    ? Number(env.RATE_PER_DAY_SIGNED_IN || 60)
-    : Number(env.RATE_PER_DAY || 100);
+  const perDay = Number(env.RATE_PER_DAY || 100);
 
   const mKey = `rl:m:${id}:${minuteKey()}`;
   const dKey = `rl:d:${id}:${dayKey()}`;

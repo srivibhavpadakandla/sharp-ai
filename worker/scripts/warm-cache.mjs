@@ -22,7 +22,7 @@ const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 };
-const API = arg('api', 'https://sharp-ai.srivibhavp.workers.dev') + '/api/ask';
+const API = arg('api', 'https://sharp-ai.driveforge-ftc.workers.dev') + '/api/ask';
 const GAP_S = Number(arg('gap', 8));
 
 /** Keep in step with ANGLES in web/src/lib/season.ts. */

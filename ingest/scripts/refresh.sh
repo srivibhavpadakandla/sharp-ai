@@ -47,7 +47,7 @@ cat <<'NEXT'
     npx wrangler deploy
 
  5. Bump CORPUS_EPOCH in worker/wrangler.toml, and CORPUS_SECTIONS (all chunks
-    minus telemark) and CORPUS_UPDATED in web/src/lib/config.ts.
+    all of them now) and CORPUS_UPDATED in web/src/lib/config.ts.
     CORPUS_EPOCH is part of the answer cache key. Without it the 30-day KV
     cache keeps serving answers written against the index you just replaced —
     which at kickoff meant telling teams this season's expansion limits were

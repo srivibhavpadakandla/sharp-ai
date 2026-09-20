@@ -1,4 +1,4 @@
-# Push to main -> https://sharp-ai.srivibhavp.workers.dev
+# Push to main -> https://sharp-ai.driveforge-ftc.workers.dev
 name: Deploy worker
 
 on:

@@ -30,9 +30,6 @@ RATE_PER_MIN     = "10"
 RATE_PER_DAY     = "25"
 # A verified account is metered on its own, so the allowance can be larger
 # without a lab full of students sharing one address sharing one budget.
-RATE_PER_DAY_SIGNED_IN = "60"
-# Firebase project whose ID tokens are accepted in place of a Turnstile solve.
-FIREBASE_PROJECT_ID = "telemark-e9159"
 # Gemini free tier is the real ceiling; KV's 1000 writes/day sits just above the
 # ~3 writes each uncached question costs, so these two numbers move together.
 # Counts LLM CALLS, not questions. A confident question costs one call; an
@@ -42,7 +39,7 @@ MAX_QUESTION_CHARS = "500"
 # --- model -----------------------------------------------------------------
 # Bump after every corpus ingest: it is part of the answer cache key, so
 # changing it retires every answer generated against the previous index.
-CORPUS_EPOCH     = "2026-09-12b"
+CORPUS_EPOCH     = "2026-09-19"
 GEMINI_MODEL     = "gemini-3.7-flash"
 # Questions that have to reason rather than fetch are answered by this one.
 # Back to Flash. Pro answered harder questions better, but it costs several
@@ -59,7 +56,7 @@ MAX_OUTPUT_TOKENS      = "16384"
 MAX_OUTPUT_TOKENS_CODE = "32000"
 AGENTIC          = "true"
 # --- site ------------------------------------------------------------------
-SITE_ORIGIN = "https://sharp-ai-8a1.pages.dev,https://sharpfacerobotics.github.io"
+SITE_ORIGIN = "https://sharpftc.pages.dev,https://sharp-ai-8a1.pages.dev"
 REQUIRE_TURNSTILE = "true"
 
 [ai]

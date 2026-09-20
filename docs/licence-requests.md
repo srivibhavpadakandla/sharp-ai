@@ -17,7 +17,7 @@ parts.
 **To:** the maintainers via https://github.com/Pedro-Pathing/PedroPathing/issues
 (open an issue titled "Permission to quote the docs in an FTC search tool")
 
-> Hi — we're [team number], Sharp Face Robotics. We built a free, non-commercial
+> Hi — we build Sharp AI, a free, non-commercial
 > search tool that answers FTC questions from indexed documentation and shows
 > the source page behind every claim: https://sharpftc.pages.dev
 >

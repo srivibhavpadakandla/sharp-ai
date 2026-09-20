@@ -26,7 +26,6 @@ import { verifyCitations } from './citecheck.js';
 import { checkRateLimit, reserveLlmCall, llmUsage, ipUsage } from './ratelimit.js';
 import { readUsage, recordTokens, tokenReport } from './lib/tokens.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
-import { verifyFirebaseToken } from './firebase.js';
 import {
   readCache, writeAnswer, logQuery, sha256hex, cacheKeyFor,
 } from './answers.js';
@@ -229,7 +228,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const isFollowUp = history.length > 0;
   // The team's robot configuration, if they filled it in. Never stored.
   const specs = String(body.specs || '').slice(0, 1200) || null;
-  // The lesson the student has open, sent by the Telemark panel. Bounded and
+  // The lesson the reader has open, sent by an embedding panel. Bounded and
   // never stored: it exists so a question like "why is this 3.2 and not 3.0"
   // has a referent.
   const page = body.page && typeof body.page === 'object'
@@ -245,19 +244,14 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const chat = body.chat === true;
 
   // --- 1. Who is asking -----------------------------------------------------
-  // A verified account stands in for the CAPTCHA. Turnstile exists to prove a
-  // human is present, and a Google sign-in proves rather more than that, so
-  // making a signed-in student solve one as well is a toll with no purpose.
-  const identity = await verifyFirebaseToken(env, body.idToken);
-  if (!identity.ok) {
-    const ts = await verifyTurnstile(env, token, request);
-    if (!ts.ok) {
-      return json(
-        { error: 'turnstile-failed', detail: ts.reason, auth: identity.reason },
-        { status: 403 },
-        cors,
-      );
-    }
+  // Turnstile only. There used to be a second path here: a signed-in account
+  // stood in for the CAPTCHA, because a Google sign-in proves more than a
+  // checkbox does and making a signed-in student solve one too is a toll with
+  // no purpose. The only site that signed anyone in has been removed, so the
+  // account path verified tokens no caller could produce.
+  const ts = await verifyTurnstile(env, token, request);
+  if (!ts.ok) {
+    return json({ error: 'turnstile-failed', detail: ts.reason }, { status: 403 }, cors);
   }
 
   // --- 3. Length (checked before the KV round-trips so junk costs nothing) ---
@@ -276,7 +270,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   }
 
   // --- 2. Rate limit --------------------------------------------------------
-  const rl = await checkRateLimit(env, request, identity.ok ? identity : null);
+  const rl = await checkRateLimit(env, request);
   if (!rl.ok) {
     return json(
       { error: 'rate-limited', scope: rl.scope, limit: rl.limit },

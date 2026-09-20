@@ -51,7 +51,7 @@ jobs:
         # site silently points at the wrong API or writes wrong canonical URLs.
         env:
           PUBLIC_SITE_URL: https://sharpftc.pages.dev
-          PUBLIC_API_BASE: https://sharp-ai.srivibhavp.workers.dev
+          PUBLIC_API_BASE: https://sharp-ai.driveforge-ftc.workers.dev
           PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
         run: npm run build
 

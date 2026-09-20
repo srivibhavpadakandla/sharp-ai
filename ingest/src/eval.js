@@ -116,7 +116,7 @@ const ROUTING = [
   { q: 'ftclib subsystem and command scheduler',      source: 'ftclib' },
   { q: 'REV through bore encoder wiring',             source: 'rev' },
   { q: 'REV expansion hub firmware',                  source: 'rev', answeredBy: ['ftc-docs'] },
-  { q: 'closed loop control theory feedforward',      source: 'ctrlaltftc', answeredBy: ['gm0', 'telemark'] },
+  { q: 'closed loop control theory feedforward',      source: 'ctrlaltftc', answeredBy: ['gm0'] },
   { q: 'where is the official competition manual',    source: 'first-rules' },
   { q: 'what does DcMotorEx setVelocity do',          source: 'ftc-sdk-api' },
   { q: 'official sample opmode for mecanum teleop',   source: 'ftc-sdk-samples' },

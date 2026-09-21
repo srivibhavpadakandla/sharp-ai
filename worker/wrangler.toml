@@ -54,6 +54,18 @@ THINKING_LEVEL   = "low"
 # Code needs far more room: thinking is billed from the same budget.
 MAX_OUTPUT_TOKENS      = "16384"
 MAX_OUTPUT_TOKENS_CODE = "32000"
+# The upstream free tier refuses past roughly this many calls a minute. A
+# question costs one call, or three if it escalates, so the agentic pass stands
+# down once fewer than three remain rather than spending the last of the
+# minute on retrieval and having nothing left to answer with.
+#
+# This number is an ESTIMATE, not a documented figure. Observed: two questions
+# that escalated (six calls) were enough to get refused, so the real allowance
+# is somewhere near five or six. Deliberately set low — being wrong high means
+# questions fail, being wrong low only means fewer of them escalate, and an
+# adequately retrieved answer beats a perfectly retrieved refusal. Raise it if
+# you ever see escalation standing down while calls are plainly available.
+LLM_CALLS_PER_MIN = "6"
 AGENTIC          = "true"
 # --- site ------------------------------------------------------------------
 SITE_ORIGIN = "https://sharpftc.pages.dev,https://sharp-ai-8a1.pages.dev"

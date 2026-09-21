@@ -23,7 +23,7 @@ import { intentOf } from './lib/intent.js';
 import { needsEscalation, planSearch, rerank } from './agent.js';
 import { isCodeRequest, validateCode } from './codegen.js';
 import { verifyCitations } from './citecheck.js';
-import { checkRateLimit, reserveLlmCall, llmUsage, ipUsage } from './ratelimit.js';
+import { checkRateLimit, reserveLlmCall, llmUsage, ipUsage, callsThisMinute } from './ratelimit.js';
 import { readUsage, recordTokens, tokenReport } from './lib/tokens.js';
 import { verifyTurnstile, TESTING_SITE_KEY } from './turnstile.js';
 import {
@@ -385,9 +385,28 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const mark = (k) => { t[k] = Date.now() - t.start; };
   mark('retrieve');
   // Recorded so the routing is checkable from outside rather than only in a log.
-  const agent = { escalated: false, queries: null, interpretation: null, reranked: false, deep: false };
+  const agent = { escalated: false, queries: null, interpretation: null, reranked: false, deep: false, yielded: false };
 
-  if (String(env.AGENTIC ?? 'true') !== 'false'
+  // The agentic pass costs two calls before the answer costs its one, and on
+  // a free tier that runs out per MINUTE that ordering is backwards: we spend
+  // the minute's allowance improving retrieval and then cannot afford to write
+  // anything. Measured — four questions cost twelve calls, eight of them plan
+  // and rerank, and the site walled after two.
+  //
+  // So when the model has just refused us, the next question skips straight to
+  // answering. A slightly worse-retrieved real answer beats a perfectly
+  // retrieved pile of raw sections.
+  // Two ways to decide we cannot afford it: the model just refused us, or we
+  // have already spent most of this minute's allowance. The second is the one
+  // that prevents the refusal instead of reacting to it.
+  const [throttled, spent] = await Promise.all([
+    env.RATE.get('upstream:cooloff').catch(() => null),
+    callsThisMinute(env),
+  ]);
+  const budgetLeft = Number(env.LLM_CALLS_PER_MIN || 8) - spent;
+  const canAfford = budgetLeft >= 3;          // plan + rerank + the answer
+  if (throttled || !canAfford) agent.yielded = true;
+  if (String(env.AGENTIC ?? 'true') !== 'false' && !throttled && canAfford
       && (isFollowUp || needsEscalation(question, stats, gate))) {
     try {
       const planBudget = await reserveLlmCall(env);
@@ -588,6 +607,12 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       // markdown was hard-coded to 'unavailable', so a reader who hit the rate
       // limit was told the model could not be reached.
       const rateLimited = Boolean(err?.quota);
+      // Remember it briefly. The limit resets about every minute, so the flag
+      // outlives it slightly and then clears itself.
+      if (rateLimited) {
+        await env.RATE.put('upstream:cooloff', '1', { expirationTtl: 90 })
+          .catch(() => { /* a missed flag costs quality, never correctness */ });
+      }
       await writer.write(encoder.encode(sse('degrade', {
         reason: rateLimited ? 'llm-quota' : 'llm-unavailable',
         answerMd: degradedMarkdown(finalChunks, rateLimited ? 'upstream-limit' : 'unavailable'),
@@ -659,9 +684,12 @@ function degradedMarkdown(chunks, reason = 'ceiling') {
     // is fine — the only useful instruction is to wait. Saying 'could not
     // reach the model' here sent people to check their wifi, which fixes
     // nothing, when the answer was thirty seconds away.
-    'upstream-limit': 'Sharp AI is being asked more questions right now than its free tier '
-      + 'allows, so this is not an answer — it is the documentation the question matched, '
-      + 'unsummarised. Ask again in a minute and you should get a written answer.',
+    // Not "we are busy" — that implies a crowd, and there usually isn't one.
+    // The free tier allows only a handful of model calls per minute, which one
+    // or two questions can use up on their own.
+    'upstream-limit': 'Sharp AI has used up the free model allowance for this minute, so this '
+      + 'is not an answer — it is the documentation the question matched, unsummarised. '
+      + 'It refills about every minute; asking again shortly should give you a written answer.',
     empty: 'Sharp AI did not produce an answer for this one. Here are the sections it '
       + 'retrieved, unsummarised.',
   }[reason] || 'Here are the documentation sections that match your question, unsummarised.';

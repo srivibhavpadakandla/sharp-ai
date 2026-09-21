@@ -88,7 +88,25 @@ export async function reserveLlmCall(env) {
   const used = Number((await env.RATE.get(key)) || 0);
   if (used >= ceiling) return { granted: false, used, ceiling };
   await env.RATE.put(key, String(used + 1), { expirationTtl: 90000 });
-  return { granted: true, used: used + 1, ceiling };
+  // Also count the minute. The daily ceiling is ours and generous; the limit
+  // that actually bites is the upstream free tier's per-minute allowance, and
+  // nothing was watching it.
+  const mKey = `llmmin:${minuteKey()}`;
+  const spent = Number((await env.RATE.get(mKey)) || 0) + 1;
+  await env.RATE.put(mKey, String(spent), { expirationTtl: 120 })
+    .catch(() => { /* pacing is advisory; never fail a call over it */ });
+  return { granted: true, used: used + 1, ceiling, thisMinute: spent };
+}
+
+/**
+ * How many model calls this minute has already spent.
+ *
+ * Used to decide whether a question can afford the agentic pass, which costs
+ * two calls before the answer costs its one. Measured on the free tier: four
+ * questions spent twelve calls and the upstream refused the last two.
+ */
+export async function callsThisMinute(env) {
+  return Number((await env.RATE.get(`llmmin:${minuteKey()}`).catch(() => 0)) || 0);
 }
 
 export async function llmUsage(env) {

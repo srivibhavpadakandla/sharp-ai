@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createAnswerSplitter } from '../src/gemini.js';
+import { createAnswerSplitter, streamGemini } from '../src/gemini.js';
 
 /** Feed text through the splitter in fixed-size pieces, as the model streams it. */
 function split(text, chunk) {
@@ -85,4 +85,32 @@ test('still strips the leading GROUNDED marker', () => {
 test('citations never cross into the ungrounded half', () => {
   const r = split('Grounded claim. ===BEYOND=== Unsupported [3] thought.', 5);
   assert.match(r.beyond, /Unsupported/);
+});
+
+test('answer falls back to flash-lite when the main model has no quota', async () => {
+  const originalFetch = globalThis.fetch;
+  const models = [];
+  globalThis.fetch = async (url, options) => {
+    models.push(new URL(url).pathname.split('/').pop());
+    const request = JSON.parse(options.body);
+    assert.equal(request.tools, undefined);
+    if (models.length === 1) {
+      return new Response(JSON.stringify({ error: { message: 'quota exceeded' } }), { status: 429 });
+    }
+    return new Response('data: {"candidates":[{"content":{"parts":[{"text":"A cited answer."}]}}]}\n\n', {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    });
+  };
+  try {
+    let answer = '';
+    for await (const text of streamGemini({
+      GEMINI_API_KEY: 'test', GEMINI_MODEL: 'main', GEMINI_FAST_MODEL: 'lite',
+      DEEP_ROUTING: 'off', WEB_SEARCH: 'off',
+    }, { question: 'FTC IMU yaw', chunks: [] })) answer += text;
+    assert.equal(answer, 'A cited answer.');
+    assert.deepEqual(models, ['main:streamGenerateContent', 'lite:streamGenerateContent']);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

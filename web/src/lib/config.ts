@@ -11,7 +11,7 @@ import seedQuestions from '../../../worker/src/lib/seed-questions.json';
  */
 export const API_BASE =
   (import.meta.env.PUBLIC_API_BASE as string | undefined)?.replace(/\/+$/, '')
-  || 'https://sharp-ai.driveforge-ftc.workers.dev';
+  || 'https://sharp-ai.srivibhavp.workers.dev';
 
 /** Cloudflare's public testing site key — always passes. Replace for production. */
 export const TURNSTILE_SITE_KEY =

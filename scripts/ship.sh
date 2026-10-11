@@ -19,7 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 TARGET="${1:-all}"
-API="https://sharp-ai.driveforge-ftc.workers.dev"
+API="https://sharp-ai.srivibhavp.workers.dev"
 SITE="https://sharpftc.pages.dev"
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 
@@ -53,9 +53,15 @@ echo "site ok"
 # The host the browser is told to call must be the one that answers. These
 # drifted apart once already, when the account's workers.dev subdomain changed:
 # every page loaded and no question was ever answered.
-built=$(curl -fsS -m 30 "$SITE/?cb=$RANDOM" | grep -o 'https://sharp-ai\.[a-z0-9-]*\.workers\.dev' | head -1 || true)
-if [ -n "$built" ] && [ "$built" != "$API" ]; then
-  echo "FAIL: the site calls $built but the worker is at $API"; exit 1
-fi
+bundle=$(find web/dist/_astro -maxdepth 1 -name 'ChatThread.*.js' -print -quit)
+[ -n "$bundle" ] || { echo "FAIL: chat bundle missing from build"; exit 1; }
+asset="$SITE/_astro/${bundle##*/}"
+deployed=""
+for attempt in 1 2 3 4 5 6; do
+  deployed=$(curl -fsS -m 10 "$asset" 2>/dev/null | grep -o 'https://sharp-ai\.[a-z0-9-]*\.workers\.dev' | head -1 || true)
+  [ "$deployed" = "$API" ] && break
+  [ "$attempt" -eq 6 ] || sleep 5
+done
+[ "$deployed" = "$API" ] || { echo "FAIL: deployed chat calls ${deployed:-no API host} instead of $API"; exit 1; }
 echo "site and worker agree on the API host"
 printf '\n\033[1mshipped\033[0m\n'

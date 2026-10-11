@@ -458,7 +458,7 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
   // If the model or the key cannot do search grounding, answer without it
   // rather than failing. Losing the web is a worse answer; losing the answer is
   // a broken page.
-  if (!res.ok && body.tools) {
+  if (!res.ok && body.tools && res.status !== 429 && res.status !== 503) {
     const detail = await res.text().catch(() => '');
     console.warn('search grounding rejected, retrying without it', detail.slice(0, 160));
     const { tools, ...noTools } = body;
@@ -479,7 +479,7 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     if (r.status === 503) return true;
     if (r.status !== 429) return false;
     const body = await r.clone().text().catch(() => '');
-    return !/credit|billing|depleted/i.test(body);
+    return !/credit|billing|depleted|quota/i.test(body);
   };
   for (let attempt = 0; attempt < 3 && await transient(res); attempt += 1) {
     // Rising delay: a spike that has not cleared in 1.2s often has by 3.6s.
@@ -497,6 +497,16 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     console.warn(`deep model refused (${res.status}), falling back to the fast one`, detail.slice(0, 140));
     model = env.GEMINI_MODEL || 'gemini-3.7-flash';
     res = await call(body.tools ? { ...body, tools: undefined } : body);
+  }
+
+  // The answer model can have no quota even while the planning model works.
+  // Keep the cited answer available by using that model before showing raw sections.
+  const liteModel = env.GEMINI_FAST_MODEL || 'gemini-3.5-flash-lite';
+  if (res.status === 429 && model !== liteModel) {
+    console.warn('answer model quota exceeded, falling back to flash-lite');
+    model = liteModel;
+    const { tools, ...noTools } = body;
+    res = await call(noTools);
   }
 
   if (!res.ok || !res.body) {

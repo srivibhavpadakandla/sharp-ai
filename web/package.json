@@ -9,7 +9,7 @@
     "preview": "wrangler pages dev dist",
     "deploy": "astro build && wrangler pages deploy dist --project-name sharpftc",
     "deploy:preview": "astro build && wrangler pages deploy dist --project-name sharp-ai",
-    "test": "node tests/pedro.test.ts"
+    "test": "node --test tests/chat.test.mjs && node tests/pedro.test.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.6.10",

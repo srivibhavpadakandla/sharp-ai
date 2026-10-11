@@ -1,56 +1,42 @@
 #!/usr/bin/env bash
-# Full corpus refresh. Nothing re-ingests on its own, so the index is a
-# snapshot that silently ages — gm0 and ftc-docs both change during a season.
-# Run this monthly, or after a game manual update.
-#
-#   ./ingest/scripts/refresh.sh            # everything
-#   ./ingest/scripts/refresh.sh --no-pull  # re-index what is already checked out
+# Rebuild every configured source, its embeddings, evaluation, and published metadata.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-
-if [ "${1:-}" != "--no-pull" ]; then
-  echo "==> refreshing checkouts"
-  for d in vendor/gm0 vendor/ftcdocs vendor/ftc-sdk; do
-    [ -d "$d/.git" ] && (cd "$d" && git pull --ff-only -q && echo "    $d updated") || echo "    $d missing — see README"
-  done
-  echo "==> refreshing link indexes (titles and URLs only)"
-  rm -f vendor/linkcache/ctrlaltftc.json vendor/linkcache/ftclib.json \
-        vendor/linkcache/roadrunner.json vendor/linkcache/rev.json
-  node scripts/crawl-pedropathing.mjs || echo "    pedro pathing crawl skipped"
+SDK_VERSION="${FTC_SDK_VERSION:-}"
+if [ -z "$SDK_VERSION" ]; then
+  if [ "${1:-}" = "--no-pull" ]; then
+    SDK_VERSION=$(cat vendor/sdk-javadoc/version.txt)
+  else
+    SDK_VERSION=$(curl -fsSL --max-time 30 https://repo1.maven.org/maven2/org/firstinspires/ftc/RobotCore/maven-metadata.xml | sed -n 's/.*<release>\(.*\)<\/release>.*/\1/p')
+  fi
 fi
-
-echo "==> ingest"; node src/ingest.js --all
-echo "==> sdk symbol table"; node src/sdk-symbols.js
-echo "==> embed"; node src/embed.js
-echo "==> eval (regressions show here, before anything ships)"; node src/eval.js | tail -32
-
-cat <<'NEXT'
-
-==> local artifacts rebuilt. To publish — all five steps, or it is half done:
-
- 1. Snapshot the ids that are live RIGHT NOW, before anything deletes them.
-    Chunk ids are content hashes, so unchanged sections keep theirs and only
-    the rest need retiring:
-      cd ../worker && npx wrangler d1 execute sharp-ai --remote --json \
-        --command "SELECT chunk_id FROM chunks" > /tmp/live-ids.json
-
- 2. cd worker && ./scripts/load-d1.sh remote
-    (the generated SQL deletes each source before inserting it, so this is a
-    clean replace rather than a merge)
-
- 3. Delete the ids that were live in step 1 and are absent from
-    ../ingest/data/chunks.ndjson. Skipping this leaves orphan vectors in
-    Vectorize pointing at rows D1 no longer has:
-      npx wrangler vectorize delete-vectors sharp-ai-chunks --ids <id> ...
-
- 4. npx wrangler vectorize upsert sharp-ai-chunks --file=../ingest/data/vectors.ndjson
-    npx wrangler deploy
-
- 5. Bump CORPUS_EPOCH in worker/wrangler.toml, and CORPUS_SECTIONS (all chunks
-    all of them now) and CORPUS_UPDATED in web/src/lib/config.ts.
-    CORPUS_EPOCH is part of the answer cache key. Without it the 30-day KV
-    cache keeps serving answers written against the index you just replaced —
-    which at kickoff meant telling teams this season's expansion limits were
-    "not stated". Then: npm --prefix ../worker run warm
-
-NEXT
+[[ "$SDK_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Cannot determine SDK version" >&2; exit 1; }
+if [ "${1:-}" != "--no-pull" ]; then
+  for d in vendor/gm0 vendor/ftcdocs vendor/ftc-sdk vendor/rr-quickstart; do
+    [ -d "$d/.git" ] || { echo "Missing source checkout: $d" >&2; exit 1; }
+    git -C "$d" pull --ff-only -q
+  done
+  stage=$(mktemp -d)
+  curl -fsSL --max-time 60 https://ftc-resources.firstinspires.org/ftc/game/manual -o "$stage/manual.pdf"
+  pdftotext -layout "$stage/manual.pdf" "$stage/manual.txt"
+  test -s "$stage/manual.txt"
+  cp "$stage/manual.pdf" vendor/first-manual/competition-manual.pdf
+  cp "$stage/manual.txt" vendor/first-manual/manual.txt
+  for artifact in RobotCore Hardware FtcCommon Vision; do
+    curl -fsSL --max-time 60 "https://repo1.maven.org/maven2/org/firstinspires/ftc/$artifact/$SDK_VERSION/$artifact-$SDK_VERSION-javadoc.jar" -o "$stage/$artifact.jar"
+    mkdir -p "$stage/$artifact"
+    unzip -oq "$stage/$artifact.jar" -d "$stage/$artifact"
+    rsync -a --delete "$stage/$artifact/" "vendor/sdk-javadoc/$artifact/"
+  done
+  printf '%s\n' "$SDK_VERSION" > vendor/sdk-javadoc/version.txt
+  node scripts/crawl-pedropathing.mjs
+  node scripts/crawl-pedropathing-content.mjs
+  export REFRESH_LINKS=1
+fi
+export FTC_SDK_VERSION="$SDK_VERSION"
+node src/sdk-symbols.js
+node src/ingest.js --all
+node src/embed.js
+node src/eval.js
+node src/corpus-info.js
+printf '\nCorpus rebuilt. Publish vectors and D1 together, retire obsolete vector IDs, then deploy with a new CORPUS_EPOCH.\n'

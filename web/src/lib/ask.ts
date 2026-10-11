@@ -1,4 +1,5 @@
 /** SSE client for the Worker's /api/ask and /api/explain-error endpoints. */
+import { parseSseEvent } from './sse';
 import { API_BASE } from './config';
 import { getTurnstileToken } from './turnstile';
 
@@ -58,8 +59,9 @@ export async function ask(
 ) {
   let turnstileToken = '';
   try {
-    turnstileToken = await getTurnstileToken();
+    turnstileToken = await getTurnstileToken(12000, signal);
   } catch {
+    if (signal?.aborted) throw new DOMException('Response stopped', 'AbortError');
     // Turnstile unreachable (offline dev, blocked script): let the Worker decide.
     turnstileToken = '';
   }
@@ -96,29 +98,30 @@ export async function ask(
 
   for (;;) {
     const { value, done } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
+    if (done) { buf += decoder.decode(); if (buf.trim()) dispatchEvent(buf, cb); break; }
+    buf = (buf + decoder.decode(value, { stream: true })).replace(/\r\n/g, '\n');
 
     let sep: number;
     while ((sep = buf.indexOf('\n\n')) !== -1) {
       const raw = buf.slice(0, sep);
       buf = buf.slice(sep + 2);
-      const evLine = raw.split('\n').find((l) => l.startsWith('event:'));
-      const dataLine = raw.split('\n').find((l) => l.startsWith('data:'));
-      if (!evLine || !dataLine) continue;
-      const event = evLine.slice(6).trim();
-      let payload: any;
-      try { payload = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
-
-      if (event === 'meta') cb.onMeta(payload);
-      else if (event === 'token') cb.onToken(payload.t);
-      else if (event === 'beyond_start') cb.onBeyondStart();
-      else if (event === 'beyond') cb.onBeyond(payload.t);
-      else if (event === 'validation') cb.onValidation(payload);
-      else if (event === 'citecheck') cb.onCiteCheck(payload);
-      else if (event === 'degrade') cb.onDegrade(payload);
-      else if (event === 'done') cb.onDone(payload);
-      else if (event === 'error') cb.onError(payload.message || 'Something went wrong.');
+      dispatchEvent(raw, cb);
     }
   }
+}
+
+
+function dispatchEvent(raw: string, cb: AskCallbacks) {
+  const parsed = parseSseEvent(raw);
+  if (!parsed) return;
+  const { event, payload } = parsed;
+  if (event === 'meta') cb.onMeta(payload);
+  else if (event === 'token') cb.onToken(payload.t);
+  else if (event === 'beyond_start') cb.onBeyondStart();
+  else if (event === 'beyond') cb.onBeyond(payload.t);
+  else if (event === 'validation') cb.onValidation(payload);
+  else if (event === 'citecheck') cb.onCiteCheck(payload);
+  else if (event === 'degrade') cb.onDegrade(payload);
+  else if (event === 'done') cb.onDone(payload);
+  else if (event === 'error') cb.onError(payload.message || 'Something went wrong.');
 }

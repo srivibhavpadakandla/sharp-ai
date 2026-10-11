@@ -58,7 +58,7 @@ export const MANUAL_CHANGES: Record<ChangeGroup, Change[]> = {
     { title: 'New rule: "It is your team\'s ROBOT"', ref: 'Rule R101, p66', points: [
       'Formally defines MAJOR MECHANISM; gearbox assemblies, sub-components and COTS items are excluded from the definition.' ] },
     { title: 'Expansion limits placeholder', ref: 'Rule R105, p68', points: [
-      'Sizing constraints not yet published: "Sizing Constraints and more details will be released at Kickoff."' ] },
+      'The published R105 now limits expansion to an 18 by 24 inch footprint and a 29 inch height. The robot must meet this mechanically, without relying on software.' ] },
     { title: 'Named traction-device examples removed', ref: 'Rule R201, p68', points: [
       'AndyMark am-2256 and Roughtop am-3309 are no longer named; only generic examples given.' ] },
     { title: 'Flashing-light threshold changed', ref: 'Rule R202, p68–69', points: [

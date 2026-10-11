@@ -382,7 +382,7 @@ function pickModel(env, opts) {
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup', onUsage = null }) {
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup', onUsage = null, onModel = null }) {
   const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });
   // Which model answers is decided per question, not per site.
   //
@@ -518,6 +518,7 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     });
   }
 
+  if (onModel) onModel(model);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';

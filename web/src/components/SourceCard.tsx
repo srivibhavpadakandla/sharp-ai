@@ -11,7 +11,7 @@ export default function SourceCard({ citation: c, text, active, onEnter }: {
 }) {
   const body = text ? text.split('\n\n').slice(1).join('\n\n').trim() || text : null;
   return (
-    <article id={`src-${c.n}`} className={`src${active ? ' src--active' : ''}`} onMouseEnter={onEnter}>
+    <article id={`src-${c.n}`} tabIndex={-1} className={`src${active ? ' src--active' : ''}`} onMouseEnter={onEnter}>
       <header className="src__head">
         <span className="src__n">{c.n}</span>
         <div>

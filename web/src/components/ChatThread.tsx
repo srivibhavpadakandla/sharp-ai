@@ -1,534 +1,254 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import UsageMeter from './UsageMeter';
-import Mascot from './Mascot';
-import ReplyStrands from './ReplyStrands';
-import { API_BASE } from '../lib/config';
-import { ask, type Citation, type Excerpt, type Validation, type CiteCheck } from '../lib/ask';
-import { renderMarkdown } from '../lib/markdown';
+import ChatTurn from './ChatTurn';
+import ConversationHistory from './ConversationHistory';
 import SourceCard from './SourceCard';
 import RobotSpecs from './RobotSpecs';
+import { CORPUS_SECTIONS, CORPUS_UPDATED } from '../lib/config';
+import { ask } from '../lib/ask';
+import { blankTurn, type Turn, type SeedTurn } from '../lib/chat-types';
+import { loadConversations, saveConversations, conversationMarkdown, type Conversation } from '../lib/conversations';
 import { loadSpecs, specsForPrompt } from '../lib/specs';
 import './sources.css';
 import './chat.css';
+export type { Turn, SeedTurn } from '../lib/chat-types';
 
-type Status = 'thinking' | 'streaming' | 'done' | 'refused' | 'error';
-
-interface Agent {
-  escalated: boolean; queries: string[] | null;
-  interpretation: string | null; reranked: boolean;
-}
-
-export interface Turn {
-  id: number;
-  question: string;
-  answer: string;
-  beyond: string;
-  citations: Citation[];
-  reason?: string;
-  excerpts: Excerpt[];
-  status: Status;
-  agent: Agent | null;
-  slug: string | null;
-  notice: string | null;
-  error: string | null;
-  validation: Validation | null;
-  citecheck: CiteCheck | null;
-  rated: 'up' | 'down' | null;
-}
-
-const STAGES = [
-  'Searching the documentation index',
-  'Matching sections by meaning',
-  'Re-reading the question',
-  'Reading the retrieved sections',
+const STARTERS = [
+  { label: 'Design a drivetrain', detail: 'Mechanisms & tradeoffs', q: 'What should I consider when choosing an FTC drivetrain?' },
+  { label: 'Debug my robot', detail: 'A practical checklist', q: 'My robot loses power mid-match. What should I check first?' },
+  { label: 'Write an OpMode', detail: 'Grounded in the FTC SDK', q: 'Show me a field-centric mecanum TeleOp with the FTC IMU.' },
+  { label: 'Understand BIOBUZZ', detail: 'Rules & scoring', q: 'How does BIOBUZZ scoring work, and which rules should I read?' },
 ];
 
-const blankTurn = (id: number, question: string): Turn => ({
-  id, question, answer: '', beyond: '', citations: [], excerpts: [],
-  status: 'thinking', agent: null, slug: null, notice: null, error: null,
-  validation: null, citecheck: null, rated: null,
-});
-
-export interface SeedTurn {
-  question: string;
-  answerMd: string;
-  citations: Citation[];
-  excerpts: Excerpt[];
-  slug: string | null;
-}
-
-export default function ChatThread({
-  initialQuestion = '',
-  endpoint = '/api/ask',
-  seed = null,
-}: { initialQuestion?: string; endpoint?: string; seed?: SeedTurn | null }) {
-  // A /q/ page seeds the thread with its stored answer instead of streaming
-  // one, so a permanent link and a live conversation are the same surface and
-  // a visitor can follow up from something someone shared with them.
-  const [turns, setTurns] = useState<Turn[]>(
-    seed
-      ? [{
-          ...blankTurn(0, seed.question),
-          answer: seed.answerMd,
-          citations: seed.citations,
-          excerpts: seed.excerpts,
-          slug: seed.slug,
-          status: 'done' as Status,
-        }]
-      : [],
-  );
+export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask', seed = null }: {
+  initialQuestion?: string; endpoint?: string; seed?: SeedTurn | null;
+}) {
+  const [turns, setTurns] = useState<Turn[]>(seed ? [{ ...blankTurn(0, seed.question),
+    answer: seed.answerMd, citations: seed.citations, excerpts: seed.excerpts, slug: seed.slug, status: 'done' }] : []);
   const [draft, setDraft] = useState('');
   const [active, setActive] = useState(0);
   const [activeCite, setActiveCite] = useState<number | null>(null);
-  const [stage, setStage] = useState(0);
-
+  const [sourcesOpen, setSourcesOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [sessionId, setSessionId] = useState('');
+  const [ready, setReady] = useState(false);
+  const [storageError, setStorageError] = useState(false);
+  const turnsRef = useRef(turns);
+  const conversationsRef = useRef<Conversation[]>([]);
   const threadRef = useRef<HTMLDivElement>(null);
-  const railRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const busyRef = useRef(false);
   const nextId = useRef(seed ? 1 : 0);
   const started = useRef(false);
   const lastCount = useRef(0);
   const specsRef = useRef<string | null>(specsForPrompt(loadSpecs()));
-
   const busy = turns.some((t) => t.status === 'thinking' || t.status === 'streaming');
-  const activeTurn = turns[active] || turns[turns.length - 1] || null;
+  const activeTurn = turns[active] || turns.at(-1) || null;
+  const anyCitations = turns.some((t) => t.citations.length && (t.answer || t.status === 'done' || t.status === 'refused'));
 
-  const patch = useCallback((id: number, fn: (t: Turn) => Partial<Turn>) => {
-    setTurns((all) => all.map((t) => (t.id === id ? { ...t, ...fn(t) } : t)));
+  const changeTurns = useCallback((fn: (all: Turn[]) => Turn[]) => {
+    const next = fn(turnsRef.current);
+    turnsRef.current = next;
+    setTurns(next);
   }, []);
+  const patch = useCallback((id: number, fn: (t: Turn) => Partial<Turn>) => {
+    changeTurns((all) => all.map((t) => t.id === id ? { ...t, ...fn(t) } : t));
+  }, [changeTurns]);
 
-  // ---- send -----------------------------------------------------------------
-  const send = useCallback((question: string) => {
+  const send = useCallback((question: string, retryId?: number) => {
     const q = question.trim().slice(0, 500);
-    if (!q) return;
-
-    const id = nextId.current++;
-    let history: Array<{ question: string; answer: string }> = [];
-    setTurns((all) => {
-      history = all.filter((t) => t.answer).slice(-2)
-        .map((t) => ({ question: t.question, answer: t.answer }));
-      return [...all, blankTurn(id, q)];
-    });
-    setActive((a) => (turns.length ? turns.length : a));
+    if (!q || busyRef.current) return;
+    busyRef.current = true;
+    const controller = new AbortController();
+    requestRef.current = controller;
+    const id = retryId ?? nextId.current++;
+    const index = retryId === undefined ? turnsRef.current.length : turnsRef.current.findIndex((t) => t.id === id);
+    const history = turnsRef.current.slice(0, index).filter((t) => t.answer && t.status === 'done').slice(-2)
+      .map((t) => ({ question: t.question, answer: t.answer }));
+    changeTurns((all) => retryId === undefined ? [...all, blankTurn(id, q)] : all.map((t) => t.id === id ? blankTurn(id, q) : t));
+    setActive(Math.max(0, index));
+    setActiveCite(null);
     setDraft('');
-
-    const ticker = setInterval(() => setStage((s) => (s + 1) % STAGES.length), 900);
-
+    const update = (fn: (t: Turn) => Partial<Turn>) => { if (!controller.signal.aborted) patch(id, fn); };
+    let finished = false;
     ask(q, {
-      onMeta: (meta) => {
-        clearInterval(ticker);   // stages describe retrieval; writing follows
-        patch(id, () => ({
-          citations: meta.citations || [],
-          excerpts: meta.excerpts || [],
-          agent: (meta.agent as Agent) || null,
-          status: meta.refused ? 'refused' : 'streaming',
-          notice: meta.cached
-            ? 'Answered earlier — served from cache.'
-            : meta.degraded
-              ? 'Daily answer limit reached — showing the matching sections instead.'
-              : null,
-        }));
-      },
-      onToken: (t) => patch(id, (cur) => ({ answer: cur.answer + t })),
-      onBeyondStart: () => patch(id, (cur) => ({ beyond: cur.beyond || ' ' })),
-      onBeyond: (t) => patch(id, (cur) => ({ beyond: (cur.beyond === ' ' ? '' : cur.beyond) + t })),
-      onValidation: (v) => patch(id, () => ({ validation: v })),
-      onCiteCheck: (v) => patch(id, () => ({ citecheck: v })),
-      onDegrade: (p) => patch(id, () => ({
-        answer: p.answerMd,
-        notice: 'The answer service is unavailable — here are the matching sections.',
-      })),
-      onDone: (p) => {
-        patch(id, (cur) => ({ status: cur.status === 'refused' ? 'refused' : 'done', slug: p.slug }));
-        // No permanent URL. Questions used to get a shareable /q/<slug> page and
-        // this rewrote the address bar to it; those pages are gone because they
-        // published what people asked. The answer stays in the thread only.
-        composerRef.current?.focus();
-      },
-      onError: (m) => { clearInterval(ticker); patch(id, () => ({ status: 'error', error: m })); },
-    }, { endpoint: id === 0 ? endpoint : '/api/ask', history, specs: specsRef.current } as any)
-      .catch((e) => {
-        clearInterval(ticker);
-        patch(id, () => ({
-          status: 'error',
-          error: e?.message === 'Failed to fetch'
-            ? 'Could not reach the Sharp AI service.' : (e?.message || 'Something went wrong.'),
-        }));
-      });
-  }, [patch, turns.length]);
+      onMeta: (m) => update(() => ({ citations: m.citations || [], excerpts: m.excerpts || [], agent: m.agent || null,
+        status: m.refused ? 'refused' : 'streaming', notice: null })),
+      onToken: (text) => update((t) => ({ answer: t.answer + text })),
+      onBeyondStart: () => update((t) => ({ beyond: t.beyond || ' ' })),
+      onBeyond: (text) => update((t) => ({ beyond: t.beyond.trimStart() + text })),
+      onValidation: (validation) => update(() => ({ validation })),
+      onCiteCheck: (citecheck) => update(() => ({ citecheck })),
+      onDegrade: (p) => update(() => ({ answer: p.answerMd, notice: null })),
+      onDone: (p) => { finished = true; update((t) => ({ status: t.status === 'refused' ? 'refused' : 'done', slug: p.slug })); },
+      onError: (message) => { finished = true; update(() => ({ status: 'error', error: message })); },
+    }, { endpoint: index === 0 ? endpoint : '/api/ask', history, specs: specsRef.current, signal: controller.signal })
+      .then(() => { if (!finished) update(() => ({ status: 'error', error: 'The connection ended before the answer finished. Try again.' })); })
+      .catch((e) => update(() => ({ status: 'error', error: e?.message === 'Failed to fetch'
+        ? 'Could not reach Sharp AI. Check your connection and try again.' : e?.message || 'Something went wrong.' })))
+      .finally(() => { if (requestRef.current === controller) { busyRef.current = false; requestRef.current = null; } });
+  }, [changeTurns, patch, endpoint]);
 
-  // ---- boot from ?q= --------------------------------------------------------
+  const stop = () => {
+    requestRef.current?.abort();
+    requestRef.current = null;
+    busyRef.current = false;
+    changeTurns((all) => all.map((t) => t.status === 'thinking' || t.status === 'streaming' ? { ...t, status: 'stopped' } : t));
+  };
+  const persist = useCallback(() => {
+    if (!sessionId || !turnsRef.current.length) return;
+    const item: Conversation = { id: sessionId, title: turnsRef.current[0].question.slice(0, 80),
+      updatedAt: new Date().toISOString(), turns: turnsRef.current };
+    const next = [item, ...conversationsRef.current.filter((c) => c.id !== sessionId)].slice(0, 30);
+    conversationsRef.current = next;
+    setConversations(next);
+    setStorageError(!saveConversations(next));
+  }, [sessionId]);
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+    setSourcesOpen(window.innerWidth >= 900);
+    const saved = loadConversations();
+    conversationsRef.current = saved;
+    setConversations(saved);
+    let previousId = '';
+    try { previousId = sessionStorage.getItem('sharp-active-conversation') || ''; } catch { /* storage may be disabled */ }
+    const previous = !initialQuestion && !seed ? saved.find((c) => c.id === previousId) : null;
+    setSessionId(previous?.id || crypto.randomUUID());
+    if (previous) { changeTurns(() => previous.turns); nextId.current = previous.turns.length; setActive(Math.max(0, previous.turns.length - 1)); }
+    setReady(true);
     if (initialQuestion && !seed) send(initialQuestion);
-    else composerRef.current?.focus();
-  }, [initialQuestion, seed, send]);
+    else composerRef.current?.focus({ preventScroll: true });
+  }, [initialQuestion, seed, send, changeTurns]);
+  useEffect(() => () => requestRef.current?.abort(), []);
+  useEffect(() => {
+    if (!ready) return;
+    try { sessionStorage.setItem('sharp-active-conversation', sessionId); } catch { /* optional persistence */ }
+    const timer = setTimeout(persist, busy ? 1000 : 100);
+    return () => clearTimeout(timer);
+  }, [turns, sessionId, ready, busy, persist]);
+  useEffect(() => { document.title = turns[0] ? `${turns[0].question.slice(0, 60)} — Sharp AI` : 'Chat — Sharp AI'; }, [turns[0]?.question]);
 
-  // Follow the conversation down as it grows, the way a chat surface should.
-  //
-  // Keyed on streamed length, not just turn count: the earlier version scrolled
-  // once when a turn was appended, then the answer streamed in underneath and
-  // ended up hidden behind the composer. Only auto-follows when the reader is
-  // already near the bottom, so scrolling up to re-read is not yanked back.
-  //
-  // The page is the scroller, not the thread. This used to call scrollTo on
-  // .chat__thread, which is not scrollable — so following silently did nothing
-  // and every long answer had to be scrolled back through by hand.
+  const newConversation = () => {
+    stop(); persist(); changeTurns(() => []); nextId.current = 0;
+    setSessionId(crypto.randomUUID()); setDraft(''); setActive(0); setActiveCite(null); setHistoryOpen(false);
+    window.scrollTo({ top: 0 }); composerRef.current?.focus({ preventScroll: true });
+  };
+  const selectConversation = (c: Conversation) => {
+    if (busyRef.current) return;
+    persist(); setSessionId(c.id); changeTurns(() => c.turns); nextId.current = c.turns.length;
+    setActive(Math.max(0, c.turns.length - 1)); setHistoryOpen(false); setActiveCite(null); setDraft('');
+  };
+  const deleteConversation = (id: string) => {
+    if (id === sessionId) { changeTurns(() => []); setSessionId(crypto.randomUUID()); nextId.current = 0; }
+    const next = conversationsRef.current.filter((c) => c.id !== id);
+    conversationsRef.current = next; setConversations(next); setStorageError(!saveConversations(next));
+  };
+  const exportConversation = () => {
+    const url = URL.createObjectURL(new Blob([conversationMarkdown(turns)], { type: 'text/markdown;charset=utf-8' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'sharp-ai-conversation.md'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const streamedChars = turns.reduce((n, t) => n + t.answer.length + t.beyond.length, 0);
   useEffect(() => {
+    if (!turns.length) { lastCount.current = 0; return; }
     const doc = document.documentElement;
-    const nearBottom = doc.scrollHeight - window.scrollY - window.innerHeight < 240;
-    if (!nearBottom && turns.length === lastCount.current) return;
-
-    const isNewTurn = turns.length !== lastCount.current;
+    const newTurn = turns.length > lastCount.current;
+    const nearBottom = doc.scrollHeight - window.scrollY - window.innerHeight < 200;
     lastCount.current = turns.length;
-
-    // A new question goes to the top of the view rather than the bottom of the
-    // page: you want to read the answer from its first line, not watch it
-    // arrive from underneath the composer.
-    const target = isNewTurn && turns.length > 1
-      ? threadRef.current?.querySelector<HTMLElement>('[data-turn]:last-of-type')
-      : null;
-    const top = target
-      ? target.getBoundingClientRect().top + window.scrollY - 12
-      : doc.scrollHeight;
-    window.scrollTo({ top, behavior: turns.length > 1 ? 'smooth' : 'auto' });
+    if (!nearBottom && !newTurn) return;
+    const target = newTurn ? threadRef.current?.querySelector<HTMLElement>('[data-turn]:last-of-type') : null;
+    window.scrollTo({ top: target ? target.getBoundingClientRect().top + window.scrollY - 140 : doc.scrollHeight, behavior: 'auto' });
   }, [turns.length, streamedChars]);
 
-  useEffect(() => { setActive(Math.max(0, turns.length - 1)); }, [turns.length]);
-
-  // ---- citation -> source ---------------------------------------------------
-  const focusSource = useCallback((turnIdx: number, n: number) => {
-    setActive(turnIdx);
-    setActiveCite(n);
+  const focusSource = useCallback((index: number, n: number) => {
+    setActive(index); setActiveCite(n); setSourcesOpen(true);
     requestAnimationFrame(() => {
-      const el = document.getElementById(`src-${n}`);
-      const pane = railRef.current;
+      const el = document.getElementById(`src-${n}`); const pane = railRef.current;
       if (!el || !pane) return;
-      pane.scrollTo({ top: el.offsetTop - pane.offsetTop - 8, behavior: 'smooth' });
-      el.animate?.([{ backgroundColor: 'rgba(110,219,154,0.14)' }, { backgroundColor: 'transparent' }],
-        { duration: 1000, easing: 'cubic-bezier(0.22,0.61,0.24,1)' });
+      pane.scrollTo({ top: el.offsetTop - pane.offsetTop - 70, behavior: 'smooth' });
+      el.focus({ preventScroll: true });
     });
   }, []);
-
   useEffect(() => {
     const root = threadRef.current;
     if (!root) return;
-    const onClick = (e: MouseEvent) => {
-      const btn = (e.target as HTMLElement).closest<HTMLElement>('button.cite');
-      if (!btn) return;
-      e.preventDefault();
-      const turnEl = btn.closest<HTMLElement>('[data-turn]');
-      focusSource(Number(turnEl?.dataset.turn ?? active), Number(btn.dataset.cite));
+    const onClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const cite = target.closest<HTMLElement>('button.cite');
+      if (cite) { e.preventDefault(); focusSource(Number(cite.closest<HTMLElement>('[data-turn]')?.dataset.turn || 0), Number(cite.dataset.cite)); }
+      const copy = target.closest<HTMLButtonElement>('button[data-copy-code]');
+      if (copy) {
+        try { await navigator.clipboard.writeText(copy.closest('.code-block')?.querySelector('code')?.textContent || '');
+          copy.textContent = 'Copied'; setTimeout(() => { if (copy.isConnected) copy.textContent = 'Copy code'; }, 1800);
+        } catch { copy.textContent = 'Copy failed'; }
+      }
     };
-    root.addEventListener('click', onClick);
-    return () => root.removeEventListener('click', onClick);
-  }, [focusSource, active]);
-
-  // The composer grows with what you write, up to a share of the window, then
-  // scrolls inside itself. Driven by an effect on `draft` rather than by the
-  // change handler alone, so it also shrinks back when a message is sent — the
-  // old version only ever grew, leaving a tall empty box after a long question.
-  const [expanded, setExpanded] = useState(false);
-  const [canExpand, setCanExpand] = useState(false);
-
+    root.addEventListener('click', onClick); return () => root.removeEventListener('click', onClick);
+  }, [focusSource]);
   useLayoutEffect(() => {
     const el = composerRef.current;
     if (!el) return;
-    const cap = expanded
-      ? Math.round(window.innerHeight * 0.62)
-      : Math.min(Math.round(window.innerHeight * 0.38), 360);
-    el.style.height = 'auto';
-    const wanted = el.scrollHeight;
-    el.style.height = `${Math.min(wanted, cap)}px`;
-    // Offer the taller mode only once there is more text than the normal
-    // composer can show; a control that does nothing is worse than no control.
-    setCanExpand(wanted > Math.min(Math.round(window.innerHeight * 0.38), 360) - 4);
-    if (!draft) setExpanded(false);
-  }, [draft, expanded]);
+    el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  }, [draft]);
 
-  // Sources are known as soon as retrieval returns, but showing them before a
-  // single word of the answer reads as though the citations came first and the
-  // answer was fitted to them. They appear with the writing.
-  const anyCitations = turns.some((t) => t.citations.length > 0
-    && (t.answer || t.beyond || t.status === 'done' || t.status === 'refused'));
-
-  return (
-    <div className={`chat${anyCitations ? '' : ' chat--norail'}`}>
-      <div className="chat__thread" ref={threadRef}>
-        <div className="chat__turns">
-          {turns.map((t, i) => (
-            <TurnView
-              key={t.id} turn={t} index={i} stage={stage}
-              isActive={i === active} onFocus={() => setActive(i)} patch={patch}
-            />
-          ))}
-
-          {!turns.length && (
-            <div className="chat__empty">
-              <h1>What are you building?</h1>
-              <p className="serif-lede">
-                Ask about drivetrains, odometry, wiring, OpModes — or paste an
-                error. Every answer shows the documentation it came from, and
-                you can keep asking follow-ups.
-              </p>
-              <ul className="chat__starters">
-                {['How do I make my mecanum drive field centric?',
-                  'Where should odometry pods be mounted?',
-                  'Why does my robot lose power mid match?'].map((q) => (
-                  <li key={q}><button type="button" onClick={() => send(q)}>{q}</button></li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <RobotSpecs onChange={(s) => { specsRef.current = specsForPrompt(s); }} />
-
-        <form
-          className="composer"
-          onSubmit={(e) => { e.preventDefault(); if (!busy) send(draft); }}
-        >
-          <div className="composer__field">
-            <textarea
-              ref={composerRef}
-              rows={1}
-              value={draft}
-              disabled={busy}
-              placeholder={turns.length ? 'Ask a follow-up…' : 'Ask about your FTC robot…'}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (!busy) send(draft);
-                }
-              }}
-              aria-label="Ask a question"
-            />
-            {canExpand && (
-              <button
-                type="button"
-                className="composer__expand"
-                onClick={() => setExpanded((v) => !v)}
-                aria-pressed={expanded}
-                aria-label={expanded ? 'Shrink the box' : 'Expand the box'}
-                title={expanded ? 'Shrink' : 'Expand'}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                  {expanded
-                    ? <path d="M6 1v5H1M8 13V8h5" fill="none" stroke="currentColor"
-                        strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    : <path d="M1 6V1h5M13 8v5H8" fill="none" stroke="currentColor"
-                        strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />}
-                </svg>
-              </button>
-            )}
-            <button type="submit" disabled={busy || !draft.trim()} aria-label="Send">
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor"
-                  strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
-          <UsageMeter refreshKey={turns.length} />
-          <p className="composer__note">
-            Generated from indexed documentation and can be wrong — check the
-            source beside each claim. Follow-ups are not saved. Unofficial, not
-            affiliated with <em>FIRST</em>. Quotes{' '}
-            <a href="https://gm0.org" target="_blank" rel="noopener">Game Manual 0</a>{' '}
-            (CC BY-NC 4.0) and{' '}
-            <a href="https://ftc-docs.firstinspires.org" target="_blank" rel="noopener">FTC Docs</a>{' '}
-            (BSD 3-Clause).
-          </p>
-        </form>
+  return <section className="chat-workspace">
+    <div className="workspace-toolbar">
+      <div className="workspace-title"><span className="workspace-dot" /> <strong>Robot workspace</strong><span className="workspace-subtitle">{CORPUS_SECTIONS.toLocaleString()} indexed sections</span></div>
+      <div className="workspace-controls">
+        <button type="button" className="chat-action" onClick={() => setHistoryOpen((v) => !v)} aria-expanded={historyOpen}>History{conversations.length ? ` · ${conversations.length}` : ''}</button>
+        {turns.length > 0 && <button type="button" className="chat-action" onClick={exportConversation} disabled={busy}>Export</button>}
+        {anyCitations && <button type="button" className="chat-action" aria-expanded={sourcesOpen} aria-controls="chat-sources" onClick={() => {
+          if (!sourcesOpen && !activeTurn?.citations.length) setActive(Math.max(0, turns.findLastIndex((t) => t.citations.length > 0)));
+          setSourcesOpen((v) => !v);
+        }}>Sources</button>}
+        <button type="button" className="chat-action chat-action--primary" onClick={newConversation}>+ New chat</button>
       </div>
-
-      {anyCitations && <aside className="chat__rail" ref={railRef}>
-        <div className="chat__railhead">
-          <span className="eyebrow">Sources</span>
-          {activeTurn?.citations.length && (activeTurn.answer || activeTurn.beyond || activeTurn.status === 'done' || activeTurn.status === 'refused') ? (
-            <span className="chat__count">{activeTurn.citations.length}</span>
-          ) : null}
-        </div>
-        {activeTurn?.citations.length ? (
-          activeTurn.citations.map((c) => (
-            <SourceCard
-              key={c.chunkId} citation={c}
-              text={activeTurn.excerpts.find((e) => e.chunkId === c.chunkId)?.text}
-              active={activeCite === c.n}
-              onEnter={() => setActiveCite(c.n)}
-            />
-          ))
-        ) : (
-          <p className="chat__railempty">
-            Documentation sections appear here as questions are answered.
-          </p>
-        )}
-      </aside>}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function TurnView({ turn, index, stage, isActive, onFocus, patch }: {
-  turn: Turn; index: number; stage: number; isActive: boolean; onFocus: () => void;
-  patch: (id: number, fn: (t: Turn) => Partial<Turn>) => void;
-}) {
-  const html = useMemo(
-    () => renderMarkdown(turn.answer, turn.citations.length),
-    [turn.answer, turn.citations.length],
-  );
-  const beyondHtml = useMemo(() => renderMarkdown(turn.beyond.trim(), 0), [turn.beyond]);
-
-  return (
-    <article
-      className={`turn${isActive ? ' turn--active' : ''}`}
-      data-turn={index}
-      onMouseEnter={onFocus}
-    >
-      {/* Only the person's message gets a container — the answer stays a
-          document, which is what the split-pane reading experience needs. */}
-      <div className="turn__you"><p>{turn.question}</p></div>
-
-      <div className="turn__reply">
-        {turn.notice && <p className="turn__notice">{turn.notice}</p>}
-
-        {/* The strands run for the whole wait, not just the silent part of it:
-            thinking slow and dim, speaking quicker and brighter once words are
-            landing. Same band throughout, so it reads as one process changing
-            pace rather than two indicators swapping over. */}
-        {(turn.status === 'thinking' || turn.status === 'streaming') && (
-          <ReplyStrands state={turn.status === 'streaming' && (turn.answer || turn.beyond)
-            ? 'speaking' : 'thinking'} />
-        )}
-
-        {(turn.status === 'thinking'
-          || (turn.status === 'streaming' && !turn.answer && !turn.beyond)) && (
-          <div className="turn__loading">
-            <Mascot state="thinking" />
-            {/* Retrieval finishing is not the answer starting. The indicator used
-                to stop the moment sections came back, leaving the reader looking
-                at sources and a blank space while the model was still writing. */}
-            <p>{turn.status === 'streaming' ? 'Writing the answer' : STAGES[stage]}…</p>
+    <div className="workspace-body">
+      {historyOpen && <ConversationHistory items={conversations} activeId={sessionId} busy={busy} onSelect={selectConversation} onDelete={deleteConversation} onClose={() => setHistoryOpen(false)} />}
+      <div className={`chat${anyCitations && sourcesOpen ? '' : ' chat--norail'}`}>
+        <div className="chat__thread" ref={threadRef}>
+          <div className="chat__turns" aria-busy={busy}>
+            {turns.map((t, i) => <ChatTurn key={t.id} turn={t} index={i} isActive={i === active} onFocus={() => setActive(i)} patch={patch} onRetry={() => send(t.question, t.id)} />)}
+            {!turns.length && <div className="chat__empty">
+              <span className="eyebrow">A workbench for your next idea</span>
+              <h1>What are you<br />working on?</h1>
+              <p>Build, program, and troubleshoot your FTC robot.<br className="desktop-break" /> Get an answer with the documentation beside it.</p>
+              <div className="chat__starters">{STARTERS.map((s, i) => <button type="button" key={s.label} onClick={() => send(s.q)}>
+                <span className="starter-number">0{i + 1}</span><strong>{s.label}</strong><small>{s.detail}</small><span className="starter-arrow" aria-hidden="true">↗</span>
+              </button>)}</div>
+              <div className="chat__freshness"><span className="workspace-dot" /> Documentation refreshed {CORPUS_UPDATED} <a href="/about">Explore sources ↗</a></div>
+            </div>}
           </div>
-        )}
-
-        {turn.agent?.escalated && (
-          <p className="turn__agent" title={turn.agent.interpretation || undefined}>
-            Searched again for{' '}
-            {(turn.agent.queries || []).map((q, i) => (
-              <span key={q}>{i > 0 ? ', ' : ''}<em>{q}</em></span>
-            ))}
-            {turn.agent.reranked ? ' · reranked' : ''}
-          </p>
-        )}
-
-        {turn.error && <div className="turn__error">{turn.error}</div>}
-
-        <div className="prose turn__prose" dangerouslySetInnerHTML={{ __html: html }} />
-
-        {turn.status === 'done' && turn.answer && (
-          <div className="rate">
-            <span>Was this right?</span>
-            {(['up', 'down'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                className={turn.rated === v ? 'rate__btn rate__btn--on' : 'rate__btn'}
-                disabled={!!turn.rated}
-                onClick={() => {
-                  patch(turn.id, () => ({ rated: v }));
-                  // Fire and forget: feedback must never block or fail loudly.
-                  fetch(`${API_BASE}/api/feedback`, {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                      verdict: v, question: turn.question, slug: turn.slug,
-                      chunkIds: turn.citations.map((c) => c.chunkId),
-                      sourceIds: [...new Set(turn.citations.map((c) => c.sourceId))],
-                    }),
-                  }).catch(() => {});
-                }}
-              >{v === 'up' ? 'Yes' : 'No'}</button>
-            ))}
-            {turn.rated === 'up' && <span className="rate__thanks">Logged — thank you.</span>}
-            {/* A bare no says something is wrong but not what, and the reason is
-                the part that can be acted on. The column already existed; the
-                interface simply never asked. */}
-            {turn.rated === 'down' && !turn.reason && (
-              <span className="rate__why">
-                What was wrong?
-                {([
-                  ['wrong', 'Incorrect'],
-                  ['missing', 'Missed the question'],
-                  ['thin', 'Too vague'],
-                  ['long', 'Too long'],
-                  ['source', 'Sources look wrong'],
-                ] as const).map(([key, label]) => (
-                  <button key={key} type="button" className="rate__chip"
-                    onClick={() => {
-                      patch(turn.id, () => ({ reason: key }));
-                      fetch(`${API_BASE}/api/feedback`, {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({
-                          verdict: 'down', reason: key, question: turn.question, slug: turn.slug,
-                          chunkIds: turn.citations.map((c) => c.chunkId),
-                          sourceIds: [...new Set(turn.citations.map((c) => c.sourceId))],
-                        }),
-                      }).catch(() => {});
-                    }}>{label}</button>
-                ))}
-              </span>
-            )}
-            {turn.reason && <span className="rate__thanks">Logged — that helps, thank you.</span>}
+          <div className="composer-shell">
+            <RobotSpecs onChange={(s) => { specsRef.current = specsForPrompt(s); }} />
+            <form className="composer" onSubmit={(e) => { e.preventDefault(); if (!busyRef.current) send(draft); }}>
+              <div className="composer__field">
+                <textarea ref={composerRef} rows={1} value={draft} maxLength={500} placeholder={turns.length ? 'Ask a follow-up…' : 'Ask about your FTC robot…'} aria-label="Ask a question"
+                  onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (!busyRef.current) send(draft); }
+                  }} />
+                {busy ? <button type="button" className="composer__send" onClick={stop} aria-label="Stop response"><span className="stop-square" /></button>
+                  : <button className="composer__send" type="submit" disabled={!draft.trim()} aria-label="Send"><span aria-hidden="true">↑</span></button>}
+              </div>
+              <div className="composer__meta"><span>{draft.length > 400 ? `${draft.length}/500 characters` : 'Enter to send · Shift + Enter for a new line'}</span><span>{storageError ? 'Could not save — export to keep this chat' : 'Saved on this browser'}</span></div>
+              <UsageMeter refreshKey={turns.filter((t) => t.status === 'done' || t.status === 'error' || t.status === 'stopped').length} />
+              <p className="composer__note">AI can be wrong. Check the sources. Unofficial; not affiliated with <em>FIRST</em>. <a href="/about">Sources & licenses</a></p>
+            </form>
           </div>
-        )}
-
-        {turn.citecheck && !turn.citecheck.ok ? (
-          <section className="citecheck">
-            <p className="citecheck__head">Citation check</p>
-            {turn.citecheck.outOfRange.length > 0 && (
-              <p className="citecheck__note">
-                {turn.citecheck.outOfRange.map((n) => `[${n}]`).join(', ')} point at
-                sections that were not retrieved — treat those claims as uncited.
-              </p>
-            )}
-            {turn.citecheck.weak.map((w) => (
-              <p key={`${w.n}-${w.claim}`} className="citecheck__note">
-                <strong>[{w.n}]</strong> may be the wrong section for “{w.claim}…” — check it before relying on it.
-              </p>
-            ))}
-          </section>
-        ) : null}
-
-        {turn.validation?.checked ? (
-          <section className={`sdkcheck${turn.validation.ok ? ' sdkcheck--ok' : ''}`}>
-            <p className="sdkcheck__head">
-              {turn.validation.ok
-                ? `Checked against the FTC SDK ${turn.validation.sdkVersion} — every type and method in this code exists.`
-                : `Checked against the FTC SDK ${turn.validation.sdkVersion} — some symbols are not in it.`}
-            </p>
-            {turn.validation.notes.map((n) => (
-              <p key={n} className="sdkcheck__note"
-                 dangerouslySetInnerHTML={{ __html: n.replace(/`([^`]+)`/g, '<code>$1</code>') }} />
-            ))}
-          </section>
-        ) : null}
-
-        {turn.beyond.trim() && (
-          <section className="beyond">
-            <header className="beyond__head"><span className="eyebrow">Beyond the documentation</span></header>
-            <p className="beyond__warn">
-              Not from the indexed sources. General engineering reasoning —
-              uncited, unverified, and not saved.
-            </p>
-            <div className="prose beyond__body" dangerouslySetInnerHTML={{ __html: beyondHtml }} />
-          </section>
-        )}
+        </div>
+        {anyCitations && sourcesOpen && <aside className="chat__rail" id="chat-sources" ref={railRef} aria-label="Answer sources">
+          <div className="chat__railhead"><div><span className="eyebrow">Source notebook</span><p>Check the evidence.</p></div><span className="chat__count">{activeTurn?.citations.length || 0}</span><button className="chat-action rail-close" type="button" aria-label="Close sources" onClick={() => setSourcesOpen(false)}>×</button></div>
+          {activeTurn?.citations.length ? activeTurn.citations.map((c) => <SourceCard key={c.chunkId} citation={c} text={activeTurn.excerpts.find((e) => e.chunkId === c.chunkId)?.text} active={activeCite === c.n} onEnter={() => setActiveCite(c.n)} />)
+            : <p className="chat__railempty">Select a response to read its sources.</p>}
+        </aside>}
       </div>
-    </article>
-  );
+    </div>
+  </section>;
 }

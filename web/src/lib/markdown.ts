@@ -70,6 +70,7 @@ function inline(escaped: string, citationNumbers: Set<number>): string {
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  s = s.replace(/(^|[\s(])_([^_\n]+)_/g, '$1<em>$2</em>');
   // Links: only http(s) survive; anything else stays as plain text.
   s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
@@ -99,11 +100,25 @@ export function renderMarkdown(md: string, citationCount = 0): string {
       i += 1;
       while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i += 1; }
       i += 1;
-      out.push(`<pre data-lang="${escapeHtml(lang)}"><code>${escapeHtml(buf.join('\n'))}</code></pre>`);
+      out.push(`<div class="code-block"><div class="code-block__head"><span>${escapeHtml(lang || 'code')}</span><button type="button" data-copy-code>Copy code</button></div><pre data-lang="${escapeHtml(lang)}"><code>${escapeHtml(buf.join('\n'))}</code></pre></div>`);
       continue;
     }
 
     if (!line.trim()) { i += 1; continue; }
+
+    const cells = (row: string) => row.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+    if (line.includes('|') && i + 1 < lines.length && cells(lines[i + 1]).every((c) => /^:?-{3,}:?$/.test(c))) {
+      const headers = cells(line);
+      const rows: string[] = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim() && lines[i].includes('|')) {
+        const row = cells(lines[i++]);
+        rows.push(`<tr>${headers.map((_, col) => `<td>${inline(escapeHtml(row[col] || ''), nums)}</td>`).join('')}</tr>`);
+      }
+      out.push(`<div class="md-table-wrap"><table><thead><tr>${headers.map((c) => `<th scope="col">${inline(escapeHtml(c), nums)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`);
+      continue;
+    }
+
 
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) {

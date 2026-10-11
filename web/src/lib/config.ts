@@ -1,3 +1,4 @@
+import corpus from '../../../worker/src/lib/corpus-info.json';
 import seedQuestions from '../../../worker/src/lib/seed-questions.json';
 
 /**
@@ -9,7 +10,7 @@ import seedQuestions from '../../../worker/src/lib/seed-questions.json';
  * four places: here, web/.env, the CSP connect-src in web/public/_headers,
  * and PUBLIC_API_BASE in .github/workflows/deploy-site.yml.
  */
-export const API_BASE =
+export const API_BASE = import.meta.env.DEV && !import.meta.env.SSR ? '' :
   (import.meta.env.PUBLIC_API_BASE as string | undefined)?.replace(/\/+$/, '')
   || 'https://sharp-ai.srivibhavp.workers.dev';
 
@@ -32,10 +33,10 @@ export const SITE_URL =
   (import.meta.env.PUBLIC_SITE_URL as string | undefined)?.replace(/\/+$/, '')
   || 'https://sharpftc.pages.dev';
 
-export const SDK_VERSION = '11.2.1';
+export const SDK_VERSION = corpus.sdkVersion;
 
 /** Indexed section count. Update with the ingest, not by editing prose. */
-export const CORPUS_SECTIONS = 3743;
+export const CORPUS_SECTIONS = corpus.sections;
 
 /**
  * When the corpus was last rebuilt. Surfaced in the footer because the index
@@ -43,7 +44,8 @@ export const CORPUS_SECTIONS = 3743;
  * re-ingests automatically, and a reader has no other way to tell how old an
  * answer's evidence is. Run ingest/scripts/refresh.sh and update this.
  */
-export const CORPUS_UPDATED = '19 September 2026';
+export const CORPUS_UPDATED = new Date(corpus.updatedAt + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+export const MANUAL_VERSION = corpus.manualVersion;
 
 export const SITE_NAME = 'Sharp AI';
 export const SITE_TAGLINE = 'Answers from the FTC documentation, with the source next to them.';

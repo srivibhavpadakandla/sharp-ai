@@ -17,8 +17,9 @@ const CACHE = path.join(process.cwd(), 'vendor', 'linkcache');
 async function cached(name, fn) {
   fs.mkdirSync(CACHE, { recursive: true });
   const file = path.join(CACHE, `${name}.json`);
-  if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (fs.existsSync(file) && (process.env.REFRESH_LINKS !== '1' || name.startsWith('pedropathing'))) return JSON.parse(fs.readFileSync(file, 'utf8'));
   const data = await fn();
+  if (!data.length) throw new Error(`${name}: refresh returned no pages; preserving the previous cache`);
   fs.writeFileSync(file, JSON.stringify(data, null, 1));
   return data;
 }
@@ -55,13 +56,16 @@ const sitemapped = (id, name, homepage, sitemap, category, keep = () => true) =>
     const entries = await cached(id, async () => {
       const urls = (await resolveSitemap(sitemap)).filter(keep);
       const out = [];
-      // Titles are fetched one at a time and nothing else is read from the page.
-      for (const url of urls) {
-        const title = await fetchTitle(url);
-        if (!title) continue;
-        const slug = new URL(url).pathname.replace(/^\/|\/$/g, '') || 'index';
-        out.push({ title, headingPath: [], url, docPath: slug });
+      for (let i = 0; i < urls.length; i += 8) {
+        const batch = await Promise.all(urls.slice(i, i + 8).map(async (url) => {
+          const title = await fetchTitle(url);
+          if (!title) return null;
+          const slug = new URL(url).pathname.replace(/^\/|\/$/g, '') || 'index';
+          return { title, headingPath: [], url, docPath: slug };
+        }));
+        out.push(...batch.filter(Boolean));
       }
+      console.log(`[links] ${id}: ${out.length}/${urls.length} titles refreshed`);
       return out;
     });
     return linkChunks(entries, this.meta);
@@ -182,12 +186,12 @@ export const firstRules = {
     const entries = [
       {
         title: 'Game and Season Materials — Competition Manual, Game Manual Part 1 and Part 2',
-        url: 'https://www.firstinspires.org/resource-library/ftc/game-and-season-info',
+        url: 'https://ftc-resources.firstinspires.org/ftc/game',
         docPath: 'game-and-season-info', headingPath: ['FIRST Official'],
       },
       {
         title: 'Official FTC Question and Answer System — binding rule interpretations',
-        url: 'https://ftc-qa.firstinspires.org',
+        url: 'https://ftc.game',
         docPath: 'qa', headingPath: ['FIRST Official'],
       },
     ];

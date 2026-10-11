@@ -1,26 +1,19 @@
-import { chromium } from 'playwright';
 import fs from 'node:fs';
-const b = await chromium.launch();
-const p = await b.newPage();
-await p.goto('https://pedropathing.com/docs/pathing', { waitUntil: 'networkidle', timeout: 60000 });
-await p.waitForTimeout(3000);
-const links = await p.evaluate(() => {
-  const seen = new Map();
-  for (const a of document.querySelectorAll('a[href]')) {
-    const href = a.getAttribute('href') || '';
-    if (!href.startsWith('/docs')) continue;
-    const title = (a.textContent || '').trim().replace(/\s+/g, ' ');
-    if (!title || title.length > 80) continue;
-    const url = new URL(href, location.origin).href.replace(/\/$/, '');
-    if (!seen.has(url)) seen.set(url, title);
-  }
-  return [...seen].map(([url, title]) => ({
-    title, url,
-    docPath: new URL(url).pathname.replace(/^\/|\/$/g, ''),
-    headingPath: ['Pedro Pathing'],
-  }));
-});
-fs.mkdirSync('/Users/srivibhavp/sharp-ai/ingest/vendor/linkcache', { recursive: true });
-fs.writeFileSync('/Users/srivibhavp/sharp-ai/ingest/vendor/linkcache/pedropathing.json', JSON.stringify(links, null, 1));
-console.log('cached', links.length, 'pedro pathing pages');
-await b.close();
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const cache = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../vendor/linkcache');
+const response = await fetch('https://pedropathing.com/docs/pathing', { signal: AbortSignal.timeout(30000) });
+if (!response.ok) throw new Error(`Pedro navigation returned ${response.status}`);
+const html = await response.text();
+const links = new Map();
+for (const match of html.matchAll(/<a\b[^>]*href="(\/docs[^"#]*)"[^>]*>([\s\S]*?)<\/a>/g)) {
+  const title = match[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+  if (!title || title.length > 100) continue;
+  const url = new URL(match[1], 'https://pedropathing.com').href.replace(/\/$/, '');
+  if (!links.has(url)) links.set(url, { title, url, docPath: new URL(url).pathname.slice(1), headingPath: ['Pedro Pathing'] });
+}
+if (links.size < 10) throw new Error(`Pedro navigation incomplete: ${links.size} pages`);
+fs.mkdirSync(cache, { recursive: true });
+fs.writeFileSync(path.join(cache, 'pedropathing.json'), JSON.stringify([...links.values()], null, 1));
+console.log(`[pedro] ${links.size} documentation pages discovered`);

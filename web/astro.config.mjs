@@ -8,7 +8,10 @@ export default defineConfig({
   output: 'static',
   adapter: cloudflare({ imageService: 'passthrough' }),
   integrations: [react()],
-  site: process.env.PUBLIC_SITE_URL || 'https://sharp-ai-8a1.pages.dev',
+  site: process.env.PUBLIC_SITE_URL || 'https://sharpftc.pages.dev',
   devToolbar: { enabled: false },
-  vite: { ssr: { external: ['node:buffer'] } },
+  vite: { ssr: { external: ['node:buffer'] }, server: {
+    watch: { usePolling: true },
+    proxy: { '/api': { target: 'https://sharp-ai.srivibhavp.workers.dev', changeOrigin: true, headers: { origin: 'https://sharpftc.pages.dev' } } },
+  } },
 });

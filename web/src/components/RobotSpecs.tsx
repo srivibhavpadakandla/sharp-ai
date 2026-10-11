@@ -38,8 +38,7 @@ export default function RobotSpecs({ onChange }: { onChange?: (s: Specs) => void
         <div className="rs__body">
           <p className="rs__why">
             Generated code will use these names and this hardware instead of
-            placeholders. Stored only in this browser — nothing is uploaded and
-            there is no account.
+            placeholders. Saved on this browser and included with your questions to tailor the answer.
           </p>
           {FIELDS.map((f) => (
             <label key={f.key} className="rs__field">

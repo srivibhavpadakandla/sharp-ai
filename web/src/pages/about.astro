@@ -1,4 +1,6 @@
 ---
+import { CORPUS_SECTIONS, CORPUS_UPDATED, SDK_VERSION, MANUAL_VERSION } from '../lib/config';
+import corpus from '../../../worker/src/lib/corpus-info.json';
 import Base from '../layouts/Base.astro';
 export const prerender = true;
 ---
@@ -20,7 +22,7 @@ export const prerender = true;
 
       <h2>What is indexed</h2>
       <p>
-        About 3,500 sections in total. The big ones are the official
+        {CORPUS_SECTIONS.toLocaleString()} sections across {corpus.sources.length} sources, refreshed {CORPUS_UPDATED}. The big ones are the official
         <a href="https://ftc-docs.firstinspires.org" rel="noopener">FTC Docs</a>,
         <a href="https://docs.revrobotics.com" rel="noopener">REV</a>,
         <a href="https://gm0.org" rel="noopener">Game Manual 0</a>, the FTC SDK
@@ -61,13 +63,18 @@ export const prerender = true;
         produce confidently wrong answers for teams on current versions.
       </p>
       <p>
-        Game Manual Part 1 and Part 2 and the official Q&amp;A are copyright
-        <em>FIRST</em> and are not openly licensed, so their text is never stored
-        on an answer page. The Competition Manual currently indexed is the
-        2026-2027 preseason release, and most of its game sections are still
-        placeholders until the September 2026 kickoff. Ask about a specific rule
-        and you should check the manual yourself.
+        The current BIOBUZZ Competition Manual ({MANUAL_VERSION}) and FTC SDK {SDK_VERSION} are indexed.
+        Official Team Q&amp;A rulings remain authoritative and are linked separately at
+        <a href="https://ftc.game" rel="noopener">ftc.game</a>. Check both before relying on a rule interpretation.
       </p>
+      <h2>Source coverage</h2>
+      <div class="ab__coverage"><table><thead><tr><th>Source</th><th>Sections</th><th>Use</th></tr></thead><tbody>
+        {corpus.sources.map((source) => <tr><td><a href={source.homepage} rel="noopener">{source.name}</a></td><td>{source.sections}</td><td>{source.mode === 'full' ? 'Cited excerpts' : source.mode === 'summarize' ? 'Summaries' : 'Titles & links'}</td></tr>)}
+      </tbody></table></div>
+      <h2>Your conversations</h2>
+      <p>Conversation history is saved on this browser, with no account or public share page.
+        Saved chats retain the grounded answer and its sources. The separate general reasoning section is not saved.
+        Export a conversation as Markdown to keep a copy, or remove it from History.</p>
 
       <h2>Why there are no ads</h2>
       <p>
@@ -102,6 +109,9 @@ export const prerender = true;
   .ab h1 { margin: 0.8rem 0 1.8rem; max-width: 14ch; }
   .ab__body { max-width: 40rem; }
   .ab__body .serif-lede { margin-bottom: 2rem; }
+  .ab__coverage { overflow-x: auto; }
+  .ab__coverage table { width: 100%; font-size: .8rem; border-collapse: collapse; }
+  .ab__coverage th, .ab__coverage td { text-align: left; padding: .55rem; border-bottom: 1px solid var(--rule); }
   .ab__body a { color: var(--accent); border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
   .ab__body a:hover { border-bottom-color: var(--accent); }
 </style>

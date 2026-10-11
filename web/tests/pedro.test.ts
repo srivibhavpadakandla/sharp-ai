@@ -241,3 +241,21 @@ import { generateJavaChains, chainIdent, CHAIN_COLORS, type Chain } from '../src
   ok8(!/TODO: implement/.test(weird), 'a name that cannot be an identifier emits no call');
   console.log(f8 ? `${f8} ACTION FAILED` : 'actions ok');
 }
+
+// Current Pedro 3 exports and imports use the published API.
+const { generatePedro3, parsePedro3 } = await import('../src/lib/pedro3.ts');
+const p3 = generatePedro3([{ ...starterPath(), name: 'Score', action: 'Open claw' }]);
+ok(p3.includes('PoseFactory.degrees()'), 'Pedro 3 uses the degree factory');
+ok(p3.includes('com.pedropathing.math.Pose'), 'Pedro 3 imports the current Pose');
+ok(p3.includes('follower.follow(') && p3.includes('Constants.create(hardwareMap)'), 'Pedro 3 uses current follower setup');
+ok(p3.includes('.linear(startPose, scorePose, 0.8)'), 'Pedro 3 preserves heading end time');
+ok(p3.includes('private void openClaw()') && p3.includes('Implement openClaw'), 'actions have explicit implementation guards');
+const p3Read = parsePedro3(p3);
+ok(!!p3Read.model && p3Read.model.points.length === 3, 'Pedro 3 route imports with all waypoints');
+ok(p3Read.model?.segments[1]?.control.length === 1, 'Pedro 3 curve imports with its control point');
+ok(p3Read.model?.segments[0]?.endTime === 0.8, 'Pedro 3 heading end time survives import');
+const waiting = starterPath(); waiting.segments[0].waitAfter = 1.5;
+const pauseCode = generatePedro3([{ ...waiting, name: 'Park' }]);
+ok(pauseCode.includes('pause(1.5)'), 'Pedro 3 exports planned waits');
+ok((pauseCode.match(/follower.follow\(/g) || []).length === 2, 'a planned wait splits the route at the stopping point');
+if (fail) throw new Error(`${fail} planner checks failed`);

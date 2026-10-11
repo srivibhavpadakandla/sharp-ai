@@ -15,6 +15,7 @@
  *
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
+import corpusInfo from './lib/corpus-info.json';
 import { retrieve, retrieveMulti, chunksForUrl } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond, needsDepth } from './gemini.js';
 import { classify } from './lib/topic.js';
@@ -46,26 +47,14 @@ import { MAX_QUESTION_CHARS } from './lib/query.js';
  * site look broken to anyone who typed "hello" first.
  */
 const META_ANSWER =
-  'I answer questions about building, wiring and programming FIRST Tech '
-  + 'Challenge robots, from documentation indexed section by section — Game '
-  + 'Manual 0, the official FTC Docs, the SDK reference and samples, the Road '
-  + 'Runner quickstart, plus Pedro Pathing, REV and Chief Delphi by link.\n\n'
-  + 'Ask me something concrete and I will show you the page behind every claim: '
-  + '*why does my robot brown out mid match*, *what gear ratio makes an arm '
-  + 'stronger*, *how do I tune Road Runner*. Paste a stack trace and I will read '
-  + 'it. There is also a **path planner** that draws a Pedro Pathing route and '
-  + 'hands you the Java.\n\n'
-  + '\n\n**What I cannot do.** I will not tell you what a game rule says — the '
-  + 'Competition Manual is *FIRST* copyright, so I point you at the rule and the '
-  + 'manual rather than paraphrasing something that could cost you a match. The '
-  + '2026-27 BIOBUZZ game sections do not exist publicly yet; they arrive at '
-  + 'kickoff. Sources that publish no licence (Pedro Pathing, REV, Road Runner, '
-  + 'Chief Delphi) are named and linked, never quoted. I do not know your robot '
-  + 'unless you tell me, I have no memory between conversations, and I will not '
-  + 'answer questions outside FTC.\n\n'
-  + 'When the documentation does not cover something I say so rather than making '
-  + 'it up, then answer from general engineering knowledge — clearly marked as '
-  + 'unverified, and never saved.';
+  'I help you design, wire, program, and troubleshoot FIRST Tech Challenge robots. '
+  + 'Answers draw on indexed documentation from Game Manual 0, FTC Docs, the official SDK, '
+  + 'the Competition Manual, Pedro Pathing, Road Runner, and other robotics sources.\n\n'
+  + 'Ask a concrete question, paste an error, or add your robot configuration. '
+  + 'Every grounded answer links its supporting sections. Rules are summarized in my own words; '
+  + 'check the current official manual and Team Q&A before relying on an interpretation.\n\n'
+  + 'The path planner exports Pedro Pathing Java, and your conversations can be saved on this browser. '
+  + 'General engineering reasoning appears separately and is not retained in saved chats.';
 
 const OFF_TOPIC_REFUSAL =
   'I only answer questions about building, wiring and programming FIRST Tech '
@@ -516,9 +505,11 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       // What the call actually cost, per Gemini. Folded into today's row after
       // the answer is written, so accounting can never delay or fail a reply.
       let usageMeta = null;
+      let answerModel = env.GEMINI_MODEL || 'gemini-3.7-flash';
+      const onModel = (model) => { answerModel = model; };
       const onUsage = (m) => { usageMeta = m; };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, uncovered, offTopic, liveBlock, intent, onUsage })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, uncovered, offTopic, liveBlock, intent, onUsage, onModel })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end());
@@ -580,7 +571,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
           // Grounded only. Persisting the ungrounded half would put uncited
           // claims on a permanent, crawlable URL.
           question, answerMd: grounded.trim(), citations, excerpts, category,
-          model: env.GEMINI_MODEL || 'gemini-3.5-flash', topScore: stats.bestCosine,
+          model: answerModel, topScore: stats.bestCosine,
         });
         slug = saved.slug;
       }
@@ -687,9 +678,9 @@ function degradedMarkdown(chunks, reason = 'ceiling') {
     // Not "we are busy" — that implies a crowd, and there usually isn't one.
     // The free tier allows only a handful of model calls per minute, which one
     // or two questions can use up on their own.
-    'upstream-limit': 'Sharp AI has used up the free model allowance for this minute, so this '
+    'upstream-limit': 'The answer models are currently rate limited, so this '
       + 'is not an answer — it is the documentation the question matched, unsummarised. '
-      + 'It refills about every minute; asking again shortly should give you a written answer.',
+      + 'Try again later; the reset time depends on the model provider’s quota.',
     empty: 'Sharp AI did not produce an answer for this one. Here are the sections it '
       + 'retrieved, unsummarised.',
   }[reason] || 'Here are the documentation sections that match your question, unsummarised.';
@@ -699,7 +690,9 @@ function degradedMarkdown(chunks, reason = 'ceiling') {
     lines.push(`[${c.sourceName} →](${c.sourceUrl})`);
     if (Number(c.canExcerpt) === 1) {
       const body = c.text.split('\n\n').slice(1).join('\n\n').trim();
-      lines.push('', body.slice(0, 700) + (body.length > 700 ? '…' : ''));
+      let excerpt = body.slice(0, 700) + (body.length > 700 ? '…' : '');
+      if ((excerpt.match(/```/g) || []).length % 2) excerpt += '\n```';
+      lines.push('', excerpt);
     } else {
       lines.push('', `_This section is under ${c.license} and cannot be excerpted here._`);
     }
@@ -790,6 +783,8 @@ async function handleManual(request, env) {
   const gameSections = sections.filter((s) => GAME.test(s.title));
 
   return json({
+    version: corpusInfo.manualVersion,
+    updatedAt: corpusInfo.updatedAt,
     season: '2026-2027',
     name: 'BIOBUZZ',
     presentedBy: 'RTX',
@@ -856,6 +851,7 @@ async function handleHealth(request, env) {
   return json({
     ok: true,
     chunks: chunkRow?.n ?? null,
+    corpus: { updatedAt: corpusInfo.updatedAt, manualVersion: corpusInfo.manualVersion, sdkVersion: corpusInfo.sdkVersion },
     answers: answerRow?.n ?? null,
     llm: usage,
     tokens,
@@ -900,6 +896,7 @@ export default {
         const [you, pool] = await Promise.all([ipUsage(env, request), llmUsage(env)]);
         return json({ you, pool }, {}, { ...cors, 'cache-control': 'no-store' });
       }
+      if (p === '/api/corpus') return json(corpusInfo, {}, { ...cors, 'cache-control': 'no-store' });
       if (p === '/api/manual') return handleManual(request, env);
       if (p === '/api/health' || p === '/') return handleHealth(request, env);
 

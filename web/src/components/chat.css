@@ -1,321 +1,122 @@
-/* Chat surface. The interaction model is a messaging app — composer pinned at
-   the bottom, thread scrolling above it, follow-ups in place. The *answer*
-   deliberately is not: only the person's message gets a container, so the
-   reply stays a set document with its sources readable beside it. */
-
-.chat {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  /* min-height, not height. This used to be a fixed viewport-tall box with the
-     conversation scrolling inside it, so a long answer ran off the end of its
-     own pane and had to be scrolled back through by hand. The thread now grows
-     and the page scrolls; the composer and the rail stick instead. */
-  min-height: calc(100dvh - var(--header-h));
-  align-items: start;
-  border-top: 1px solid var(--rule);
-}
-
-.chat__thread {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border-right: 1px solid var(--rule);
-}
-
-.chat__turns {
-  flex: 1;
-  padding: 2rem var(--gutter) 1rem;
-}
-
-.chat__rail {
-  background: var(--paper-sunk);
-  padding: 0 var(--gutter) 2rem;
-  /* Sticks beside the thread now that the page is what scrolls, so the sources
-     stay level with the claim you are reading. */
-  position: sticky;
-  top: var(--header-h);
-  max-height: calc(100dvh - var(--header-h));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  min-width: 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--rule-strong) transparent;
-}
-.chat__railhead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 1.6rem 0 1rem;
-  background: linear-gradient(var(--paper-sunk) 74%, transparent);
-}
-.chat__count {
-  font-size: 0.7rem; color: var(--ink-3);
-  border: 1px solid var(--rule-strong); border-radius: 999px;
-  padding: 0 0.42rem; line-height: 1.5;
-}
-.chat__railempty { font-size: 0.84rem; color: var(--ink-3); max-width: 26ch; }
-
-@media (max-width: 62rem) {
-  .chat { grid-template-columns: 1fr; min-height: 0; }
-  .chat__thread { border-right: 0; }
-  /* Stacked below the thread, so there is nothing to stick to. */
-  .chat__rail {
-    position: static; max-height: none; overflow: visible;
-    border-top: 1px solid var(--rule); padding-top: 0.5rem;
-  }
-}
-
-/* --- empty state --------------------------------------------------------- */
-.chat__empty { max-width: 34rem; padding: 3rem 0 1rem; }
-.chat__empty h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); margin-bottom: 1rem; }
-.chat__starters { list-style: none; margin: 1.8rem 0 0; padding: 0; }
-
-.chat__starters button {
-  display: block; width: 100%; text-align: left;
-  background: var(--paper-raised); border: 1px solid var(--rule); cursor: pointer;
-  border-radius: var(--r-md);
-  font-family: var(--type-sans); font-size: 0.92rem; color: var(--ink-2);
-  padding: 0.85rem 1.05rem; margin-bottom: 0.5rem;
-  transition: color 0.16s var(--ease), padding-left 0.2s var(--ease);
-}
-.chat__starters button:hover { color: var(--accent); border-color: var(--rule-strong); transform: translateX(3px); }
-
-/* --- a turn -------------------------------------------------------------- */
-.turn { padding-bottom: 0; margin-bottom: 3rem; }
-.turn:last-child { margin-bottom: 1rem; }
-
-.turn__you { display: flex; justify-content: flex-end; margin-bottom: 1.6rem; }
-.turn__you p {
-  margin: 0;
-  max-width: 42ch;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
-  /* Evenly rounded, the way both ChatGPT and Claude draw the user's turn. */
-  border-radius: 20px;
-  padding: 0.72rem 1.1rem;
-  font-size: 0.97rem;
-  line-height: 1.55;
-  text-wrap: pretty;
-}
-
-.turn__reply { max-width: var(--measure); }
-.turn__prose { min-height: 1px; }
-
-.turn__notice {
-  margin: 0 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--rule-strong);
-  border-left: 2px solid var(--accent);
-  background: var(--accent-wash);
-  font-size: 0.82rem; color: var(--ink-2);
-}
-
-.turn__agent {
-  margin: 0 0 1.1rem;
-  font-size: 0.76rem;
-  color: var(--ink-3);
-  cursor: help;
-}
-.turn__agent em { font-style: normal; color: var(--ink-2); border-bottom: 1px dotted var(--rule-strong); }
-
-.turn__loading p { color: var(--ink-3); font-size: 0.87rem; margin: 0.7rem 0 0; }
-.turn__bar {
-  display: block; height: 1px; width: 100%;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  background-size: 42% 100%; background-repeat: no-repeat;
-  animation: sweep 1.5s var(--ease) infinite;
-}
-
-.turn__error {
-  border: 1px solid var(--rule-strong); border-left: 2px solid var(--accent);
-  padding: 0.8rem 0.9rem; font-size: 0.88rem;
-}
-
-/* --- composer ------------------------------------------------------------ */
-.composer {
-  flex: none;
-  /* Stays reachable without scrolling to the end of a long conversation. */
-  position: sticky;
-  bottom: 0;
-  z-index: 3;
-  border-top: 1px solid var(--rule);
-  background: color-mix(in srgb, var(--paper) 92%, transparent);
-  backdrop-filter: blur(8px);
-  padding: 0.9rem var(--gutter) 1rem;
-}
-.composer__expand {
-  flex: none; align-self: flex-start;
-  display: grid; place-items: center;
-  width: 1.7rem; height: 1.7rem; margin-top: -0.15rem;
-  border: 1px solid transparent; border-radius: var(--r-sm);
-  background: transparent; color: var(--ink-3); cursor: pointer;
-  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
-}
-.composer__expand:hover { color: var(--ink); border-color: var(--rule-strong); }
-
-.composer__field {
-  position: relative;
-  display: flex; align-items: flex-end; gap: 0.5rem;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--r-lg);
-  padding: 0.85rem 0.85rem 0.85rem 1.25rem;
-  transition: border-color 0.24s var(--ease);
-}
-/* The site's one gradient. This used to draw its own rust-and-olive one, left
-   over from a warm palette the site no longer has, while the comment claimed it
-   was shared — so the composer was the only warm thing on a blue-green page. */
-.composer__field::after {
-  content: ''; position: absolute; inset: -1px; border-radius: calc(var(--r-lg) + 1px); padding: 1px;
-  background: var(--grad-warm);
-  background-size: 220% 100%;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  /* Hidden until focus on purpose: at rest the composer carries the same
-     neutral border as every other field, and the gradient is the focus state. */
-  opacity: 0; transition: opacity 0.3s var(--ease); pointer-events: none;
-}
-.composer__field:focus-within { border-color: transparent; }
-.composer__field:focus-within::after { opacity: 1; animation: sbdrift 7s linear infinite; }
-
-.composer textarea {
-  flex: 1; border: 0; outline: 0; resize: none; background: transparent;
-  font-family: var(--type-sans); font-size: 0.98rem; line-height: 1.5;
-  /* Height is set inline as you type; this is only the floor and the scroll
-     behaviour once the box has reached its cap. */
-  color: var(--ink); padding: 0; overflow-y: auto;
-  scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent;
-}
-.composer textarea::placeholder { color: var(--ink-4); }
-.composer textarea:disabled { opacity: 0.55; }
-
-.composer button:not(.composer__expand) {
-  flex: none; display: grid; place-items: center;
-  width: 2.15rem; height: 2.15rem;
-  border: 0; background: var(--grad-warm); color: var(--on-grad);
-  border-radius: var(--r-pill); cursor: pointer;
-  transition: background 0.18s var(--ease), opacity 0.18s var(--ease);
-}
-.composer button:not(.composer__expand):hover:not(:disabled) { background: var(--accent-deep); border-color: var(--accent-deep); }
-.composer button:not(.composer__expand):disabled { opacity: 0.28; cursor: default; }
-
-.composer__note {
-  margin: 0.55rem 0 0;
-  font-size: 0.72rem;
-  /* ink-3, not ink-4: this line carries the licence and the "can be wrong"
-     warning, so it has to clear AA rather than sit in the decorative tier. */
-  color: var(--ink-3);
-  text-align: center;
-}
-
-/* --- SDK validation strip -------------------------------------------------
-   Sits directly under generated code. Green-free on purpose: a pass means
-   "these symbols exist", not "this code is correct", and the wording has to
-   carry that distinction rather than a reassuring colour. */
-
-.sdkcheck {
-  margin-top: 1.2rem;
-  border: 1px solid var(--rule-strong);
-  border-left: 2px solid var(--accent);
-  border-radius: var(--r-md);
-  background: var(--accent-wash);
-  padding: 0.7rem 0.9rem;
-  max-width: var(--measure);
-}
-.sdkcheck--ok { border-left-color: var(--rule-strong); background: var(--paper-sunk); }
-.sdkcheck__head {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--ink-2);
-}
-.sdkcheck__note {
-  margin: 0.45rem 0 0;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--ink-3);
-}
-.sdkcheck__note code {
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
-  border-radius: 5px;
-  padding: 0.04em 0.3em;
-  font-size: 0.94em;
-}
-
-/* No citations anywhere in the thread — a refusal, or a greeting. Drop the
-   rail rather than leaving a tall empty panel beside a two-line answer. */
+.chat-workspace { --chat-width: 48rem; max-width: 1600px; margin: auto; font-family: var(--type-sans); }
+.workspace-toolbar { position: sticky; top: var(--header-h); z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 4.2rem; padding: .8rem 2rem; background: var(--paper); border-bottom: 1px solid var(--rule); }
+.workspace-title { display: flex; align-items: center; gap: .65rem; font-size: .86rem; white-space: nowrap; }
+.workspace-title strong { font-weight: 500; }
+.workspace-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+.workspace-subtitle { font-size: .75rem; color: var(--ink-3); padding-left: .7rem; border-left: 1px solid var(--rule-strong); }
+.workspace-controls { display: flex; align-items: center; gap: .3rem; }
+.chat-action { font: inherit; font-size: .78rem; color: var(--ink-2); border: 1px solid transparent; border-radius: 8px; background: transparent; padding: .5rem .7rem; cursor: pointer; white-space: nowrap; }
+.chat-action:hover { color: var(--ink); background: var(--paper-raised); }
+.chat-action:disabled { opacity: .45; cursor: default; }
+.chat-action--primary { border-color: var(--rule-strong); color: var(--ink); }
+.chat-workspace button:focus-visible, .chat-workspace input:focus-visible, .src:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.workspace-body { display: flex; align-items: flex-start; }
+.chat { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-width: 0; flex: 1; min-height: calc(100dvh - var(--header-h) - 4.2rem); align-items: start; }
 .chat--norail { grid-template-columns: minmax(0, 1fr); }
-.chat--norail .chat__thread { border-right: 0; }
-.chat--norail .chat__turns { max-width: 52rem; margin-inline: auto; width: 100%; }
-/* The bar spans the width; only its contents are centred. Constraining the
-   element itself gave it a visible left and right edge, so with no sources rail
-   the composer read as a floating card on an empty page rather than a bar. */
-.chat--norail .composer__field,
-.chat--norail .usage,
-.chat--norail .composer__note { max-width: 52rem; margin-inline: auto; width: 100%; }
-
-.composer__note a { color: var(--ink-3); border-bottom: 1px solid var(--rule-strong); }
-.composer__note a:hover { color: var(--accent); }
-
-/* Room for the last line to clear the composer. */
-.chat__turns { padding-bottom: 2rem; }
-
-/* Citation check. Only ever rendered when something failed — a clean result is
-   the expectation, not an achievement to advertise. */
-.citecheck {
-  margin-top: 1.1rem;
-  border: 1px solid var(--accent);
-  border-radius: var(--r-md);
-  background: var(--accent-wash);
-  padding: 0.7rem 0.9rem;
-  max-width: var(--measure);
-}
-.citecheck__head {
-  margin: 0 0 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent-deep);
-}
-.citecheck__note { margin: 0.3rem 0 0; font-size: 0.79rem; line-height: 1.5; color: var(--ink-2); }
-
-/* Answer rating. Deliberately plain and low-stakes — the point is that people
-   actually press it, which tells us which questions retrieve badly. */
-.rate {
-  display: flex; align-items: center; gap: 0.5rem;
-  margin-top: 1.4rem; font-size: 0.78rem; color: var(--ink-3);
-}
-.rate__btn {
-  border: 1px solid var(--rule-strong); background: var(--paper-raised);
-  border-radius: var(--r-pill); padding: 0.14rem 0.7rem;
-  font-family: var(--type-sans); font-size: 0.76rem; color: var(--ink-2); cursor: pointer;
-  transition: color 0.16s var(--ease), border-color 0.16s var(--ease);
-}
-.rate__btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
-.rate__btn--on { color: var(--accent); border-color: var(--accent); background: var(--accent-wash); }
-.rate__btn:disabled { cursor: default; opacity: 0.65; }
-.rate__btn--on:disabled { opacity: 1; }
-.rate__thanks { color: var(--ink-4); }
-
-/* Assistant turns run full measure with no container of their own — the
-   answer is the page, not a card inside it. */
-.turn__reply { max-width: var(--measure); }
-.turn__prose { font-size: 1rem; line-height: 1.68; }
+.chat__thread { min-width: 0; display: flex; flex-direction: column; min-height: calc(100dvh - var(--header-h) - 4.2rem); }
+.chat__turns { width: 100%; max-width: calc(var(--chat-width) + 5rem); margin: 0 auto; padding: 2.6rem 2.5rem 1rem; flex: 1; }
+.chat__empty { padding: clamp(2rem, 7vh, 5rem) 0 2rem; }
+.chat__empty .eyebrow { color: var(--accent); font-size: .7rem; letter-spacing: .13em; }
+.chat__empty h1 { font-family: var(--type-sans); font-weight: 500; font-size: clamp(2.5rem, 5vw, 4.3rem); line-height: 1.04; letter-spacing: -.065em; margin: 1.2rem 0 1.4rem; }
+.chat__empty > p { color: var(--ink-2); font-size: 1.05rem; line-height: 1.65; }
+.chat__starters { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin: 2rem 0 1.4rem; }
+.chat__starters button { position: relative; display: grid; text-align: left; font-family: inherit; border: 1px solid var(--rule); background: var(--paper-sunk); border-radius: 12px; padding: 1.05rem 1.2rem; cursor: pointer; color: var(--ink); transition: background .18s, border-color .18s, transform .18s; }
+.chat__starters button:hover { background: var(--paper-raised); border-color: var(--rule-strong); transform: translateY(-2px); }
+.starter-number { color: var(--ink-3); font-family: var(--type-mono); font-size: .64rem; margin-bottom: .75rem; }
+.chat__starters strong { font-size: .92rem; font-weight: 500; }
+.chat__starters small { color: var(--ink-3); font-size: .76rem; margin-top: .2rem; }
+.starter-arrow { position: absolute; right: 1rem; top: .9rem; color: var(--ink-3); }
+.chat__freshness { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; font-size: .7rem; color: var(--ink-3); }
+.chat__freshness a { margin-left: auto; color: var(--ink-2); }
+.turn { margin-bottom: 2.8rem; }
+.turn__you { display: flex; justify-content: flex-end; margin-bottom: 1.8rem; }
+.turn__you p { margin: 0; max-width: 85%; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 18px 18px 4px 18px; padding: .85rem 1.15rem; font-size: .98rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.turn__reply { max-width: 100%; }
+.turn__identity { display: flex; align-items: center; gap: .6rem; font-size: .79rem; font-weight: 600; margin-bottom: .9rem; color: var(--ink-2); }
+.turn__mark { color: var(--accent); font-size: 1.25rem; font-weight: 400; }
+.turn__prose { min-height: 1px; font-size: 1.02rem; line-height: 1.78; overflow-wrap: anywhere; }
 .turn__prose > :first-child { margin-top: 0; }
-.turn__prose p { margin: 0 0 1.05em; }
-.turn__prose h3 { margin-top: 1.7em; }
-
-.rate__why { display: inline-flex; align-items: center; gap: 0.34rem; flex-wrap: wrap;
-  margin-left: 0.5rem; font-size: 0.82rem; color: var(--ink-3); }
-.rate__chip {
-  border: 1px solid var(--rule); background: transparent; color: var(--ink-3);
-  border-radius: var(--r-pill); padding: 0.14rem 0.6rem; font-size: 0.78rem; cursor: pointer;
+.turn__prose p { margin-bottom: 1.05rem; }
+.turn__prose h3 { margin-top: 1.9rem; font-family: var(--type-sans); letter-spacing: -.025em; }
+.turn__prose pre { font-size: .78rem; line-height: 1.65; }
+.turn__notice { font-size: .8rem; padding: .55rem .75rem; border-left: 2px solid var(--accent); background: var(--accent-wash); color: var(--ink-2); border-radius: 0 6px 6px 0; }
+.turn__agent { margin: .7rem 0; font-size: .7rem; color: var(--ink-3); }
+.turn__agent em { font-style: normal; }
+.turn__error { background: var(--warn-wash); border-left: 2px solid var(--warn); padding: .8rem 1rem; border-radius: 0 8px 8px 0; font-size: .9rem; margin-bottom: .65rem; }
+.turn__thinking { display: flex; align-items: center; gap: .8rem; color: var(--ink-3); font-size: .87rem; min-height: 2rem; }
+.thinking-dots { display: inline-flex; gap: 4px; align-items: center; }
+.thinking-dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: thinking 1.3s infinite ease-in-out; }
+.thinking-dots i:nth-child(2) { animation-delay: .17s; }.thinking-dots i:nth-child(3) { animation-delay: .34s; }
+@keyframes thinking { 0%, 80%, 100% { opacity: .3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.rate { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; color: var(--ink-3); font-size: .7rem; margin-top: 1.2rem; }
+.rate > span { margin-inline: .3rem; }
+.rate__btn, .rate__chip { color: var(--ink-3); font: inherit; border: 1px solid var(--rule); border-radius: 7px; background: transparent; padding: .3rem .55rem; cursor: pointer; }
+.rate__btn:hover, .rate__chip:hover { color: var(--ink); border-color: var(--rule-strong); }
+.rate__btn--on { color: var(--accent); border-color: var(--accent); }
+.rate__btn:disabled { cursor: default; }
+.rate__why { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
+.rate__thanks { font-size: .72rem; }
+.beyond { margin-top: 1.6rem; padding: 1rem 1.15rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-sunk); }
+.beyond__warn { font-size: .75rem; color: var(--ink-3); margin: .65rem 0; }
+.beyond__body { font-size: .94rem; line-height: 1.7; }
+.sdkcheck, .citecheck { margin-top: 1rem; padding: .8rem 1rem; border: 1px solid var(--rule); border-radius: 8px; color: var(--ink-2); background: var(--paper-sunk); }
+.sdkcheck__head, .citecheck__head { font-size: .8rem; margin: 0; }.sdkcheck__note, .citecheck__note { font-size: .75rem; margin: .4rem 0 0; }.sdkcheck__note p { margin: 0; }
+.composer-shell { position: sticky; bottom: 0; z-index: 4; padding: .4rem 2.5rem .9rem; width: 100%; max-width: calc(var(--chat-width) + 5rem); margin: auto; background: linear-gradient(transparent, var(--paper) 18%); }
+.composer-shell .rs { padding: .4rem .3rem; border: 0; }
+.composer-shell .rs__toggle { font-size: .76rem; }
+.composer { position: static; padding: 0; border: 0; }
+.composer__field { display: flex; align-items: flex-end; gap: .75rem; background: var(--paper-raised); border: 1px solid var(--rule-strong); border-radius: 16px; padding: 1rem; transition: border-color .2s, box-shadow .2s; }
+.composer__field:focus-within { border-color: color-mix(in srgb, var(--accent) 50%, var(--rule-strong)); box-shadow: 0 0 0 3px var(--accent-wash); }
+.composer textarea { width: 100%; min-width: 0; flex: 1; resize: none; border: 0; outline: 0; background: transparent; font: inherit; font-size: .98rem; line-height: 1.5; color: var(--ink); max-height: 220px; overflow-y: auto; padding: .3rem 0; }
+.composer textarea::placeholder { color: var(--ink-3); }
+.composer__send { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; flex: none; background: var(--accent); color: var(--paper); border: 0; border-radius: 9px; cursor: pointer; font-size: 1.6rem; }
+.composer__send:disabled { background: var(--rule-strong); color: var(--ink-3); cursor: default; }.composer__send:hover:not(:disabled) { filter: brightness(1.1); }
+.stop-square { width: .7rem; height: .7rem; background: currentColor; border-radius: 1px; }
+.composer__meta { display: flex; justify-content: space-between; gap: .5rem; margin: .6rem .2rem 0; font-size: .65rem; color: var(--ink-3); }
+.composer .usage { margin-top: .5rem; }.composer .usage__bar { display: none; }.composer .usage__text { font-size: .66rem; }
+.composer__note { text-align: center; font-size: .66rem; color: var(--ink-3); margin: .6rem 0 0; line-height: 1.5; }.composer__note a { text-decoration: underline; text-underline-offset: 3px; }
+.chat__rail { position: sticky; top: calc(var(--header-h) + 4.2rem); max-height: calc(100dvh - var(--header-h) - 4.2rem); overflow-y: auto; overscroll-behavior: contain; min-width: 0; padding: 0 1.25rem 2rem; border-left: 1px solid var(--rule); background: var(--paper-sunk); scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+.chat__railhead { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: .7rem; padding: 1.2rem 0; background: var(--paper-sunk); border-bottom: 1px solid var(--rule); margin-bottom: .7rem; }
+.chat__railhead .eyebrow { font-size: .66rem; }.chat__railhead p { font-size: .75rem; color: var(--ink-3); margin: .25rem 0 0; }
+.chat__count { font-family: var(--type-mono); color: var(--ink-3); font-size: .7rem; margin-left: auto; }.rail-close { font-size: 1.2rem; padding: .3rem .5rem; }
+.chat__rail .src { border-radius: 9px; padding: 1rem .7rem; margin-bottom: .65rem; border: 1px solid var(--rule); background: var(--paper); }.chat__rail .src--active { border-color: var(--accent); background: var(--accent-wash); }
+.chat__rail .src__path { font-size: .76rem; }.chat__rail .src__meta { font-size: .63rem; }.chat__rail .src__body { max-height: 180px; overflow: auto; font-size: .76rem; line-height: 1.6; }.chat__rail .src__restricted { font-size: .73rem; }.chat__rail .src__link { font-size: .71rem; }
+.chat__railempty { font-size: .85rem; color: var(--ink-3); }
+.conversation-history { width: 245px; flex: none; position: sticky; top: calc(var(--header-h) + 4.2rem); max-height: calc(100dvh - var(--header-h) - 4.2rem); overflow: auto; padding: 1.2rem; border-right: 1px solid var(--rule); background: var(--paper-sunk); }
+.conversation-history header { display: flex; align-items: center; justify-content: space-between; }.conversation-history h2 { font-family: var(--type-sans); font-size: .9rem; margin: 0; }.conversation-history header button { background: none; border: 0; color: var(--ink-3); font-size: 1.4rem; cursor: pointer; }
+.history-note { font-size: .72rem; line-height: 1.6; color: var(--ink-3); margin: .65rem 0; }.conversation-history input { width: 100%; border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; font-size: .76rem; padding: .6rem; margin: .5rem 0; }
+.history-list { margin: .5rem -.3rem; }.history-item { position: relative; display: flex; align-items: flex-start; margin-bottom: .3rem; border-radius: 8px; }.history-item.is-active { background: var(--accent-wash); }.history-item:hover { background: var(--paper-raised); }.history-item > button:first-child { text-align: left; flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--ink-2); padding: .7rem; cursor: pointer; }.history-item span { display: block; font-size: .77rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }.history-item small { display: block; font-size: .65rem; color: var(--ink-3); margin-top: .25rem; }.history-delete { padding: .65rem .4rem; background: transparent; border: 0; color: var(--ink-3); cursor: pointer; }
+.code-block { overflow: hidden; border: 1px solid var(--rule-strong); border-radius: 10px; margin: 1.2rem 0; background: var(--paper-sunk); }.code-block__head { display: flex; align-items: center; justify-content: space-between; padding: .5rem .9rem; border-bottom: 1px solid var(--rule); font-family: var(--type-mono); font-size: .65rem; color: var(--ink-3); }.code-block__head button { background: none; border: 0; color: var(--ink-2); font: inherit; cursor: pointer; padding: .2rem; }.prose .code-block pre { margin: 0; border: 0; border-radius: 0; background: transparent; }
+.md-table-wrap { overflow-x: auto; }.prose table { width: 100%; border-collapse: collapse; font-size: .87rem; margin: 1rem 0; }.prose th, .prose td { padding: .65rem .75rem; border: 1px solid var(--rule); text-align: left; }.prose th { background: var(--paper-sunk); font-weight: 500; }
+@media (max-width: 1100px) { .workspace-subtitle { display: none; }.chat { grid-template-columns: minmax(0, 1fr) 300px; }.chat--norail { grid-template-columns: 1fr; }.chat__turns, .composer-shell { padding-left: 1.6rem; padding-right: 1.6rem; }.workspace-toolbar { padding-inline: 1.5rem; }.conversation-history { width: 210px; } }
+@media (max-width: 900px) { .chat { grid-template-columns: 1fr; }.chat__rail { position: fixed; right: 0; top: calc(var(--header-h) + 4.2rem); width: min(90vw, 360px); height: calc(100dvh - var(--header-h) - 4.2rem); z-index: 8; box-shadow: -30px 0 70px rgba(0,0,0,.3); }.conversation-history { position: fixed; left: 0; top: calc(var(--header-h) + 4.2rem); width: min(85vw, 300px); height: calc(100dvh - var(--header-h) - 4.2rem); z-index: 9; box-shadow: 20px 0 50px rgba(0,0,0,.3); } }
+@media (max-width: 600px) { .workspace-toolbar { padding: .55rem .8rem; flex-wrap: wrap; gap: .25rem; }.workspace-title { font-size: .73rem; }.workspace-controls { gap: .05rem; }.chat-action { font-size: .7rem; padding: .45rem .5rem; }.chat__turns { padding: 1.5rem 1rem 1rem; }.chat__empty { padding-top: 2.4rem; }.chat__empty h1 { font-size: 3rem; }.chat__empty > p { font-size: .95rem; }.desktop-break { display: none; }.chat__starters { gap: .5rem; }.chat__starters button { padding: .85rem; }.chat__starters strong { font-size: .81rem; }.chat__starters small { font-size: .68rem; }.chat__freshness { font-size: .64rem; }.chat__freshness a { margin-left: 0; }.composer-shell { padding: .3rem .8rem .6rem; }.composer__meta { font-size: .59rem; }.composer__meta > span:first-child { display: none; }.composer__field { padding: .7rem; border-radius: 13px; }.turn__you p { max-width: 95%; }.turn__prose { font-size: .96rem; }.turn { margin-bottom: 2rem; } }
+@media (prefers-reduced-motion: reduce) { .thinking-dots i { animation: none; }.chat__starters button { transition: none; }.chat__starters button:hover { transform: none; } }
+.chat__thread:has(.chat__empty) .chat__turns { padding-top: 1rem; }
+.chat__thread:has(.chat__empty) .composer-shell { position: static; }
+.chat__empty { padding-top: clamp(1.5rem, 3vh, 2.5rem); }
+.chat__empty h1 { font-size: clamp(2.5rem, 4.5vw, 3.5rem); margin: .95rem 0 1rem; }
+.chat__starters { margin: 1.5rem 0 1.2rem; }
+.chat__starters button { grid-template-columns: 1.4rem 1fr; padding: .85rem 1rem; gap: .1rem .5rem; }
+.starter-number { grid-row: 1 / 3; align-self: center; margin: 0; }
+.chat__starters strong, .chat__starters small { grid-column: 2; }
+@media (max-width: 600px) {
+  .chat__empty h1 { font-size: 2.8rem; }
+  .chat__starters { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: .5rem; }
+  .chat__starters button { flex: 0 0 205px; scroll-snap-align: start; }
+  .chat__freshness { gap: .3rem; }
 }
-.rate__chip:hover { border-color: var(--accent); color: var(--accent); }
+@media (min-width: 900px) and (max-height: 850px) {
+  .chat__empty { padding-bottom: .5rem; }
+  .chat__starters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .chat__starters button { padding: .8rem; grid-template-columns: 1fr; }
+  .chat__starters strong, .chat__starters small { grid-column: 1; }
+  .starter-number { display: none; }
+  .chat__starters strong { font-size: .84rem; padding-right: .5rem; }
+  .chat__starters small { font-size: .7rem; }
+}
+@media (min-width: 900px) and (max-height: 740px) {
+  .chat__empty { padding-top: 1rem; }
+  .chat__empty h1 { font-size: 2.8rem; margin-block: .75rem; }
+  .chat__empty > p { font-size: .95rem; }
+}

@@ -8,6 +8,7 @@ import {
   generateJavaChains, CHAIN_COLORS, type Chain,
   type Interp, type PathModel, type Pt, type Limits, type Obstacle,
 } from '../lib/pedro';
+import { generatePedro3, parsePedro3 } from '../lib/pedro3';
 import './pathsim.css';
 
 const DIMS_KEY = 'sharp-ai:robot-dims';
@@ -71,6 +72,7 @@ export default function PathSim() {
   });
   const [activeChain, setActiveChain] = useState(0);
   const [copied, setCopied] = useState('');
+  const [pedroVersion, setPedroVersion] = useState<'3' | '2'>('3');
   const [paste, setPaste] = useState('');
   const [limits, setLimits] = useState<Limits>(DEFAULT_LIMITS);
   /** Trace the robot's footprint along the route — the Visualizer calls these onion layers. */
@@ -168,9 +170,9 @@ export default function PathSim() {
     }
     return out;
   }, [model, dims, obstacles, table]);
-  const java = useMemo(() => (chains.length > 1
-    ? generateJavaChains(chains)
-    : generateJava(model)), [chains, model]);
+  const java = useMemo(() => pedroVersion === '3'
+    ? generatePedro3(chains.length > 1 ? chains : [{ ...model, name: 'route' }])
+    : chains.length > 1 ? generateJavaChains(chains) : generateJava(model), [chains, model, pedroVersion]);
 
   // Advance at a plausible cruise so the preview reads as motion, not a scrub.
   useEffect(() => {
@@ -910,7 +912,7 @@ export default function PathSim() {
             onChange={(e) => setPaste(e.target.value)}
           />
           <button type="button" className="sim__share" onClick={() => {
-            const res = parseJava(paste);
+            const res = /PoseFactory|\bp\.of\(/.test(paste) ? parsePedro3(paste) : parseJava(paste);
             setImportNote(res.note);
             if (res.model) { remember(model); setModel(res.model); setSel({ kind: 'point', i: 0 }); }
           }}>Read it onto the field</button>
@@ -920,10 +922,14 @@ export default function PathSim() {
         <section className="sim__card">
           <div className="sim__codehead">
             <h2>Pedro Pathing code</h2>
+            <select aria-label="Pedro Pathing version" value={pedroVersion} onChange={(e) => setPedroVersion(e.target.value as '3' | '2')}>
+              <option value="3">Pedro 3</option><option value="2">Pedro 2</option>
+            </select>
             <button type="button" onClick={() => copy('code', java)}>
               {copied === 'code' ? 'Copied' : copied === 'code:failed' ? 'Select it manually' : 'Copy'}
             </button>
           </div>
+          <p className="sim__hint">Match the export to your installed Pedro version. Configure your Constants class and implement any TODO actions before running.</p>
           <pre className="sim__code"><code>{java}</code></pre>
         </section>
       </div>

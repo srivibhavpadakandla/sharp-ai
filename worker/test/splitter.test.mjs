@@ -90,6 +90,7 @@ test('citations never cross into the ungrounded half', () => {
 test('answer falls back to flash-lite when the main model has no quota', async () => {
   const originalFetch = globalThis.fetch;
   const models = [];
+  let actualModel = null;
   globalThis.fetch = async (url, options) => {
     models.push(new URL(url).pathname.split('/').pop());
     const request = JSON.parse(options.body);
@@ -107,8 +108,9 @@ test('answer falls back to flash-lite when the main model has no quota', async (
     for await (const text of streamGemini({
       GEMINI_API_KEY: 'test', GEMINI_MODEL: 'main', GEMINI_FAST_MODEL: 'lite',
       DEEP_ROUTING: 'off', WEB_SEARCH: 'off',
-    }, { question: 'FTC IMU yaw', chunks: [] })) answer += text;
+    }, { question: 'FTC IMU yaw', chunks: [], onModel: (model) => { actualModel = model; } })) answer += text;
     assert.equal(answer, 'A cited answer.');
+    assert.equal(actualModel, 'lite');
     assert.deepEqual(models, ['main:streamGenerateContent', 'lite:streamGenerateContent']);
   } finally {
     globalThis.fetch = originalFetch;

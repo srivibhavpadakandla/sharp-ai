@@ -289,3 +289,7 @@ for (const [i, r] of ROUTING.entries()) {
 console.log(`\n  routed ${routed}/${ROUTING.length}`);
 
 db.close();
+if (onScores.some((r) => !r.pass) || offScores.some((r) => r.pass) || routed !== ROUTING.length) {
+  console.error('Corpus regression: do not publish this index.');
+  process.exitCode = 1;
+}

@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+const SDK_VERSION = process.env.FTC_SDK_VERSION || '12.0.0';
 const ATTRIBUTION = 'FTC SDK — Copyright (c) 2014-2024 FIRST — BSD 3-Clause';
 
 // ---------------------------------------------------------------------------
@@ -127,8 +128,9 @@ export const api = {
         // Derived from the path, not from the page. An earlier regex matched the
         // navbar link labelled "Package" and every class came out as
         // "Package.DcMotor". The directory layout IS the package name.
-        const pkg = path.relative(root, path.dirname(full))
-          .split(path.sep).slice(1).join('.');
+        const parts = path.relative(root, path.dirname(full)).split(path.sep);
+        const artifact = parts[0];
+        const pkg = parts.slice(1).join('.');
 
         const blockRaw = (html.match(/<section class="class-description"[\s\S]*?<\/section>/) || [])[0]
           || (html.match(/<div class="block">([\s\S]*?)<\/div>/) || [])[0] || '';
@@ -149,7 +151,7 @@ export const api = {
           sectionTitle: cls,
           headingPath: `FTC SDK API > ${pkg} > ${cls}`,
           anchor: '',
-          sourceUrl: `https://javadoc.io/doc/org.firstinspires.ftc/RobotCore/latest/${pkg.replace(/\./g, '/')}/${cls}.html`,
+          sourceUrl: `https://javadoc.io/static/org.firstinspires.ftc/${artifact}/${SDK_VERSION}/${pkg.replace(/\./g, '/')}/${cls}.html`,
           category: 'programming',
           license: this.meta.license,
           canExcerpt: 1,

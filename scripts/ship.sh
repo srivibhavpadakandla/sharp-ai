@@ -19,6 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 TARGET="${1:-all}"
+case "$TARGET" in all|worker|web) ;; *) echo "usage: $0 [all|worker|web]" >&2; exit 1 ;; esac
 API="https://sharp-ai.srivibhavp.workers.dev"
 SITE="https://sharpftc.pages.dev"
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
@@ -44,6 +45,8 @@ say "checking it came up"
 health=$(curl -fsS -m 30 "$API/api/health?cb=$RANDOM") || { echo "FAIL: worker health did not respond"; exit 1; }
 chunks=$(printf '%s' "$health" | sed -n 's/.*"chunks":\([0-9]*\).*/\1/p')
 [ "${chunks:-0}" -gt 0 ] || { echo "FAIL: worker reports $chunks chunks"; exit 1; }
+expected=$(node -e "console.log(require('./worker/src/lib/corpus-info.json').sections)")
+[ "$chunks" = "$expected" ] || { echo "FAIL: worker has $chunks sections, build expects $expected"; exit 1; }
 echo "worker ok, $chunks chunks indexed"
 
 code=$(curl -fsS -m 30 -o /dev/null -w '%{http_code}' "$SITE/?cb=$RANDOM") || true
@@ -53,8 +56,14 @@ echo "site ok"
 # The host the browser is told to call must be the one that answers. These
 # drifted apart once already, when the account's workers.dev subdomain changed:
 # every page loaded and no question was ever answered.
-bundle=$(find web/dist/_astro -maxdepth 1 -name 'ChatThread.*.js' -print -quit)
-[ -n "$bundle" ] || { echo "FAIL: chat bundle missing from build"; exit 1; }
+if [ "$TARGET" = "worker" ]; then
+  entry=$(curl -fsS -m 15 "$SITE/ask/?cb=$RANDOM" | grep -o '/_astro/AskIsland\.[A-Za-z0-9_-]*\.js' | head -1 || true)
+  [ -n "$entry" ] || { echo "FAIL: deployed chat entry missing"; exit 1; }
+  bundle=$(curl -fsS -m 15 "$SITE$entry" | grep -o 'ChatThread\.[A-Za-z0-9_-]*\.js' | head -1 || true)
+else
+  bundle=$(find web/dist/_astro -maxdepth 1 -name 'ChatThread.*.js' -print -quit)
+fi
+[ -n "$bundle" ] || { echo "FAIL: chat bundle missing"; exit 1; }
 asset="$SITE/_astro/${bundle##*/}"
 deployed=""
 for attempt in 1 2 3 4 5 6; do

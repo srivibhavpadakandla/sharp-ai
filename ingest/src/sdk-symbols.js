@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '../vendor/sdk-javadoc');
 const OUT = path.resolve(here, '../../worker/src/lib/ftc-sdk-symbols.json');
-const SDK_VERSION = process.env.FTC_SDK_VERSION || '11.2.1';
+const SDK_VERSION = process.env.FTC_SDK_VERSION || '12.0.0';
 
 /** javadoc writes `var x = [ ... ];updateSearchResults();` — take the array. */
 function readIndex(file) {

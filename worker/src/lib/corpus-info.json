@@ -1,0 +1,121 @@
+{
+  "updatedAt": "2026-10-11",
+  "sections": 3732,
+  "epoch": "893f64eff824054d",
+  "sdkVersion": "12.0.0",
+  "manualVersion": "TU04",
+  "sources": [
+    {
+      "id": "gm0",
+      "name": "Game Manual 0",
+      "sections": 649,
+      "homepage": "https://gm0.org",
+      "mode": "full"
+    },
+    {
+      "id": "ftc-docs",
+      "name": "FTC Docs",
+      "sections": 1051,
+      "homepage": "https://ftc-docs.firstinspires.org",
+      "mode": "full"
+    },
+    {
+      "id": "ftc-sdk-api",
+      "name": "FTC SDK API",
+      "sections": 391,
+      "homepage": "https://javadoc.io/doc/org.firstinspires.ftc",
+      "mode": "full"
+    },
+    {
+      "id": "ftc-sdk-samples",
+      "name": "FTC SDK Samples",
+      "sections": 63,
+      "homepage": "https://github.com/FIRST-Tech-Challenge/FtcRobotController",
+      "mode": "full"
+    },
+    {
+      "id": "ctrlaltftc",
+      "name": "CTRL ALT FTC",
+      "sections": 19,
+      "homepage": "https://www.ctrlaltftc.com",
+      "mode": "link"
+    },
+    {
+      "id": "ftclib",
+      "name": "FTCLib",
+      "sections": 33,
+      "homepage": "https://docs.ftclib.org",
+      "mode": "link"
+    },
+    {
+      "id": "roadrunner",
+      "name": "Road Runner",
+      "sections": 85,
+      "homepage": "https://rr.brott.dev",
+      "mode": "link"
+    },
+    {
+      "id": "rev",
+      "name": "REV Robotics Docs",
+      "sections": 752,
+      "homepage": "https://docs.revrobotics.com",
+      "mode": "link"
+    },
+    {
+      "id": "pedropathing",
+      "name": "Pedro Pathing",
+      "sections": 42,
+      "homepage": "https://pedropathing.com",
+      "mode": "summarize"
+    },
+    {
+      "id": "first-rules",
+      "name": "FIRST Official",
+      "sections": 2,
+      "homepage": "https://www.firstinspires.org",
+      "mode": "link"
+    },
+    {
+      "id": "first-manual",
+      "name": "FTC Competition Manual",
+      "sections": 218,
+      "homepage": "https://www.firstinspires.org/resource-library/ftc/game-and-season-info",
+      "mode": "summarize"
+    },
+    {
+      "id": "rr-quickstart",
+      "name": "Road Runner Quickstart",
+      "sections": 12,
+      "homepage": "https://github.com/acmerobotics/road-runner-quickstart",
+      "mode": "full"
+    },
+    {
+      "id": "chiefdelphi",
+      "name": "Chief Delphi",
+      "sections": 300,
+      "homepage": "https://www.chiefdelphi.com",
+      "mode": "link"
+    },
+    {
+      "id": "ftc-community",
+      "name": "FTC Community",
+      "sections": 47,
+      "homepage": "https://ftc-community.firstinspires.org",
+      "mode": "link"
+    },
+    {
+      "id": "frczero",
+      "name": "FRC Zero (FRC)",
+      "sections": 65,
+      "homepage": "https://www.frczero.org",
+      "mode": "link"
+    },
+    {
+      "id": "community-hubs",
+      "name": "FTC Community Resources",
+      "sections": 3,
+      "homepage": "https://theopenalliance.org",
+      "mode": "link"
+    }
+  ]
+}

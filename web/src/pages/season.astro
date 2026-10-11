@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { SEASON, ANGLES, GAME_SHAPE } from '../lib/season';
 import { MANUAL_CHANGES, CHANGE_COUNT } from '../lib/manualChanges';
-import { API_BASE } from '../lib/config';
+import { API_BASE, MANUAL_VERSION, CORPUS_UPDATED } from '../lib/config';
 
 // Read live rather than baked in: the moment the manual is re-ingested after
 // kickoff, this page stops saying the game is unpublished.
@@ -37,7 +37,7 @@ const sections = manual?.sectionCount ?? null;
       </p>
       <p>
         {published
-          ? 'The V1 manual is indexed, game sections and all. Every answer below is generated from it, so it reflects the published rules rather than a summary of them.'
+          ? `Manual ${MANUAL_VERSION} is indexed, including the game sections. Refreshed ${CORPUS_UPDATED}. Answers below explain it in their own words and link the original.`
           : 'The indexed manual does not carry the game sections yet, so nobody — including this site — can tell you how BIOBUZZ is played. Anything claiming otherwise is guessing.'}
         {sections && ` ${sections} sections are indexed today.`}
       </p>
@@ -64,9 +64,9 @@ const sections = manual?.sectionCount ?? null;
     <h2>What changed from DECODE</h2>
     <p>
       {CHANGE_COUNT} differences between the DECODE manual and BIOBUZZ, compiled by
-      the team before kickoff from the V0 manual. The rule changes they cover are
-      structural and still stand in V1; the game sections they could not see are
-      answered by the questions above. Rule and page numbers are kept exactly so you can open the manual and
+      the team from the V0 preseason manual. This is a historical year-to-year comparison;
+      rule wording and page numbers may have changed in subsequent updates. Use the current
+      manual and Team Q&amp;A for a decision at competition. Rule and page numbers are kept exactly so you can open the manual and
       check a line rather than take this on trust — this is our reading of the changes,
       not a <em>FIRST</em> publication, and where the two disagree the manual is right.
     </p>

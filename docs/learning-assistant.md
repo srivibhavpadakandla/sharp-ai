@@ -38,7 +38,9 @@ is separate. The entire JSON request is capped at 100,000 bytes.
 Context is untrusted learner data, not an instruction or citation source.
 Personalized requests bypass both reads and writes of the shared answer cache
 and do not enter the query log. Aggregate token/quota counters still apply.
-Attachments are sent to the answer provider for generation. Context fields are
+Attachments are sent to the answer provider for generation. Web search is disabled
+when code, errors, attempts, lesson text, robot specifications, or conversation
+history are attached, so private context is not routed through search queries. Context fields are
 not automatically retained by the server; generated replies can still be saved
 in the learner's browser. Browser chat history is local, not synced.
 

@@ -132,3 +132,12 @@ test('uncited reasoning strips prose citations across chunks while preserving Ja
     assert.equal(output, input.replace(' [3]', ' ').replace(' [1, 2]', ' '), `chunk ${size}`);
   }
 });
+
+test('observed two-equals markers never blend uncited reasoning into grounded text', () => {
+  for (const grounded of ['===GROUNDED==', '===GROUNDED===', '===GROUNDED+==']) {
+    for (const beyond of ['===BEYOND==', '===BEYOND===']) eachChunk(`${grounded}\nSupported fact [1].\n\n${beyond}\nUnverified suggestion.`, (r, c) => {
+      assert.equal(r.grounded, 'Supported fact [1].', `chunk ${c}`);
+      assert.equal(r.beyond, 'Unverified suggestion.', `chunk ${c}`);
+    });
+  }
+});

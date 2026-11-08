@@ -78,7 +78,8 @@ export function tutorPlan(question, history, learning, specs = '') {
   let diagnostic = null;
   const symptom = /won.t|doesn.t|fails?|binding|binds|stall|jitter|loses power|cuts? out|resets|not moving|never stops|keeps falling|runs away/i.test(question)
     && /motor|servo|robot|lift|slide|arm|encoder|hub|mechanism|drivetrain|power/i.test(reported);
-  if (mode === 'diagnose' || symptom) {
+  const codeFocused = Boolean(learning?.files.length) && mode !== 'diagnose';
+  if (!codeFocused && (mode === 'diagnose' || symptom)) {
     // The newest concrete observation wins. Negative observations must be checked before positives.
     for (const observation of [...observations].reverse()) {
       if (/name.*(?:does not match|doesn't match|mismatch)|different.*(?:configured|device).*name/i.test(observation)) {

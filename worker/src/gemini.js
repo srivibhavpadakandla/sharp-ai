@@ -410,6 +410,7 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
       + (isCode && !guided ? CODE_SYSTEM_ADDENDUM : '')
       + (offTopic ? OFF_TOPIC_ADDENDUM
         : !guided && intent === 'advice' ? ADVICE_ADDENDUM : !guided && intent === 'debug' ? DEBUG_ADDENDUM : '');
+  const privateInput = Boolean(specs || page || history.length || learning && (learning.files.length || learning.error || learning.attempt || learning.lesson));
   const body = {
     systemInstruction: {parts: [{text: systemText}, {text: LEARNING_SYSTEM_RULES + '\n' + sourcePolicy(question, chunks) + '\n' + teachingRules}]},
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -418,7 +419,7 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     // numbers belong to sections, anything found on the web is named and linked
     // in prose. The live-data block already works this way and the model keeps
     // them apart correctly.
-    ...(env.WEB_SEARCH !== 'off' ? { tools: [{ google_search: {} }] } : {}),
+    ...(env.WEB_SEARCH !== 'off' && !privateInput ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
       temperature: 0.15,
       topP: 0.9,
@@ -553,7 +554,6 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
 
 export const GROUNDED_MARKER = '===GROUNDED===';
 // The second spelling was observed in a production model response.
-const GROUNDED_HEADERS = [GROUNDED_MARKER, '===GROUNDED+=='];
 export const BEYOND_MARKER = '===BEYOND===';
 
 /**
@@ -639,77 +639,60 @@ export function createAnswerSplitter() {
    * "==="), so neither slice ever contains the whole string and it leaks into
    * the answer. The decision has to be made on the accumulated buffer.
    */
-  function consumeHeader() {
+  function consumeHeader(final = false) {
     if (headerDone) return true;
     const lead = buffer.replace(/^\s+/, '');
-    const header = GROUNDED_HEADERS.find((marker) => lead.startsWith(marker));
-    if (header) {
-      buffer = lead.slice(header.length).replace(/^\n/, '');
+    const marker = lead.match(/^={2,}GROUNDED\+?={2,}/);
+    if (marker && (final || lead.length > marker[0].length)) {
+      buffer = lead.slice(marker[0].length).replace(/^\r?\n/, '');
       headerDone = true;
       return true;
     }
-    // Still might become the marker once more arrives.
-    if (GROUNDED_HEADERS.some((marker) => marker.startsWith(lead))) return false;
-    headerDone = true;      // the model simply did not emit it
+    if (!final && lead.length < 64 && (!lead || (lead.startsWith('=') && !lead.includes('\n')))) return false;
+    headerDone = true;
     return true;
   }
 
-  return {
-    /** @returns {{grounded: string, beyond: string}} newly completed text */
-    push(delta) {
-      buffer += delta;
-      let grounded = '';
-      let beyond = '';
-
-      if (!inBeyond && !consumeHeader()) return { grounded: '', beyond: '' };
-
-      if (!inBeyond) {
-        const idx = buffer.indexOf(BEYOND_MARKER);
-        if (idx === -1) {
-          // Hold back a marker-length tail so a marker split across two chunks
-          // is never emitted as answer text.
-          const safe = Math.max(0, buffer.length - BEYOND_MARKER.length);
-          grounded = buffer.slice(0, safe);
-          buffer = buffer.slice(safe);
-        } else {
-          grounded = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + BEYOND_MARKER.length);
-          inBeyond = true;
-          beyond = buffer;
-          buffer = '';
-        }
+  function split(delta, final = false) {
+    buffer += delta;
+    let grounded = '', beyond = '';
+    if (!inBeyond && !consumeHeader(final)) return {grounded, beyond};
+    if (!inBeyond) {
+      const marker = /={2,}BEYOND={2,}/.exec(buffer);
+      const ready = marker && (final || marker.index + marker[0].length < buffer.length);
+      if (!ready) {
+        const safe = final ? 0 : Math.max(0, buffer.length - 64);
+        grounded = buffer.slice(0, safe);
+        buffer = buffer.slice(safe);
       } else {
-        beyond = buffer;
-        buffer = '';
+        grounded = buffer.slice(0, marker.index);
+        beyond = buffer.slice(marker.index + marker[0].length);
+        buffer = ''; inBeyond = true;
       }
+    } else {beyond = buffer; buffer = '';}
+    let out = gateOpener(stripGroundedMarker(grounded));
+    if (inBeyond) out += flushOpener(true);
+    return {grounded: out, beyond};
+  }
 
-      // Crossing into BEYOND ends the grounded half, so a held opener has to be
-      // released here — and the beyond text is the content that follows it.
-      let out = gateOpener(stripGroundedMarker(grounded));
-      // Passing the marker is proof that more answer follows, even though the
-      // text after it has not streamed yet. Testing `beyond` for content here
-      // read empty on the push that completed the marker, and every off-topic
-      // deflection survived on that technicality.
-      if (inBeyond) out += flushOpener(true);
-      return { grounded: out, beyond };
-    },
-    /** Flush whatever is still held back. */
+  return {
+    push: split,
     end() {
-      if (!inBeyond) consumeHeader();
-      const rest = buffer;
-      buffer = '';
+      const first = split('', true);
+      const rest = buffer; buffer = '';
       return inBeyond
-        ? { grounded: flushOpener(Boolean(rest.trim())), beyond: rest }
-        : { grounded: gateOpener(stripGroundedMarker(rest)) + flushOpener(), beyond: '' };
+        ? {grounded: first.grounded + flushOpener(Boolean(rest.trim())), beyond: first.beyond + rest}
+        : {grounded: first.grounded + gateOpener(stripGroundedMarker(rest)) + flushOpener(), beyond: ''};
     },
-    get startedBeyond() { return inBeyond; },
+    get startedBeyond() {return inBeyond;},
   };
+
 }
 
 export function stripGroundedMarker(text) {
   // Belt and braces: consumeHeader handles the leading marker, this catches a
   // stray repeat anywhere in the body.
-  return GROUNDED_HEADERS.reduce((out, marker) => out.split(marker).join(''), text);
+  return text.replace(/={2,}GROUNDED\+?={2,}/g, '');
 }
 
 /**

@@ -138,3 +138,8 @@ criteria. Record the commit/deployment with the results externally. Do not claim
 measured improvement until comparable runs have been reviewed.
 
 No live baseline, quality score, or improvement claim is bundled with this code.
+
+## Recorded live review
+
+See [the dated live evaluation summary](evaluation-results-2026-11-08.md) for actual
+outputs, provisional model scores, failures, and the limits of those samples.

@@ -81,3 +81,9 @@ export function conversationMarkdown(turns: Turn[]): string {
   return '# Sharp AI conversation\n\n' + turns.map((t) => `## ${t.question}\n\n${answerMarkdown(t)}`).join('\n\n---\n\n')
     + '\n\nGenerated answers can be wrong. Verify the linked documentation.\n';
 }
+
+/** In-memory follow-ups may refer to uncited reasoning, which is never documentary evidence. */
+export function contextHistory(turns: Turn[], beforeIndex = turns.length) {
+  return turns.slice(0, beforeIndex).filter((t) => t.status === 'done' && (t.answer || t.beyond)).slice(-2)
+    .map((t) => ({question: t.question, answer: [t.answer, t.beyond].filter(Boolean).join('\n\n').slice(0, 1200)}));
+}

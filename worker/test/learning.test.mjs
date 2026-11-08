@@ -2,8 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {normalizeLearning, learningQuery, tutorPlan, requiredLibraryVersion, readAskBody} from '../src/learning.js';
 import {buildPrompt, streamGemini} from '../src/gemini.js';
-import {buildEvidence, sourceVersion, sourcePolicy} from '../src/evidence.js';
+import {buildEvidence, sourceVersion, sourcePolicy, manualSnapshotNotice} from '../src/evidence.js';
 import {verifyCitations} from '../src/citecheck.js';
+import {keywordSearch} from '../src/retrieval.js';
 import worker from '../src/index.js';
 const context = normalizeLearning({mode: 'hint', files: [{name: 'Main.java', source: 'DcMotor lift; lift.setPower(0);'}], error: 'NullPointerException', lesson: 'Initialize hardware first.', attempt: 'I tried init().'});
 test('context preserves code and rejects malformed or oversized attachments without truncation', () => {
@@ -40,7 +41,7 @@ test('request parsing bounds byte size and rejects non-object JSON', async () =>
 test('personalized generation never touches the shared answer cache or query log', async () => {
   const chunk = {chunkId: 'sdk:1', sourceId: 'ftc-sdk-api', sourceName: 'FTC SDK API', pageTitle: 'DcMotor', sectionTitle: 'setPower', headingPath: 'DcMotor > setPower', sourceUrl: 'https://example.org/sdk', text: 'Call setPower with a nonzero power value to move the motor. Initialize the motor with hardwareMap before use.', canExcerpt: 1, excerptMode: 'full', score: 20, category: 'software', license: 'BSD'};
   const writes = [], pending = [], kv = new Map();
-  const env = {REQUIRE_TURNSTILE: 'false', AGENTIC: 'false', WEB_SEARCH: 'off', GEMINI_API_KEY: 'test',
+  const env = {REQUIRE_TURNSTILE: 'false', AGENTIC: 'false', GEMINI_API_KEY: 'test',
     AI: {run: async () => ({data: [Array(768).fill(0.1)]})}, VECTORIZE: {query: async () => ({matches: [{id: chunk.chunkId, score: 0.95}]})},
     RATE: {get: async (k) => kv.get(k) || null, put: async (k, v) => kv.set(k, v)},
     CACHE: {get: async () => {throw Error('private cache read');}, put: async () => {throw Error('private cache write');}},
@@ -49,7 +50,9 @@ test('personalized generation never touches the shared answer cache or query log
   const original = globalThis.fetch;
   let prompt = '';
   globalThis.fetch = async (_url, init) => {
-    prompt = JSON.parse(init.body).contents[0].parts[0].text;
+    const request = JSON.parse(init.body);
+    assert.equal(request.tools, undefined, 'private code must not be sent through web search');
+    prompt = request.contents[0].parts[0].text;
     return new Response('data: '+JSON.stringify({candidates: [{content: {parts: [{text: '===GROUNDED===\nCall setPower with a nonzero power value to move the motor after initializing it with hardwareMap [1].\n\n===BEYOND===\nTest one small change.'}]}}]})+'\n\n');
   };
   try {
@@ -118,4 +121,23 @@ test('rules policy names the indexed revision and forbids describing an old inde
 test('ordinary mechanical fault questions receive diagnosis rather than an assumed root cause', () => {
   const plan = tutorPlan('My lift binds near the top. Do I need stronger motors?', [], normalizeLearning({mode: 'explain'}));
   assert.match(plan.diagnostic.question, /power off/);
+});
+
+test('rule freshness is emitted as a server disclosure instead of relying on the model', () => {
+  assert.match(manualSnapshotNotice('What is the starting size?', [{sourceName: 'FTC Competition Manual'}]), /2026–2027.*TU04.*2026-10-11.*may be out of date/);
+  assert.equal(manualSnapshotNotice('How do I wire a motor?', [{sourceName: 'Game Manual 0'}]), '');
+});
+test('code hints do not offer unrelated hardware or reboot followups', () => {
+  const plan = tutorPlan('Why does my arm never stop?', [], normalizeLearning({mode: 'hint', files: [{name: 'Main.java', source: 'if(gamepad1.a) arm.setPower(0.5);'}]}));
+  assert.equal(plan.diagnostic, null); assert.ok(plan.followUps.includes('Show the solution and explain why.'));
+});
+
+test('private retrieval failures do not log query text or error details containing learner data', async () => {
+  const original = console.error; const logs = [];
+  console.error = (...args) => logs.push(args.join(' '));
+  try {
+    const env = {PRIVATE_QUERY: true, DB: {prepare: () => {throw Error('private-device-name');}}};
+    assert.deepEqual(await keywordSearch(env, 'private-device-name', 6), []);
+    assert.equal(logs.some((line) => line.includes('private-device-name')), false);
+  } finally {console.error = original;}
 });

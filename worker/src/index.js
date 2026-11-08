@@ -16,7 +16,7 @@
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
 import { normalizeLearning, readAskBody, learningQuery, tutorPlan } from './learning.js';
-import { buildEvidence, sourceVersion } from './evidence.js';
+import { buildEvidence, sourceVersion, manualSnapshotNotice } from './evidence.js';
 import { corsHeaders } from './cors.js';
 import { verifyFirebaseToken } from './firebase.js';
 import corpusInfo from './lib/corpus-info.json' with { type: 'json' };
@@ -226,6 +226,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   }
   const privateContext = Boolean(learning || page || specs || isFollowUp);
   const plan = tutorPlan(question, history, learning, specs);
+  const retrievalEnv = privateContext ? {...env, PRIVATE_QUERY: true} : env;
   const query = learning ? learningQuery(question, page, learning, history) : retrievalQuery(question, page);
   const log = (entry) => privateContext ? Promise.resolve() : logQuery(env, entry);
   const isCode = isCodeRequest(question);
@@ -313,7 +314,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const intent = intentOf(question);
   const teamNo = teamNumberIn(question);
   const [{ chunks, gate, stats }, teamData, pageChunks] = await Promise.all([
-    retrieve(env, query),
+    retrieve(retrievalEnv, query),
     teamNo ? lookupTeam(teamNo, Number(env.FTC_SEASON || 2025)) : Promise.resolve(null),
     // Loaded, not searched for. We know which page the student is on, so its
     // own text is fetched by URL rather than left to resemble the question
@@ -413,7 +414,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         agent.queries = plan.queries || [];
         agent.interpretation = plan.interpretation || null;
 
-        const wide = await retrieveMulti(env, queries);
+        const wide = await retrieveMulti(retrievalEnv, queries);
         mark('retrieveMulti');
         const candidates = wide.chunks.length ? wide.chunks : chunks;
 
@@ -428,7 +429,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       }
     } catch (err) {
       // The agentic layer is an improvement, never a dependency.
-      console.error('agentic pass failed, using fusion order', err.message);
+      console.error('agentic pass failed, using fusion order', privateContext ? 'private request' : err.message);
       finalChunks = chunks;
     }
   }
@@ -446,6 +447,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
 
   const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, learning, plan, uncovered, offTopic, liveBlock, intent });
   const category = finalChunks[0]?.category || null;
+  const manualNotice = manualSnapshotNotice(question, citations);
   if (plan.needsVersion) {
     const libraryCitations = citations.filter((c) => c.sourceName.toLowerCase().includes(plan.needsVersion.toLowerCase().split(' ')[0]));
     return streamPrerendered({question,
@@ -499,6 +501,10 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         stats: { bestBm25: stats.bestBm25, bestCosine: stats.bestCosine },
       })));
 
+      if (manualNotice) {
+        grounded = manualNotice + '\n\n';
+        await writer.write(encoder.encode(sse('token', {t: grounded})));
+      }
       let announcedBeyond = false;
       const emit = async ({ grounded: g, beyond: b }, final = false) => {
         if (g) {
@@ -608,7 +614,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         latencyMs: Date.now() - started,
       });
     } catch (err) {
-      console.error('ask failed', err.stack || err.message);
+      console.error('ask failed', privateContext ? 'private request' : err.stack || err.message);
       // Degrade in place: the reader already has the sources, give them the
       // excerpt fallback rather than an error page.
       // The reason and the message must agree. They did not: the reason
@@ -647,6 +653,8 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
 
 /** Replays an already-known answer over the same SSE protocol the client expects. */
 function streamPrerendered(payload, cors, meta = {}) {
+  const notice = manualSnapshotNotice(payload.question, payload.citations || []);
+  const answer = notice && !payload.answerMd.startsWith(notice) ? notice + '\n\n' + payload.answerMd : payload.answerMd;
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
@@ -657,8 +665,8 @@ function streamPrerendered(payload, cors, meta = {}) {
         category: payload.category || null,
         ...meta,
       })));
-      controller.enqueue(encoder.encode(sse('token', { t: stripGroundedMarker(payload.answerMd) })));
-      controller.enqueue(encoder.encode(sse('evidence', {claims: buildEvidence(payload.answerMd, payload.citations || [], payload.excerpts || [])})));
+      controller.enqueue(encoder.encode(sse('token', { t: stripGroundedMarker(answer) })));
+      controller.enqueue(encoder.encode(sse('evidence', {claims: buildEvidence(answer, payload.citations || [], payload.excerpts || [])})));
       controller.enqueue(encoder.encode(sse('done', { slug: null })));
       controller.close();
     },
@@ -894,9 +902,9 @@ export default {
     try {
       const p = url.pathname.replace(/\/+$/, '') || '/';
 
-      if (p === '/api/ask' && request.method === 'POST') return handleAsk(request, env, ctx);
+      if (p === '/api/ask' && request.method === 'POST') return await handleAsk(request, env, ctx);
       if (p === '/api/explain-error' && request.method === 'POST') {
-        return handleAsk(request, env, ctx, { isError: true });
+        return await handleAsk(request, env, ctx, { isError: true });
       }
       if (p === '/api/feedback' && request.method === 'POST') return handleFeedback(request, env);
       if (p === '/api/search') return handleSearch(request, env, url);
@@ -921,8 +929,8 @@ export default {
 
       return json({ error: 'not-found' }, { status: 404 }, cors);
     } catch (err) {
-      console.error('unhandled', err.stack || err.message);
-      return json({ error: 'internal', message: err.message }, { status: 500 }, cors);
+      console.error('unhandled request');
+      return json({ error: 'internal' }, { status: 500 }, cors);
     }
   },
 };

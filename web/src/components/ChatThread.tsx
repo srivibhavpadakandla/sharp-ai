@@ -9,7 +9,7 @@ import RobotSpecs from './RobotSpecs';
 import { CORPUS_SECTIONS, CORPUS_UPDATED } from '../lib/config';
 import { ask } from '../lib/ask';
 import { blankTurn, type Turn, type SeedTurn } from '../lib/chat-types';
-import { loadConversations, saveConversations, conversationMarkdown, type Conversation } from '../lib/conversations';
+import { loadConversations, saveConversations, conversationMarkdown, contextHistory, type Conversation } from '../lib/conversations';
 import { loadSpecs, specsForPrompt } from '../lib/specs';
 import './sources.css';
 import './chat.css';
@@ -71,8 +71,7 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
     requestRef.current = controller;
     const id = retryId ?? nextId.current++;
     const index = retryId === undefined ? turnsRef.current.length : turnsRef.current.findIndex((t) => t.id === id);
-    const history = turnsRef.current.slice(0, index).filter((t) => t.answer && t.status === 'done').slice(-2)
-      .map((t) => ({ question: t.question, answer: t.answer }));
+    const history = contextHistory(turnsRef.current, index);
     changeTurns((all) => retryId === undefined ? [...all, blankTurn(id, q)] : all.map((t) => t.id === id ? blankTurn(id, q) : t));
     setActive(Math.max(0, index));
     setActiveCite(null);

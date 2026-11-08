@@ -53,3 +53,9 @@ export function sourcePolicy(question, chunks) {
   return base + (manual && /rule|legal|allowed|inspection|size|scor|season|biobuzz/i.test(question)
     ? `For competition rules, explicitly name the indexed 2026–2027 Competition Manual revision ${corpus.manualVersion} and snapshot date ${corpus.updatedAt} in the answer. Never call it the current or latest manual; the linked manual may have changed since indexing. State that the current official manual and Team Q&A must be checked before relying on an interpretation. Do not invent dimensions or exceptions not supported by the retrieved rule. ` : '');
 }
+
+export function manualSnapshotNotice(question, sources) {
+  return sources.some((c) => /Competition Manual/.test(c.sourceName || ''))
+    && /rule|legal|allowed|inspection|size|scor|season|biobuzz/i.test(question)
+    ? `Indexed rules snapshot: 2026–2027 Competition Manual ${corpus.manualVersion}, indexed ${corpus.updatedAt}. This may be out of date. Verify the current official manual and Team Q&A before relying on a rule interpretation.` : '';
+}

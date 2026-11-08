@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderMarkdown } from '../src/lib/markdown.ts';
-import { parseConversations, saveConversations, conversationMarkdown } from '../src/lib/conversations.ts';
+import { parseConversations, saveConversations, conversationMarkdown, contextHistory } from '../src/lib/conversations.ts';
 import { blankTurn } from '../src/lib/chat-types.ts';
 import { parseSseEvent } from '../src/lib/sse.ts';
 
@@ -47,4 +47,10 @@ test('restored evidence cannot expose restricted passages or unsafe source links
   assert.equal(restored.citations[0].version, 'TU04');
   assert.equal(restored.evidence[0].sources[0].passage, null);
   assert.equal(restored.evidence[0].sources[0].status, 'restricted');
+});
+
+test('an uncited hint stays available for in-memory follow-ups while remaining absent from saved notes', () => {
+  const turn = {...blankTurn(0, 'Give me a hint.'), status: 'done', beyond: 'What happens when the button is released?'};
+  assert.equal(contextHistory([turn])[0].answer, turn.beyond);
+  assert.doesNotMatch(conversationMarkdown([turn]), /What happens when the button is released/);
 });

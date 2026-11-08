@@ -38,3 +38,13 @@ test('SSE handles CRLF and multiline data without accepting malformed JSON', () 
   assert.deepEqual(parseSseEvent('event: done\r\ndata: {\r\ndata: "slug": null\r\ndata: }\r\n'), { event: 'done', payload: { slug: null } });
   assert.equal(parseSseEvent('event: token\ndata: broken'), null);
 });
+
+
+test('restored evidence cannot expose restricted passages or unsafe source links', () => {
+  const source = {n: 1, chunkId: 'c', sourceId: 'manual', sourceName: 'Manual', headingPath: 'Rule', url: 'https://example.org/manual', canExcerpt: false, mode: 'summarize', version: 'TU04'};
+  const raw = JSON.stringify([{id: 'a', title: 'Rules', turns: [{question: 'Rule?', answer: 'A claim [1].', status: 'done', citations: [source], evidence: [{claim: 'A claim', sources: [{n: 1, status: 'matched', passage: 'Restricted text'}]}]}]}]);
+  const restored = parseConversations(raw)[0].turns[0];
+  assert.equal(restored.citations[0].version, 'TU04');
+  assert.equal(restored.evidence[0].sources[0].passage, null);
+  assert.equal(restored.evidence[0].sources[0].status, 'restricted');
+});

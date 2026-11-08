@@ -103,3 +103,19 @@ returns `503 auth-unavailable`. Missing public CAPTCHA tokens still return
 `403 turnstile-failed`. Run `npm test` in `worker/` before deploying: the tests
 exercise the real ask handler with locally signed test tokens and mocked public
 keys, CORS configuration, invalid credentials, and shared-network budgets.
+
+## Learn and troubleshoot with code
+
+Choose a hint, explanation, worked solution, or step-by-step diagnosis in chat.
+Attach Java files or paste a small example, then add the exact error and what
+you tried. The Telemark panel can attach its current simulator project and
+lesson section. `Explain this code` connects the explanation to actual files
+and proposes a small test; it does not execute or apply changes.
+
+Expand **Check claims against sources** to compare cited claims with permitted
+source passages and indexed versions. Wording matches help inspect a citation;
+they do not independently establish correctness. Personalized requests stay out
+of the shared server answer cache and query log. Replies saved in browser history
+can contain code. See [learning assistant](docs/learning-assistant.md) for limits,
+privacy, and the request contract, and [evaluation](docs/evaluation.md) for the
+40-case answer-quality benchmark.

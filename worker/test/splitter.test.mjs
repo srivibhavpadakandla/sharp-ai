@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createAnswerSplitter, streamGemini } from '../src/gemini.js';
+import { createAnswerSplitter, createBeyondSanitizer, streamGemini } from '../src/gemini.js';
 
 /** Feed text through the splitter in fixed-size pieces, as the model streams it. */
 function split(text, chunk) {
@@ -120,4 +120,15 @@ test('answer falls back to flash-lite when the main model has no quota', async (
 test('strips the malformed grounded header observed in production at every chunk size', () => {
   eachChunk('===GROUNDED+==\nUse setDirection to reverse the motor.',
     (r, c) => assert.equal(r.grounded, 'Use setDirection to reverse the motor.', `chunk ${c}`));
+});
+
+test('uncited reasoning strips prose citations across chunks while preserving Java arrays and code blocks', () => {
+  const input = 'Try this [3].\nUse motors[0] and `values[1]`.\n```java\nint[] a = new int[3];\nint x = a[0];\n```\nThen test [1, 2].';
+  for (const size of CHUNKS) {
+    const filter = createBeyondSanitizer();
+    let output = '';
+    for (let i = 0; i < input.length; i += size) output += filter.push(input.slice(i, i + size));
+    output += filter.end();
+    assert.equal(output, input.replace(' [3]', ' ').replace(' [1, 2]', ' '), `chunk ${size}`);
+  }
 });

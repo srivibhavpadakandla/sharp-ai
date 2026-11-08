@@ -1,3 +1,4 @@
+import type {TutorPlan, EvidenceClaim} from './learning';
 import type { Citation, Excerpt, Validation, CiteCheck } from './ask';
 
 export type Status = 'thinking' | 'streaming' | 'done' | 'refused' | 'error' | 'stopped';
@@ -10,6 +11,7 @@ export interface Turn {
   citations: Citation[]; excerpts: Excerpt[]; status: Status;
   agent: Agent | null; slug: string | null; notice: string | null; error: string | null;
   validation: Validation | null; citecheck: CiteCheck | null;
+  tutor?: TutorPlan; evidence?: EvidenceClaim[];
   rated: 'up' | 'down' | null; reason?: string;
 }
 export interface SeedTurn {

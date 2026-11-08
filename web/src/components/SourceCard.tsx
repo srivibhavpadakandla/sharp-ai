@@ -16,7 +16,7 @@ export default function SourceCard({ citation: c, text, active, onEnter }: {
         <span className="src__n">{c.n}</span>
         <div>
           <p className="src__path">{c.headingPath}</p>
-          <p className="src__meta">{c.sourceName}<span className="src__dot">·</span>{c.license}</p>
+          <p className="src__meta">{c.sourceName}{c.version && <> · {c.version}</>}<span className="src__dot">·</span>{c.license}</p>
         </div>
       </header>
       {body ? (

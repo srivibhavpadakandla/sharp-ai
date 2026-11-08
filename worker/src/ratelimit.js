@@ -27,23 +27,17 @@ async function bump(kv, key, ttl) {
   return next;
 }
 
-/**
- * Limits are keyed to a hashed IP.
- *
- * There was a second subject here: a signed-in account, which is the better
- * one — a school shares one address across a lab, so an address limit rations
- * a class by whoever asks first, and an anonymous visitor can reset one by
- * changing networks. It required a sign-in that only the removed embedding
- * site offered, so nothing could present an account any more.
- */
-export async function checkRateLimit(env, request) {
+/** Signed-in students get separate budgets, including on a shared school network. */
+export async function checkRateLimit(env, request, identity = null) {
   const ip = request.headers.get('cf-connecting-ip')
     || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || '0.0.0.0';
-  const id = await hashIp(ip);
+  const id = identity?.uid ? `u:${await hashIp(identity.uid, env.FIREBASE_PROJECT_ID)}` : await hashIp(ip);
 
   const perMin = Number(env.RATE_PER_MIN || 10);
-  const perDay = Number(env.RATE_PER_DAY || 100);
+  const perDay = identity?.uid
+    ? Number(env.RATE_PER_DAY_SIGNED_IN || 60)
+    : Number(env.RATE_PER_DAY || 100);
 
   const mKey = `rl:m:${id}:${minuteKey()}`;
   const dKey = `rl:d:${id}:${dayKey()}`;

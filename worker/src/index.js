@@ -15,7 +15,9 @@
  *
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
-import corpusInfo from './lib/corpus-info.json';
+import { corsHeaders } from './cors.js';
+import { verifyFirebaseToken } from './firebase.js';
+import corpusInfo from './lib/corpus-info.json' with { type: 'json' };
 import { retrieve, retrieveMulti, chunksForUrl } from './retrieval.js';
 import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond, needsDepth } from './gemini.js';
 import { classify } from './lib/topic.js';
@@ -166,21 +168,6 @@ function retrievalQuery(question, page) {
   return [page.title, page.section, question].filter(Boolean).join(' — ');
 }
 
-function corsHeaders(env, request) {
-  const origin = request.headers.get('origin') || '';
-  const allowed = (env.SITE_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const ok = allowed.includes(origin)
-    || /^https?:\/\/localhost(:\d+)?$/.test(origin)
-    || /^https:\/\/[a-z0-9-]+\.sharp-ai\.pages\.dev$/.test(origin)
-    || /\.pages\.dev$/.test(origin);
-  return {
-    'access-control-allow-origin': ok ? origin : (allowed[0] || '*'),
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers': 'content-type',
-    'access-control-max-age': '86400',
-    vary: 'origin',
-  };
-}
 
 const json = (data, init = {}, extra = {}) => new Response(JSON.stringify(data), {
   ...init,
@@ -233,14 +220,19 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const chat = body.chat === true;
 
   // --- 1. Who is asking -----------------------------------------------------
-  // Turnstile only. There used to be a second path here: a signed-in account
-  // stood in for the CAPTCHA, because a Google sign-in proves more than a
-  // checkbox does and making a signed-in student solve one too is a toll with
-  // no purpose. The only site that signed anyone in has been removed, so the
-  // account path verified tokens no caller could produce.
-  const ts = await verifyTurnstile(env, token, request);
-  if (!ts.ok) {
-    return json({ error: 'turnstile-failed', detail: ts.reason }, { status: 403 }, cors);
+  let identity = null;
+  if (body.idToken) {
+    identity = await verifyFirebaseToken(env, body.idToken);
+    if (!identity.ok) {
+      const unavailable = ['not-configured', 'jwk-unavailable'].includes(identity.reason);
+      return json({ error: unavailable ? 'auth-unavailable' : 'auth-failed' },
+        { status: unavailable ? 503 : 403 }, cors);
+    }
+  } else {
+    const ts = await verifyTurnstile(env, token, request);
+    if (!ts.ok) {
+      return json({ error: 'turnstile-failed', detail: ts.reason }, { status: 403 }, cors);
+    }
   }
 
   // --- 3. Length (checked before the KV round-trips so junk costs nothing) ---
@@ -259,7 +251,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   }
 
   // --- 2. Rate limit --------------------------------------------------------
-  const rl = await checkRateLimit(env, request);
+  const rl = await checkRateLimit(env, request, identity);
   if (!rl.ok) {
     return json(
       { error: 'rate-limited', scope: rl.scope, limit: rl.limit },

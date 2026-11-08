@@ -116,3 +116,8 @@ test('answer falls back to flash-lite when the main model has no quota', async (
     globalThis.fetch = originalFetch;
   }
 });
+
+test('strips the malformed grounded header observed in production at every chunk size', () => {
+  eachChunk('===GROUNDED+==\nUse setDirection to reverse the motor.',
+    (r, c) => assert.equal(r.grounded, 'Use setDirection to reverse the motor.', `chunk ${c}`));
+});

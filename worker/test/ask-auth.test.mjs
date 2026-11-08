@@ -42,6 +42,16 @@ test('a signed Telemark request streams without Turnstile or model calls', async
     assert.match(stream, /event: token/);
     assert.match(stream, /event: done/);
     assert.equal(keyCalls, 1);
+    const cached = await worker.fetch(request({question: 'Reverse my motor', idToken}), {
+      ...env,
+      RATE: {get: async () => '0'},
+      CACHE: {get: async () => ({question: 'Reverse my motor', answerMd: '===GROUNDED+==\nUse setDirection.'})},
+      DB: {prepare: () => ({bind: () => ({run: async () => ({})})})},
+    }, ctx);
+    assert.equal(cached.status, 200);
+    const replay = await cached.text();
+    assert.match(replay, /Use setDirection/);
+    assert.doesNotMatch(replay, /GROUNDED/);
   } finally { globalThis.fetch = original; }
 });
 

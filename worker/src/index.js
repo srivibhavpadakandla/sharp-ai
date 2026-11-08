@@ -19,7 +19,7 @@ import { corsHeaders } from './cors.js';
 import { verifyFirebaseToken } from './firebase.js';
 import corpusInfo from './lib/corpus-info.json' with { type: 'json' };
 import { retrieve, retrieveMulti, chunksForUrl } from './retrieval.js';
-import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond, needsDepth } from './gemini.js';
+import { streamGemini, buildPrompt, createAnswerSplitter, stripGroundedMarker, sanitiseBeyond, needsDepth } from './gemini.js';
 import { classify } from './lib/topic.js';
 import { teamNumberIn, lookupTeam, describeTeam } from './lib/ftcscout.js';
 import { intentOf } from './lib/intent.js';
@@ -631,7 +631,7 @@ function streamPrerendered(payload, cors, meta = {}) {
         category: payload.category || null,
         ...meta,
       })));
-      controller.enqueue(encoder.encode(sse('token', { t: payload.answerMd })));
+      controller.enqueue(encoder.encode(sse('token', { t: stripGroundedMarker(payload.answerMd) })));
       controller.enqueue(encoder.encode(sse('done', { slug: null })));
       controller.close();
     },

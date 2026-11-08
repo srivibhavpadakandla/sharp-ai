@@ -552,6 +552,8 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
 // ---------------------------------------------------------------------------
 
 export const GROUNDED_MARKER = '===GROUNDED===';
+// The second spelling was observed in a production model response.
+const GROUNDED_HEADERS = [GROUNDED_MARKER, '===GROUNDED+=='];
 export const BEYOND_MARKER = '===BEYOND===';
 
 /**
@@ -640,13 +642,14 @@ export function createAnswerSplitter() {
   function consumeHeader() {
     if (headerDone) return true;
     const lead = buffer.replace(/^\s+/, '');
-    if (lead.startsWith(GROUNDED_MARKER)) {
-      buffer = lead.slice(GROUNDED_MARKER.length).replace(/^\n/, '');
+    const header = GROUNDED_HEADERS.find((marker) => lead.startsWith(marker));
+    if (header) {
+      buffer = lead.slice(header.length).replace(/^\n/, '');
       headerDone = true;
       return true;
     }
     // Still might become the marker once more arrives.
-    if (lead.length < GROUNDED_MARKER.length && GROUNDED_MARKER.startsWith(lead)) return false;
+    if (GROUNDED_HEADERS.some((marker) => marker.startsWith(lead))) return false;
     headerDone = true;      // the model simply did not emit it
     return true;
   }
@@ -703,10 +706,10 @@ export function createAnswerSplitter() {
   };
 }
 
-function stripGroundedMarker(text) {
+export function stripGroundedMarker(text) {
   // Belt and braces: consumeHeader handles the leading marker, this catches a
   // stray repeat anywhere in the body.
-  return text.split(GROUNDED_MARKER).join('');
+  return GROUNDED_HEADERS.reduce((out, marker) => out.split(marker).join(''), text);
 }
 
 /**

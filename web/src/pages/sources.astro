@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+import SourceExplorer from '../components/SourceExplorer';
+import corpus from '../../../worker/src/lib/corpus-info.json';
+import {parseCorpus} from '../lib/source-explorer';
+const snapshot = parseCorpus(corpus);
+if (!snapshot) throw new Error('Invalid built corpus metadata');
+export const prerender = true;
+---
+<Base title="Source notebook — Sharp AI" description="Search indexed FTC documentation by source, inspect coverage and versions, and read the permitted supporting passages.">
+  <SourceExplorer snapshot={snapshot} client:load />
+</Base>

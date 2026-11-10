@@ -15,9 +15,10 @@ export const prerender = true;
     <div class="ab__body prose">
       <p class="serif-lede">
         Sharp AI searches FTC documentation and then writes up what it found.
-        It is not a chatbot recalling FTC from memory, which is why it can show
-        you the page behind every claim, and why it will tell you when it has
-        nothing.
+        Retrieved sections appear beside the answer so you can inspect its support.
+        It can also offer general engineering reasoning, which is shown separately
+        as uncited and unverified. A source link or wording match is not proof
+        that a generated claim is correct.
       </p>
 
       <h2>What is indexed</h2>
@@ -63,10 +64,11 @@ export const prerender = true;
         produce confidently wrong answers for teams on current versions.
       </p>
       <p>
-        The current BIOBUZZ Competition Manual ({MANUAL_VERSION}) and FTC SDK {SDK_VERSION} are indexed.
+        The indexed BIOBUZZ Competition Manual ({MANUAL_VERSION}) and FTC SDK {SDK_VERSION} are indexed.
         Official Team Q&amp;A rulings remain authoritative and are linked separately at
         <a href="https://ftc.game" rel="noopener">ftc.game</a>. Check both before relying on a rule interpretation.
       </p>
+      <p><a href="/sources">Search and inspect the source notebook ↗</a></p>
       <h2>Source coverage</h2>
       <div class="ab__coverage"><table><thead><tr><th>Source</th><th>Sections</th><th>Use</th></tr></thead><tbody>
         {corpus.sources.map((source) => <tr><td><a href={source.homepage} rel="noopener">{source.name}</a></td><td>{source.sections}</td><td>{source.mode === 'full' ? 'Cited excerpts' : source.mode === 'summarize' ? 'Summaries' : 'Titles & links'}</td></tr>)}
@@ -85,12 +87,13 @@ export const prerender = true;
         corpus.
       </p>
 
-      <h2>When it refuses</h2>
+      <h2>When the index has a gap</h2>
       <p>
-        If nothing in the index is a genuine match for your question, Sharp AI
-        says so instead of improvising. That check runs on the retrieval scores
-        before any language model is called, which is also what keeps the
-        service inside a free tier.
+        Retrieval scores help decide whether the index covers a question. When
+        support is missing, the reply can include separately labeled general
+        reasoning. That reasoning is not evidence from the indexed sources and
+        is not retained in saved chats. Quota or model failures can return
+        documentation sections without a generated answer.
       </p>
 
       <h2>Verify everything that matters</h2>

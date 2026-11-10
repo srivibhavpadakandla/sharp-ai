@@ -733,17 +733,23 @@ async function handleSearch(request, env, url) {
   const cors = corsHeaders(env, request);
   const q = (url.searchParams.get('q') || '').trim().slice(0, Number(env.MAX_QUESTION_CHARS || 500));
   if (!q) return json({ error: 'empty-query' }, { status: 400 }, cors);
-  const { chunks, gate, stats } = await retrieve(env, q);
+  const source = url.searchParams.get('source') || null;
+  if (source && !corpusInfo.sources.some((item) => item.id === source)) {
+    return json({error: 'unknown-source'}, {status: 400}, cors);
+  }
+  const { chunks, gate, stats } = await retrieve(env, q, {sourceId: source});
   return json({
-    query: q,
+    query: q, source, corpus: {updatedAt: corpusInfo.updatedAt, sdkVersion: corpusInfo.sdkVersion, manualVersion: corpusInfo.manualVersion},
     gate,
     stats,
     results: chunks.map((c) => ({
-      chunkId: c.chunkId, sourceName: c.sourceName, pageTitle: c.pageTitle,
+      chunkId: c.chunkId, sourceId: c.sourceId, sourceName: c.sourceName, pageTitle: c.pageTitle,
       sectionTitle: c.sectionTitle, headingPath: c.headingPath, url: c.sourceUrl,
-      category: c.category, license: c.license, canExcerpt: !!Number(c.canExcerpt),
+      version: sourceVersion({sourceId: c.sourceId, sourceName: c.sourceName, url: c.sourceUrl}),
+      mode: c.excerptMode || (Number(c.canExcerpt) === 1 ? 'full' : 'link'),
+      category: c.category, license: c.license, canExcerpt: Number(c.canExcerpt) === 1 && (!c.excerptMode || c.excerptMode === 'full'),
       rrf: c.rrf, bm25: c.bm25, cosine: c.cosine,
-      text: Number(c.canExcerpt) === 1 ? c.text : null,
+      text: Number(c.canExcerpt) === 1 && (!c.excerptMode || c.excerptMode === 'full') ? c.text : null,
     })),
   }, {}, cors);
 }

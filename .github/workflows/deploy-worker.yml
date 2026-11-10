@@ -22,12 +22,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
 
-      # No package-lock.json here — the Worker has no runtime dependencies,
-      # only wrangler itself, so `npm ci` would fail for want of a lockfile.
-      - name: Install wrangler
+      - name: Install locked tooling
         working-directory: worker
-        run: npm install
+        run: npm ci
 
       # The answer splitter was wrong three ways before it was right, and every
       # bug only appeared when text arrived in small pieces. These run first so

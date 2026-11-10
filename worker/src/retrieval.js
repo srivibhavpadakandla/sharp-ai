@@ -23,7 +23,7 @@ const CHUNK_COLUMNS = `
   c.excerpt_mode  AS excerptMode,
   c.text          AS text`;
 
-export async function keywordSearch(env, question, limit) {
+export async function keywordSearch(env, question, limit, sourceId = null) {
   const match = buildFtsQuery(question);
   if (!match) return [];
   const sql = `
@@ -31,11 +31,12 @@ export async function keywordSearch(env, question, limit) {
            -bm25(chunks_fts, ${BM25_WEIGHTS[0]}, ${BM25_WEIGHTS[1]}, ${BM25_WEIGHTS[2]}) AS score
     FROM chunks_fts
     JOIN chunks c ON c.rowid = chunks_fts.rowid
-    WHERE chunks_fts MATCH ?
+    WHERE chunks_fts MATCH ?${sourceId ? ' AND c.source_id = ?' : ''}
     ORDER BY score DESC
     LIMIT ?`;
   try {
-    const { results } = await env.DB.prepare(sql).bind(match, limit).all();
+    const values = sourceId ? [match, sourceId, limit] : [match, limit];
+    const { results } = await env.DB.prepare(sql).bind(...values).all();
     return results || [];
   } catch (err) {
     // A malformed MATCH must degrade to "no keyword hits", never 500 the request.
@@ -45,16 +46,19 @@ export async function keywordSearch(env, question, limit) {
   }
 }
 
-export async function semanticSearch(env, question, limit) {
+export async function semanticSearch(env, question, limit, sourceId = null) {
   const vector = await embedQuery(env, question);
 
   if (env.VECTORIZE) {
-    const res = await env.VECTORIZE.query(vector, { topK: limit, returnMetadata: 'none' });
+    const res = await env.VECTORIZE.query(vector, { topK: limit, returnMetadata: 'none', ...(sourceId ? {filter: {source_id: sourceId}} : {}) });
     return (res.matches || []).map((m) => ({ chunkId: m.id, score: m.score }));
   }
 
   // Dev fallback: brute-force cosine over the vectors mirrored into D1.
-  const { results } = await env.DB.prepare('SELECT chunk_id, vec FROM vectors').all();
+  const statement = env.DB.prepare(sourceId
+    ? 'SELECT v.chunk_id, v.vec FROM vectors v JOIN chunks c ON c.chunk_id = v.chunk_id WHERE c.source_id = ?'
+    : 'SELECT chunk_id, vec FROM vectors');
+  const {results} = await (sourceId ? statement.bind(sourceId) : statement).all();
   const scored = [];
   for (const row of results || []) {
     const buf = row.vec instanceof ArrayBuffer ? row.vec : new Uint8Array(row.vec).buffer;
@@ -161,13 +165,13 @@ export async function retrieveMulti(env, queries, { candidates, topK } = {}) {
  * Full hybrid retrieval. Never throws for a retrieval-layer failure: if the
  * semantic leg dies we still answer from keyword hits, and vice versa.
  */
-export async function retrieve(env, question) {
+export async function retrieve(env, question, {sourceId = null} = {}) {
   const candidates = Number(env.CANDIDATES || 24);
   const topK = Number(env.TOP_K || 6);
 
   const [kw, sem] = await Promise.allSettled([
-    keywordSearch(env, question, candidates),
-    semanticSearch(env, question, candidates),
+    keywordSearch(env, question, candidates, sourceId),
+    semanticSearch(env, question, candidates, sourceId),
   ]);
 
   const keyword = kw.status === 'fulfilled' ? kw.value : [];
@@ -188,7 +192,7 @@ export async function retrieve(env, question) {
       const row = byId.get(r.chunkId);
       return row ? { ...row, rrf: r.rrf, bm25: r.bm25, cosine: r.cosine, ranks: r.ranks } : null;
     })
-    .filter(Boolean);
+    .filter((row) => row && (!sourceId || row.sourceId === sourceId));
 
   // Coverage is measured on what we actually retrieved, so it has to come after
   // hydration — this is the signal that distinguishes a real but awkwardly

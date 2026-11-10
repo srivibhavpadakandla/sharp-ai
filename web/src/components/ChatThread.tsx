@@ -228,7 +228,7 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
               <div className="chat__starters">{STARTERS.map((s, i) => <button type="button" key={s.label} onClick={() => send(s.q)}>
                 <span className="starter-number">0{i + 1}</span><strong>{s.label}</strong><small>{s.detail}</small><span className="starter-arrow" aria-hidden="true">↗</span>
               </button>)}</div>
-              <div className="chat__freshness"><span className="workspace-dot" /> Documentation refreshed {CORPUS_UPDATED} <a href="/about">Explore sources ↗</a></div>
+              <div className="chat__freshness"><span className="workspace-dot" /> Documentation refreshed {CORPUS_UPDATED} <a href="/sources">Explore sources ↗</a></div>
             </div>}
           </div>
           <div className="composer-shell">

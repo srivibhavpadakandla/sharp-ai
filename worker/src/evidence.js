@@ -2,6 +2,8 @@ import corpus from './lib/corpus-info.json' with {type: 'json'};
 
 export function sourceVersion(citation) {
   const id = citation.sourceId || '';
+  const declared = corpus.sources.find((source) => source.id === id)?.version;
+  if (typeof declared === 'string' && declared.trim()) return declared;
   if (/ftc-sdk/.test(id)) return `FTC SDK ${corpus.sdkVersion}`;
   if (/competition|game-manual|ftc-manual/.test(id) || /Competition Manual/.test(citation.sourceName || '')) return `2026–2027 manual ${corpus.manualVersion}`;
   const version = String(citation.url || '').match(/\/(?:v|version\/)(\d+(?:\.\d+){0,2})(?:\/|$)/i)?.[1];

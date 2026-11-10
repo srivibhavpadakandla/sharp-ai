@@ -73,6 +73,7 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
         <a href="/cad">CAD</a>
         <a href="/lab">Lab</a>
         <a href="/error">Paste an error</a>
+        <a href="/sources">Sources</a>
         <a href="/about">About</a>
       </nav>
       <div class="site-head__tools">
@@ -198,7 +199,7 @@ const url = canonical || new URL(Astro.url.pathname, Astro.site ?? SITE_URL).hre
       });
       /* Rotating to landscape can cross the breakpoint with the drawer open,
          which would leave the body locked and the desktop nav already showing. */
-      addEventListener('resize', function () { if (innerWidth > 736) set(false); });
+      addEventListener('resize', function () { if (innerWidth > 1088) set(false); });
     })();
     document.getElementById('theme-toggle')?.addEventListener('click', function () {
       var next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';

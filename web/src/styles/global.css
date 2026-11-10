@@ -384,7 +384,7 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 /* On a phone the row of destinations ran off the right edge. It was a sideways
    scroller, so About and the theme switch were technically reachable — but a
    scroller with no visible affordance is not reachable in practice, and nobody
-   swipes a nav bar. Below 46rem it becomes a real drawer with 44px rows, and
+   swipes a nav bar. Below 68rem it becomes a real drawer with 44px rows, and
    the theme switch moves out of it into the bar so it is never behind a menu. */
 /* The header grid has three tracks and the middle one must land on the true
    page centre, so everything at the end shares one track. Adding the theme
@@ -398,7 +398,8 @@ code, pre, kbd { font-family: var(--type-mono); font-size: 0.855em; }
 .site-head__tools { display: flex; align-items: center; gap: 0.2rem; }
 .navtoggle { display: none; }
 
-@media (max-width: 46rem) {
+@media (max-width: 68rem) {
+  .hsearch { display: none; }
   .site-head {
     /* Was a fixed 4rem, which the stacked layout overflowed. */
     height: auto;

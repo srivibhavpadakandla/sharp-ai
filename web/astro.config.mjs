@@ -1,12 +1,9 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import cloudflare from '@astrojs/cloudflare';
 
-// Static everywhere except the pages that must be server-rendered for Google
-// (/q/<slug>) — those opt in per-page with `export const prerender = false`.
+// The website is static; the separate Worker serves the API.
 export default defineConfig({
   output: 'static',
-  adapter: cloudflare({ imageService: 'passthrough' }),
   integrations: [react()],
   site: process.env.PUBLIC_SITE_URL || 'https://sharpftc.pages.dev',
   devToolbar: { enabled: false },

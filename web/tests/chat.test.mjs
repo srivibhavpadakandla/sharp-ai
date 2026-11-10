@@ -1,3 +1,4 @@
+import {parseCorpus, parseSourceResults} from '../src/lib/source-explorer.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderMarkdown } from '../src/lib/markdown.ts';
@@ -53,4 +54,11 @@ test('an uncited hint stays available for in-memory follow-ups while remaining a
   const turn = {...blankTurn(0, 'Give me a hint.'), status: 'done', beyond: 'What happens when the button is released?'};
   assert.equal(contextHistory([turn])[0].answer, turn.beyond);
   assert.doesNotMatch(conversationMarkdown([turn]), /What happens when the button is released/);
+});
+
+test('source browser validates live coverage and never reveals restricted search text', () => {
+  assert.equal(parseCorpus({updatedAt:'2026-11-09',sections:2,sources:[]}),null);
+  const results=parseSourceResults({source:'first-manual',results:[{chunkId:'a',sourceId:'first-manual',mode:'summarize',canExcerpt:true,text:'Restricted',url:'javascript:bad'}]},'first-manual');
+  assert.equal(results[0].text,null);assert.equal(results[0].url,'');
+  assert.throws(()=>parseSourceResults({source:'gm0',results:[]},'first-manual'),/selected source/);
 });

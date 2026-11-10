@@ -6,6 +6,7 @@ import {buildEvidence, sourceVersion, sourcePolicy, manualSnapshotNotice} from '
 import {verifyCitations} from '../src/citecheck.js';
 import {keywordSearch} from '../src/retrieval.js';
 import worker from '../src/index.js';
+import corpus from '../src/lib/corpus-info.json' with {type: 'json'};
 const context = normalizeLearning({mode: 'hint', files: [{name: 'Main.java', source: 'DcMotor lift; lift.setPower(0);'}], error: 'NullPointerException', lesson: 'Initialize hardware first.', attempt: 'I tried init().'});
 test('context preserves code and rejects malformed or oversized attachments without truncation', () => {
   assert.equal(context.files[0].source, 'DcMotor lift; lift.setPower(0);');
@@ -115,7 +116,7 @@ test('version-sensitive library code asks for the installed version before sugge
 });
 test('rules policy names the indexed revision and forbids describing an old index as current', () => {
   const policy = sourcePolicy('What is the starting size?', [{sourceName: 'FTC Competition Manual'}]);
-  assert.match(policy, /TU04/); assert.match(policy, /Never call it the current/); assert.match(policy, /Team Q&A/);
+  assert.ok(policy.includes(corpus.manualVersion)); assert.match(policy, /Never call it the current/); assert.match(policy, /Team Q&A/);
 });
 
 test('ordinary mechanical fault questions receive diagnosis rather than an assumed root cause', () => {
@@ -124,7 +125,9 @@ test('ordinary mechanical fault questions receive diagnosis rather than an assum
 });
 
 test('rule freshness is emitted as a server disclosure instead of relying on the model', () => {
-  assert.match(manualSnapshotNotice('What is the starting size?', [{sourceName: 'FTC Competition Manual'}]), /2026–2027.*TU04.*2026-10-11.*may be out of date/);
+  const notice = manualSnapshotNotice('What is the starting size?', [{sourceName: 'FTC Competition Manual'}]);
+  assert.ok(notice.includes(corpus.manualVersion)); assert.ok(notice.includes(corpus.updatedAt));
+  assert.match(notice, /2026–2027.*may be out of date/);
   assert.equal(manualSnapshotNotice('How do I wire a motor?', [{sourceName: 'Game Manual 0'}]), '');
 });
 test('code hints do not offer unrelated hardware or reboot followups', () => {
@@ -140,4 +143,8 @@ test('private retrieval failures do not log query text or error details containi
     assert.deepEqual(await keywordSearch(env, 'private-device-name', 6), []);
     assert.equal(logs.some((line) => line.includes('private-device-name')), false);
   } finally {console.error = original;}
+});
+
+test('citations prefer verified source-specific version metadata when present', () => {
+  for (const source of corpus.sources.filter((s) => s.version)) assert.equal(sourceVersion({sourceId: source.id}), source.version);
 });

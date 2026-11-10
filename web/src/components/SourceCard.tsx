@@ -28,6 +28,7 @@ export default function SourceCard({ citation: c, text, active, onEnter }: {
             : 'This source does not publish a licence, so its text is not reproduced here. Open the source to read it.'}
         </p>
       )}
+      <a className="src__link" href={`/sources?source=${encodeURIComponent(c.sourceId)}&q=${encodeURIComponent(c.sectionTitle || c.pageTitle)}`}>Explore this source ↗</a>
       <a className="src__link" href={c.url} target="_blank" rel="noopener noreferrer">
         Open {c.sourceName}
         <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">

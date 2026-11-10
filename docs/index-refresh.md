@@ -116,3 +116,20 @@ the staged rollback: restore previous vectors and corpus SQL, retire the 133 new
 IDs, restore the previous manifest/epoch, and verify the previous source counts.
 The original application code must not be deployed from the indexing worktree;
 merge its data/provenance changes into the current Worker/web branch first.
+
+## Production publication verification
+
+The approved corpus publication completed on **2026-11-10 UTC**. D1 contains
+**3,857 chunks across 17 sources**, including 42 official Q&A rows restricted to
+`can_excerpt=0` and `summarize`. Vectorize reports **3,857 vectors at 768
+dimensions** after processing retirement mutation
+`13e6bbeb-3624-4b91-af11-cdd531a49036` at
+`2026-11-10T01:26:52.223Z`. A stored Q&A vector matched its staged content hash
+and source metadata; a metadata-filtered semantic probe returned five matches,
+all from `first-qa`.
+
+Protected-table checks used only aggregate counts, which were exactly unchanged
+before and after publication. No private content was exported. Proof logs and rollback artifacts remain in ignored local
+`ingest/data/publication/`; application deployment is coordinated separately
+from the current merged Worker/web branch. These checks establish publication
+integrity, not answer quality or general factual accuracy.

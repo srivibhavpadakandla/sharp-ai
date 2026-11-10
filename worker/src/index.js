@@ -16,7 +16,7 @@
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
 import { normalizeLearning, readAskBody, learningQuery, tutorPlan } from './learning.js';
-import { buildEvidence, sourceVersion, manualSnapshotNotice } from './evidence.js';
+import { buildEvidence, sourceVersion, manualSnapshotNotice, isRegulatoryQuestion } from './evidence.js';
 import { corsHeaders } from './cors.js';
 import { verifyFirebaseToken } from './firebase.js';
 import corpusInfo from './lib/corpus-info.json' with { type: 'json' };
@@ -448,6 +448,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, learning, plan, uncovered, offTopic, liveBlock, intent });
   const category = finalChunks[0]?.category || null;
   const manualNotice = manualSnapshotNotice(question, citations);
+  const regulatoryAnswer = isRegulatoryQuestion(question, citations);
   if (plan.needsVersion) {
     const libraryCitations = citations.filter((c) => c.sourceName.toLowerCase().includes(plan.needsVersion.toLowerCase().split(' ')[0]));
     return streamPrerendered({question,
@@ -511,7 +512,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
           grounded += g;
           await writer.write(encoder.encode(sse('token', { t: g })));
         }
-        if (b || final) {
+        if (!regulatoryAnswer && (b || final)) {
           let text = beyondFilter.push(b) + (final ? beyondFilter.end() : '');
           if (!text) return;
           if (!announcedBeyond) {

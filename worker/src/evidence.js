@@ -52,12 +52,16 @@ export function buildEvidence(answer, citations, excerpts) {
 export function sourcePolicy(question, chunks) {
   const base = `The indexed documentation snapshot is ${corpus.updatedAt}, FTC SDK ${corpus.sdkVersion}. Only claim API behavior explicitly supported by a retrieved method or explanation; similar vocabulary is not evidence of return values or exceptions. Never turn a source's broad topic into a claimed cause of this robot's fault. A causal claim needs explicit support; otherwise label it as a hypothesis or engineering suggestion. `;
   const manual = chunks.some((c) => /Competition Manual/.test(c.sourceName || ''));
-  return base + (manual && /rule|legal|allowed|inspection|size|scor|season|biobuzz/i.test(question)
+  const qaPolicy = chunks.some((c) => c.sourceId === 'first-qa' || c.sourceName === 'FIRST Official Team Q&A')
+    ? 'When using official Team Q&A, cite the specific published ruling and its indexed season/version. Treat it as a snapshot and check the original ruling and manual before relying on an interpretation. Do not reproduce restricted Q&A wording; paraphrase it. ' : '';
+  return base + qaPolicy + (manual && /rule|legal|allowed|inspection|size|scor|season|biobuzz|\b[rgc]\d{3}\b/i.test(question)
     ? `For competition rules, explicitly name the indexed 2026–2027 Competition Manual revision ${corpus.manualVersion} and snapshot date ${corpus.updatedAt} in the answer. Never call it the current or latest manual; the linked manual may have changed since indexing. State that the current official manual and Team Q&A must be checked before relying on an interpretation. Do not invent dimensions or exceptions not supported by the retrieved rule. ` : '');
 }
 
 export function manualSnapshotNotice(question, sources) {
-  return sources.some((c) => /Competition Manual/.test(c.sourceName || ''))
-    && /rule|legal|allowed|inspection|size|scor|season|biobuzz/i.test(question)
-    ? `Indexed rules snapshot: 2026–2027 Competition Manual ${corpus.manualVersion}, indexed ${corpus.updatedAt}. This may be out of date. Verify the current official manual and Team Q&A before relying on a rule interpretation.` : '';
+  const manual = sources.some((c) => /Competition Manual/.test(c.sourceName || ''));
+  const qa = sources.some((c) => c.sourceId === 'first-qa' || c.sourceName === 'FIRST Official Team Q&A');
+  if (!qa && !(manual && /rule|legal|allowed|inspection|size|scor|season|biobuzz|\b[rgc]\d{3}\b/i.test(question))) return '';
+  const coverage = [manual ? `2026–2027 Competition Manual ${corpus.manualVersion}` : '', qa ? sourceVersion({sourceId: 'first-qa'}) : ''].filter(Boolean).join(' and ');
+  return `Indexed rules snapshot: ${coverage}, indexed ${corpus.updatedAt}. This may be out of date. Verify the current official manual and Team Q&A before relying on a rule interpretation.`;
 }

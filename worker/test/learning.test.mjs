@@ -148,3 +148,10 @@ test('private retrieval failures do not log query text or error details containi
 test('citations prefer verified source-specific version metadata when present', () => {
   for (const source of corpus.sources.filter((s) => s.version)) assert.equal(sourceVersion({sourceId: source.id}), source.version);
 });
+
+test('official Q&A citations require paraphrasing and an explicit snapshot disclosure', () => {
+  const sources = [{sourceId: 'first-qa', sourceName: 'FIRST Official Team Q&A'}];
+  assert.match(sourcePolicy('Explain Q18.', sources), /Do not reproduce restricted Q&A wording/);
+  assert.ok(manualSnapshotNotice('Explain Q18.', sources).includes(corpus.updatedAt));
+  assert.match(manualSnapshotNotice('Explain R102.', [{sourceName: 'FTC Competition Manual'}]), /Competition Manual/);
+});

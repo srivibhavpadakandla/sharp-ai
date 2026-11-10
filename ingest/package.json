@@ -19,5 +19,8 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1"
+  },
+  "overrides": {
+    "sharp": "0.35.5"
   }
 }

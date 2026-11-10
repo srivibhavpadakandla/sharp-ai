@@ -133,3 +133,24 @@ before and after publication. No private content was exported. Proof logs and ro
 `ingest/data/publication/`; application deployment is coordinated separately
 from the current merged Worker/web branch. These checks establish publication
 integrity, not answer quality or general factual accuracy.
+
+## Ingest dependency security follow-up
+
+The local-only ingest dependency retains Transformers.js 3.8.1 and overrides
+its image dependency to `sharp@0.35.5`, with a regenerated lockfile. The reviewed
+advisories concern inherited image parsers:
+[libvips](https://github.com/advisories/GHSA-f88m-g3jw-g9cj) before 0.35.0,
+[libheif](https://github.com/advisories/GHSA-rgj7-g3m4-5g8c) before 0.35.4, and
+[librsvg](https://github.com/advisories/GHSA-wq5f-xc86-pv6w) before 0.35.5.
+The ingest feature-extraction path supplies text rather than images, but the
+transitive packages are still patched. Sharp 0.35.5 requires Node >=20.9.0.
+
+An isolated installation loaded the unchanged cached
+`Xenova/bge-base-en-v1.5` model with fp32, CLS pooling, and L2 normalization.
+Three synthetic passage/query inputs produced finite 768-dimensional vectors
+bit-identical to the previous dependency installation (maximum absolute
+difference 0). This bounded compatibility check is not an exhaustive model
+benchmark. Model weights, query prefix, dimensions, and corpus vectors were
+unchanged; no reindexing or production mutation accompanied this update.
+The revised ingest lockfile reports zero npm audit findings; all ten ingest
+integrity tests pass.

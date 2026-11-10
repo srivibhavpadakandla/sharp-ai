@@ -1,9 +1,9 @@
 {
-  "updatedAt": "2026-10-11",
-  "sections": 3732,
-  "epoch": "893f64eff824054d",
+  "updatedAt": "2026-11-10",
+  "sections": 3857,
+  "epoch": "1c4a00ff85f3f5a1",
   "sdkVersion": "12.0.0",
-  "manualVersion": "TU04",
+  "manualVersion": "TU08",
   "sources": [
     {
       "id": "gm0",
@@ -15,7 +15,7 @@
     {
       "id": "ftc-docs",
       "name": "FTC Docs",
-      "sections": 1051,
+      "sections": 1132,
       "homepage": "https://ftc-docs.firstinspires.org",
       "mode": "full"
     },
@@ -78,9 +78,17 @@
     {
       "id": "first-manual",
       "name": "FTC Competition Manual",
-      "sections": 218,
+      "sections": 220,
       "homepage": "https://www.firstinspires.org/resource-library/ftc/game-and-season-info",
       "mode": "summarize"
+    },
+    {
+      "id": "first-qa",
+      "name": "FIRST Official Team Q&A",
+      "sections": 42,
+      "homepage": "https://game-qa.firstinspires.org/",
+      "mode": "summarize",
+      "version": "2026-2027 official Team Q&A"
     },
     {
       "id": "rr-quickstart",

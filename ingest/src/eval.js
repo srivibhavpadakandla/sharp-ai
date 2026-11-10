@@ -120,6 +120,9 @@ const ROUTING = [
   { q: 'where is the official competition manual',    source: 'first-rules' },
   { q: 'what does DcMotorEx setVelocity do',          source: 'ftc-sdk-api' },
   { q: 'official sample opmode for mecanum teleop',   source: 'ftc-sdk-samples' },
+  { q: 'BIOBUZZ starting configuration R102 18 inch cube', source: 'first-manual' },
+  { q: 'FIRST Team Q&A custom made slip rings legal BIOBUZZ', source: 'first-qa' },
+  { q: 'BIOBUZZ official Team Q&A powered USB hub UVC webcams', source: 'first-qa' },
 ];
 
 /** Must be refused BEFORE any LLM call. */

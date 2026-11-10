@@ -12,7 +12,10 @@
     "embed-server": "node src/embed-server.js",
     "sdk-symbols": "node src/sdk-symbols.js",
     "digest": "node src/digest.js",
-    "crawl-pedro": "node scripts/crawl-pedropathing.mjs"
+    "crawl-pedro": "node scripts/crawl-pedropathing.mjs",
+    "test": "node --test test/*.test.mjs",
+    "snapshot:corpus": "node scripts/snapshot-corpus.mjs",
+    "stage:publication": "node scripts/stage-publication.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1"

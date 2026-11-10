@@ -1,0 +1,20 @@
+#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {parsePublicBoard} from '../src/sources/first-qa.js';
+const origin='https://game-qa.firstinspires.org';
+const home=await fetch(origin,{signal:AbortSignal.timeout(30000)});
+if(!home.ok)throw new Error(`Official Q&A homepage returned ${home.status}.`);
+const html=await home.text();
+const link=html.match(/href="(\/boards\/\d{4}\/FTC\/QA)"/);
+if(!link)throw new Error('Current public FTC Team Q&A link is missing; no private/login route will be tried.');
+const url=new URL(link[1],origin).href;
+const response=await fetch(url,{signal:AbortSignal.timeout(30000)});
+if(!response.ok)throw new Error(`Official public Q&A board returned ${response.status}.`);
+const cache=parsePublicBoard(await response.text(),url);
+const dir=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../vendor/first-qa');
+fs.mkdirSync(dir,{recursive:true});
+const target=path.join(dir,'answered.json');
+fs.writeFileSync(target+'.tmp',JSON.stringify(cache,null,2)+'\n');fs.renameSync(target+'.tmp',target);
+console.log(`[first-qa] ${cache.season}: ${cache.entries.length} public answered questions; no author/account/unanswered records retained`);

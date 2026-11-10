@@ -480,8 +480,8 @@ async function* streamModel(env, model, body, {signal, onUsage, onModel}) {
   deadline.catch(() => {});
   const stop = (error) => {
     if (closed) return;
-    controller.abort(error);
     rejectDeadline(error);
+    controller.abort(error);
     try {Promise.resolve(reader?.cancel(error)).catch(() => {});} catch { /* best effort */ }
   };
   const cancel = () => stop(signal.reason || new DOMException('Cancelled', 'AbortError'));
@@ -544,9 +544,7 @@ async function* streamModel(env, model, body, {signal, onUsage, onModel}) {
     };
     while (true) {
       const pending = reader.read();
-      if (firstText) idleTimer = setTimeout(() => stop(Object.assign(new Error('Model stream stalled'), {modelTimeout: true})), timeoutMs(env.MODEL_STREAM_IDLE_TIMEOUT_MS, 30000));
-      let result;
-      try {result = await bounded(pending);} finally {clearTimeout(idleTimer);}
+      const result = await bounded(pending);
       buffer += decoder.decode(result.value, {stream: !result.done});
       const lines = buffer.split('\n');
       buffer = result.done ? '' : lines.pop();
@@ -554,6 +552,10 @@ async function* streamModel(env, model, body, {signal, onUsage, onModel}) {
         // Thinking/usage/whitespace events cannot defeat the first-content deadline.
         if (!firstText && !text.trim()) continue;
         if (!firstText) {firstText = true; clearTimeout(firstTimer);}
+        if (text.trim()) {
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => stop(Object.assign(new Error('Model stream stalled'), {modelTimeout: true})), timeoutMs(env.MODEL_STREAM_IDLE_TIMEOUT_MS, 30000));
+        }
         yield text;
       }
       if (result.done) {

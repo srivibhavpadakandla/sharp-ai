@@ -72,3 +72,42 @@ test('billing quota fallback preserves fast then lite model order', async (t) =>
   assert.match(await collect(), /small answer/); assert.equal(calls.length, 3);
   assert.match(calls[0], /\/deep:/); assert.match(calls[1], /\/fast:/); assert.match(calls[2], /\/lite:/);
 });
+
+test('deadline wins over a real stream AbortError so fast fallback still runs', async (t) => {
+  let calls = 0, aborted = false;
+  mock(t, async (_url, init) => {
+    calls++;
+    if (calls > 1) return answer();
+    return new Response(new ReadableStream({start(controller) {
+      init.signal.addEventListener('abort', () => {
+        aborted = true;
+        controller.error(new DOMException('Provider aborted', 'AbortError'));
+      }, {once: true});
+    }}));
+  });
+  assert.match(await collect(), /small answer/);
+  assert.equal(aborted, true); assert.equal(calls, 2);
+});
+
+test('post-answer thought and usage heartbeats do not extend the content idle deadline', async (t) => {
+  let calls = 0, frames = 0, interval, cancelled = false;
+  t.after(() => clearInterval(interval));
+  mock(t, async () => {
+    calls++;
+    return new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(event([{text: 'partial'}])));
+        interval = setInterval(() => {
+          frames++;
+          controller.enqueue(new TextEncoder().encode(event([{thought: true, text: 'internal'}, {text: ' '}]) + 'data: {"usageMetadata":{"totalTokenCount":10}}\n\n'));
+        }, 4);
+      },
+      cancel() {cancelled = true; clearInterval(interval);},
+    }));
+  });
+  const iterator = streamGemini(env, options);
+  assert.equal((await iterator.next()).value, 'partial');
+  // Whitespace may be yielded after answer text, but cannot refresh the deadline.
+  await assert.rejects(async () => {for await (const text of iterator) assert.equal(text.trim(), '');}, /stream stalled/);
+  assert.ok(frames >= 2); assert.equal(calls, 1); assert.equal(cancelled, true);
+});

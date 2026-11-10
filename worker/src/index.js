@@ -532,7 +532,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       const onModel = (model) => { answerModel = model; };
       const onUsage = (m) => { usageMeta = m; };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, learning, plan, uncovered, offTopic, liveBlock, intent, onUsage, onModel })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, learning, plan, uncovered, offTopic, liveBlock, intent, onUsage, onModel, signal: request.signal })) {
         await emit(splitter.push(delta));
       }
       await emit(splitter.end(), true);

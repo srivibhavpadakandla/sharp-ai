@@ -50,6 +50,8 @@ GEMINI_DEEP_MODEL = "gemini-3.7-flash"
 # Planning and reranking are short structured calls; the lite model is enough
 # and keeps the agentic pass affordable against the same daily ceiling.
 GEMINI_FAST_MODEL = "gemini-3.5-flash-lite"
+MODEL_FIRST_CONTENT_TIMEOUT_MS = "25000"
+MODEL_STREAM_IDLE_TIMEOUT_MS = "30000"
 THINKING_LEVEL   = "low"
 # Code needs far more room: thinking is billed from the same budget.
 MAX_OUTPUT_TOKENS      = "16384"

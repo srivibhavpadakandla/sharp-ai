@@ -1,0 +1,23 @@
+name: Check index publication safeguards
+
+on:
+  pull_request:
+    paths: ['ingest/**', 'worker/src/lib/query.js', '.github/workflows/check-index.yml']
+  push:
+    branches: [main]
+    paths: ['ingest/**', 'worker/src/lib/query.js', '.github/workflows/check-index.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source privacy, licensing and reversible publication
+        run: node --test ingest/test/*.test.mjs

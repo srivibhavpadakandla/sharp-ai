@@ -60,7 +60,7 @@ export function verifyCitations(answerMd, citations, textById) {
     .filter(Boolean);
 
   for (const sentence of paragraphs) {
-    const marks = [...sentence.matchAll(/\[(\d{1,2}(?:\s*,\s*\d{1,2})*)\]/g)]
+    const marks = [...sentence.replace(/`[^`]*`/g, ' ').matchAll(/(?<![\w\]])\[(\d{1,2}(?:\s*,\s*\d{1,2})*)\]/g)]
       .flatMap((m) => m[1].split(',').map((x) => Number(x.trim())));
     if (!marks.length) continue;
 

@@ -120,3 +120,19 @@
   .chat__empty h1 { font-size: 2.8rem; margin-block: .75rem; }
   .chat__empty > p { font-size: .95rem; }
 }
+
+.learning-context { border-top: 1px solid var(--rule); margin-top: .6rem; padding-block: .65rem; color: var(--ink-2); font-size: .8rem; }
+.learning-mode { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; margin-bottom: .5rem; }
+.learning-context select, .learning-context textarea { background: var(--paper-sunk); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: 6px; padding: .6rem; font: inherit; }
+.learning-context textarea { width: 100%; box-sizing: border-box; resize: vertical; }.learning-context > details { max-height: 45vh; overflow: auto; }
+.learning-context summary, .answer-evidence summary { cursor: pointer; padding-block: .55rem; }.learning-context label:not(.learning-mode) { display: block; margin-top: .75rem; margin-bottom: .4rem; }
+.context-note, .answer-evidence > p { color: var(--ink-3); font-size: .76rem; line-height: 1.6; }.context-file { display: flex; align-items: start; gap: .6rem; margin-block: .4rem; }
+.context-file details { flex: 1; min-width: 0; }.context-file pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12rem; overflow: auto; }.context-file button { color: var(--ink-2); background: transparent; border: 1px solid var(--rule); padding: .5rem; cursor: pointer; }
+.answer-evidence { border-top: 1px solid var(--rule); margin-top: 1.25rem; font-size: .83rem; }.evidence-claim { font-weight: 500; line-height: 1.6; }.evidence-source { border-left: 2px solid var(--rule-strong); padding-left: 1rem; margin-block: 1rem; }
+.evidence-source small { display: block; color: var(--ink-3); margin-block: .4rem; }.evidence-source blockquote { white-space: pre-wrap; overflow-wrap: anywhere; margin: .65rem 0; line-height: 1.65; }.tutor-followups { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1rem; }
+.learning-context :focus-visible, .answer-evidence :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.composer-shell:has(.learning-context > details[open]) { position: static; }
+.answer-evidence { scroll-margin-top: calc(var(--header-h) + 2rem); }
+/* Keep the expanded evidence and code reachable without a composer covering them. */
+.composer-shell { position: relative; bottom: auto; }

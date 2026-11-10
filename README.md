@@ -84,3 +84,38 @@ The script runs tests, typechecks, deploys the Worker and production Pages proje
 Production: https://sharpftc.pages.dev
 
 Worker credentials stay in Cloudflare secrets. Public site configuration is baked into the web build; keep its API origin, CSP, and CI environment aligned.
+
+## Telemark integration
+
+Telemark sends its Firebase ID token to `POST /api/ask` alongside the question,
+lesson context, recent turns, and `chat: true`. The Worker verifies the RS256
+signature and Firebase claims for `FIREBASE_PROJECT_ID=telemark-e9159` using
+Google’s public keys. Public Sharp AI requests continue to use Turnstile.
+
+Keep `SITE_ORIGIN` in `worker/wrangler.toml` aligned with both the canonical
+Telemark origin (`https://telemarkfirst.github.io`) and the legacy origin
+(`https://sharpfacerobotics.github.io`). A missing origin blocks browser access
+even when the API is healthy. Signed-in students have separate hashed account
+budgets (`RATE_PER_DAY_SIGNED_IN`), so classmates do not share one IP allowance.
+
+A rejected account token returns `403 auth-failed`; unavailable verification
+returns `503 auth-unavailable`. Missing public CAPTCHA tokens still return
+`403 turnstile-failed`. Run `npm test` in `worker/` before deploying: the tests
+exercise the real ask handler with locally signed test tokens and mocked public
+keys, CORS configuration, invalid credentials, and shared-network budgets.
+
+## Learn and troubleshoot with code
+
+Choose a hint, explanation, worked solution, or step-by-step diagnosis in chat.
+Attach Java files or paste a small example, then add the exact error and what
+you tried. The Telemark panel can attach its current simulator project and
+lesson section. `Explain this code` connects the explanation to actual files
+and proposes a small test; it does not execute or apply changes.
+
+Expand **Check claims against sources** to compare cited claims with permitted
+source passages and indexed versions. Wording matches help inspect a citation;
+they do not independently establish correctness. Personalized requests stay out
+of the shared server answer cache and query log. Replies saved in browser history
+can contain code. See [learning assistant](docs/learning-assistant.md) for limits,
+privacy, and the request contract, and [evaluation](docs/evaluation.md) for the
+40-case answer-quality benchmark.

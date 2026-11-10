@@ -1,13 +1,16 @@
+import AnswerEvidence from './AnswerEvidence';
 import { useEffect, useMemo, useState } from 'react';
 import { API_BASE } from '../lib/config';
 import { renderMarkdown } from '../lib/markdown';
 import { answerMarkdown } from '../lib/conversations';
 import type { Turn } from '../lib/chat-types';
 
-export default function ChatTurn({ turn, index, isActive, onFocus, patch, onRetry }: {
+export default function ChatTurn({ turn, index, isActive, onFocus, patch, onRetry, onFollowUp, disabled }: {
   turn: Turn; index: number; isActive: boolean; onFocus: () => void;
   patch: (id: number, fn: (t: Turn) => Partial<Turn>) => void;
   onRetry: () => void;
+  onFollowUp: (question: string) => void;
+  disabled: boolean;
 }) {
   const html = useMemo(
     () => renderMarkdown(turn.answer, turn.citations.length),
@@ -60,6 +63,10 @@ export default function ChatTurn({ turn, index, isActive, onFocus, patch, onRetr
 
         <div className="prose turn__prose" dangerouslySetInnerHTML={{ __html: html }} />
 
+        <AnswerEvidence claims={turn.evidence || []} citations={turn.citations} />
+        {turn.status === 'done' && turn.tutor?.followUps?.length && <div className="tutor-followups" aria-label="Suggested follow-up replies">
+          {turn.tutor.followUps.map((question) => <button type="button" className="chat-action" key={question} disabled={disabled} onClick={() => onFollowUp(question)}>{question}</button>)}
+        </div>}
         {turn.status === 'done' && turn.answer && (
           <div className="rate">
             <button className="rate__btn" type="button" onClick={copyAnswer}>{copied ? 'Copied' : 'Copy answer'}</button>
@@ -140,8 +147,8 @@ export default function ChatTurn({ turn, index, isActive, onFocus, patch, onRetr
           <section className={`sdkcheck${turn.validation.ok ? ' sdkcheck--ok' : ''}`}>
             <p className="sdkcheck__head">
               {turn.validation.ok
-                ? `Checked against the FTC SDK ${turn.validation.sdkVersion} — every type and method in this code exists.`
-                : `Checked against the FTC SDK ${turn.validation.sdkVersion} — some symbols are not in it.`}
+                ? `Checked against the FTC SDK ${turn.validation.sdkVersion} — referenced SDK symbols were recognized. This is not a compilation or runtime test.`
+                : `Checked against the FTC SDK ${turn.validation.sdkVersion} — some symbols were not recognized. Check the installed SDK and library versions.`}
             </p>
             {turn.validation.notes.map((n) => (
               <p key={n} className="sdkcheck__note"

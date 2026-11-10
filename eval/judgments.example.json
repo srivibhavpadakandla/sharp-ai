@@ -1,0 +1,9 @@
+{
+  "java-01": {
+    "reviewerType": "human",
+    "correctness": null,
+    "usefulness": null,
+    "citationSupport": null,
+    "rationale": ""
+  }
+}

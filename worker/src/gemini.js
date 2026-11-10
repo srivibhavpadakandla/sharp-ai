@@ -247,7 +247,7 @@ specs, what teams actually do now. Rules for this part:
   checking" are honest; false confidence is not.
 - No greetings, no sign-offs. Markdown for structure, no headings above ###.`;
 
-export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup' } = {}) {
+export function buildPrompt(question, chunks, { isError = false, isCode = false, history = [], specs = null, page = null, chat = false, learning = null, plan = {mode: 'explain', diagnostic: null}, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup' } = {}) {
   const citations = [];
   const excerpts = [];
   const blocks = [];
@@ -269,6 +269,7 @@ export function buildPrompt(question, chunks, { isError = false, isCode = false,
       license: c.license,
       canExcerpt: mode === 'full',
       mode,
+      version: sourceVersion({sourceId: c.sourceId, sourceName: c.sourceName, url: c.sourceUrl}),
     });
 
     if (mode === 'full') {
@@ -328,16 +329,13 @@ export function buildPrompt(question, chunks, { isError = false, isCode = false,
       + `If the question needs a detail they have not given, say which detail and ask for it rather than inventing a name.\n\n`
     : '';
 
-  // Tutor mode. The lesson panel shows no source list, so bracket numbers there
-  // point at nothing and read as broken formatting. It is also a conversation
-  // with the student rather than a reference page about them, which changes the
-  // voice more than it changes the content.
   const chatBlock = chat
-    ? `HOW TO REPLY\n\nYou are talking to a student who has this lesson open. Reply the way a mentor would at the bench.\n\n- Speak to them as "you". Never write "the documentation", "the provided sections", or "the lesson text" — they are reading it, so say "this lesson" or just explain the thing.\n- Do not attribute in prose either. No "as Game Manual 0 points out", no "according to the FTC docs". A mentor at the bench states the fact; where it came from is not the answer to the question.\n- No bracket numbers anywhere. No source list. No ===GROUNDED=== or ===BEYOND=== headers.\n- Lead with the answer in one or two sentences, then the why. Short paragraphs.\n- If the sections do not cover it, say so plainly in one line and give the best engineering answer you have, marked as your judgement rather than as something they can look up.\n- If they ask something vague like "explain this lesson", explain what the lesson is actually teaching and why it matters, not a summary of headings.\n- The whole lesson is in the sections below, including its practice questions and exercise. Use it: you can see exactly what they are looking at.\n- On a practice question, do not open with the answer. Ask what they have so far or point at the part of the lesson that decides it, then work through it with them. If they have already tried and are stuck, or they ask outright for the answer, give it and show why it follows. Never make them guess twice at something the lesson never told them.\n\n`
+    ? `HOW TO REPLY\nYou are mentoring a student reading this lesson. Use short paragraphs and refer to their actual code and attempt. Put source citation numbers beside documented claims; the panel displays their evidence. Use the exact ===GROUNDED=== and ===BEYOND=== delimiters so uncited reasoning stays separate. Do not describe attached lesson text as verified documentation.\n\n`
     : '';
 
   const prompt =
     chatBlock +
+    learningPrompt(learning, plan) +
     pageBlock +
     robotBlock +
     priorBlock +
@@ -352,6 +350,8 @@ bracket numbers at the end of each paragraph.`);
   return { prompt, citations, excerpts };
 }
 
+import { learningPrompt, LEARNING_SYSTEM_RULES } from './learning.js';
+import { sourceVersion, sourcePolicy } from './evidence.js';
 import { CODE_SYSTEM_ADDENDUM } from './codegen.js';
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -382,8 +382,8 @@ function pickModel(env, opts) {
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup', onUsage = null, onModel = null }) {
-  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, chat, uncovered, liveBlock, intent });
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, learning = null, plan = {mode: 'explain', diagnostic: null}, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup', onUsage = null, onModel = null }) {
+  const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, chat, learning, plan, uncovered, liveBlock, intent });
   // Which model answers is decided per question, not per site.
   //
   // Measured on the same drivetrain-diagnosis question at the same budget:
@@ -399,26 +399,27 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     ? (env.GEMINI_MODEL || 'gemini-3.7-flash')
     : pickModel(env, { isCode, isError, intent, question, history });
 
+  const learningMode = plan?.mode || learning?.mode;
+  const guided = learningMode === 'hint' || learningMode === 'diagnose' || Boolean(plan?.diagnostic);
+  const teachingRules = learning || plan?.diagnostic
+    ? learningPrompt({...learning, files: [], error: '', attempt: '', lesson: ''}, plan) : '';
+  const systemText = uncovered
+    ? UNCOVERED_PROMPT + (offTopic ? OFF_TOPIC_ADDENDUM
+      : !guided && intent === 'advice' ? ADVICE_ADDENDUM : !guided && intent === 'debug' ? DEBUG_ADDENDUM : '')
+    : SYSTEM_PROMPT + (isError && !guided ? ERROR_SYSTEM_ADDENDUM : '')
+      + (isCode && !guided ? CODE_SYSTEM_ADDENDUM : '')
+      + (offTopic ? OFF_TOPIC_ADDENDUM
+        : !guided && intent === 'advice' ? ADVICE_ADDENDUM : !guided && intent === 'debug' ? DEBUG_ADDENDUM : '');
+  const privateInput = Boolean(specs || page || history.length || learning && (learning.files.length || learning.error || learning.attempt || learning.lesson));
   const body = {
-    systemInstruction: {
-      parts: [{
-        text: uncovered
-          ? UNCOVERED_PROMPT + (offTopic ? OFF_TOPIC_ADDENDUM
-            : intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : '')
-          : SYSTEM_PROMPT
-            + (isError ? ERROR_SYSTEM_ADDENDUM : '')
-            + (isCode ? CODE_SYSTEM_ADDENDUM : '')
-            + (offTopic ? OFF_TOPIC_ADDENDUM
-              : intent === 'advice' ? ADVICE_ADDENDUM : intent === 'debug' ? DEBUG_ADDENDUM : ''),
-      }],
-    },
+    systemInstruction: {parts: [{text: systemText}, {text: LEARNING_SYSTEM_RULES + '\n' + sourcePolicy(question, chunks) + '\n' + teachingRules}]},
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     // Search on every answer, not only when the corpus is empty. The two lanes
     // stay separate by instruction rather than by withholding the tool: bracket
     // numbers belong to sections, anything found on the web is named and linked
     // in prose. The live-data block already works this way and the model keeps
     // them apart correctly.
-    ...(env.WEB_SEARCH !== 'off' ? { tools: [{ google_search: {} }] } : {}),
+    ...(env.WEB_SEARCH !== 'off' && !privateInput ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: {
       temperature: 0.15,
       topP: 0.9,
@@ -552,6 +553,7 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
 // ---------------------------------------------------------------------------
 
 export const GROUNDED_MARKER = '===GROUNDED===';
+// The second spelling was observed in a production model response.
 export const BEYOND_MARKER = '===BEYOND===';
 
 /**
@@ -637,84 +639,87 @@ export function createAnswerSplitter() {
    * "==="), so neither slice ever contains the whole string and it leaks into
    * the answer. The decision has to be made on the accumulated buffer.
    */
-  function consumeHeader() {
+  function consumeHeader(final = false) {
     if (headerDone) return true;
     const lead = buffer.replace(/^\s+/, '');
-    if (lead.startsWith(GROUNDED_MARKER)) {
-      buffer = lead.slice(GROUNDED_MARKER.length).replace(/^\n/, '');
+    const marker = lead.match(/^={2,}GROUNDED\+?={2,}/);
+    if (marker && (final || lead.length > marker[0].length)) {
+      buffer = lead.slice(marker[0].length).replace(/^\r?\n/, '');
       headerDone = true;
       return true;
     }
-    // Still might become the marker once more arrives.
-    if (lead.length < GROUNDED_MARKER.length && GROUNDED_MARKER.startsWith(lead)) return false;
-    headerDone = true;      // the model simply did not emit it
+    if (!final && lead.length < 64 && (!lead || (lead.startsWith('=') && !lead.includes('\n')))) return false;
+    headerDone = true;
     return true;
   }
 
-  return {
-    /** @returns {{grounded: string, beyond: string}} newly completed text */
-    push(delta) {
-      buffer += delta;
-      let grounded = '';
-      let beyond = '';
-
-      if (!inBeyond && !consumeHeader()) return { grounded: '', beyond: '' };
-
-      if (!inBeyond) {
-        const idx = buffer.indexOf(BEYOND_MARKER);
-        if (idx === -1) {
-          // Hold back a marker-length tail so a marker split across two chunks
-          // is never emitted as answer text.
-          const safe = Math.max(0, buffer.length - BEYOND_MARKER.length);
-          grounded = buffer.slice(0, safe);
-          buffer = buffer.slice(safe);
-        } else {
-          grounded = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + BEYOND_MARKER.length);
-          inBeyond = true;
-          beyond = buffer;
-          buffer = '';
-        }
+  function split(delta, final = false) {
+    buffer += delta;
+    let grounded = '', beyond = '';
+    if (!inBeyond && !consumeHeader(final)) return {grounded, beyond};
+    if (!inBeyond) {
+      const marker = /={2,}BEYOND={2,}/.exec(buffer);
+      const ready = marker && (final || marker.index + marker[0].length < buffer.length);
+      if (!ready) {
+        const safe = final ? 0 : Math.max(0, buffer.length - 64);
+        grounded = buffer.slice(0, safe);
+        buffer = buffer.slice(safe);
       } else {
-        beyond = buffer;
-        buffer = '';
+        grounded = buffer.slice(0, marker.index);
+        beyond = buffer.slice(marker.index + marker[0].length);
+        buffer = ''; inBeyond = true;
       }
+    } else {beyond = buffer; buffer = '';}
+    let out = gateOpener(stripGroundedMarker(grounded));
+    if (inBeyond) out += flushOpener(true);
+    return {grounded: out, beyond};
+  }
 
-      // Crossing into BEYOND ends the grounded half, so a held opener has to be
-      // released here — and the beyond text is the content that follows it.
-      let out = gateOpener(stripGroundedMarker(grounded));
-      // Passing the marker is proof that more answer follows, even though the
-      // text after it has not streamed yet. Testing `beyond` for content here
-      // read empty on the push that completed the marker, and every off-topic
-      // deflection survived on that technicality.
-      if (inBeyond) out += flushOpener(true);
-      return { grounded: out, beyond };
-    },
-    /** Flush whatever is still held back. */
+  return {
+    push: split,
     end() {
-      if (!inBeyond) consumeHeader();
-      const rest = buffer;
-      buffer = '';
+      const first = split('', true);
+      const rest = buffer; buffer = '';
       return inBeyond
-        ? { grounded: flushOpener(Boolean(rest.trim())), beyond: rest }
-        : { grounded: gateOpener(stripGroundedMarker(rest)) + flushOpener(), beyond: '' };
+        ? {grounded: first.grounded + flushOpener(Boolean(rest.trim())), beyond: first.beyond + rest}
+        : {grounded: first.grounded + gateOpener(stripGroundedMarker(rest)) + flushOpener(), beyond: ''};
     },
-    get startedBeyond() { return inBeyond; },
+    get startedBeyond() {return inBeyond;},
   };
+
 }
 
-function stripGroundedMarker(text) {
+export function stripGroundedMarker(text) {
   // Belt and braces: consumeHeader handles the leading marker, this catches a
   // stray repeat anywhere in the body.
-  return text.split(GROUNDED_MARKER).join('');
+  return text.replace(/={2,}GROUNDED\+?={2,}/g, '');
 }
 
 /**
  * Defence in depth: a citation marker in the ungrounded half would imply the
  * documentation said something it did not, so strip any that slip through.
  */
+export function createBeyondSanitizer() {
+  let buffer = '';
+  let fenced = false;
+  const line = (text) => {
+    if (/^\s*```/.test(text)) {fenced = !fenced; return text;}
+    if (fenced) return text;
+    return text.split(/(`[^`]*`)/g).map((part) => part.startsWith('`') ? part
+      : part.replace(/(^|[^\w\]`])\[\d{1,2}(?:\s*,\s*\d{1,2})*\]/g, '$1')).join('');
+  };
+  return {
+    push(text) {
+      buffer += text;
+      let out = '', end;
+      while ((end = buffer.indexOf('\n')) !== -1) {out += line(buffer.slice(0, end)) + '\n'; buffer = buffer.slice(end + 1);}
+      return out;
+    },
+    end() {const out = line(buffer); buffer = ''; return out;},
+  };
+}
+
 export function sanitiseBeyond(text) {
-  // No trimming: this runs on every streamed delta, and trimming each one
-  // welds the last word of one chunk to the first word of the next.
-  return text.replace(/\[\d{1,2}(?:\s*,\s*\d{1,2})*\]/g, '');
+  const filter = createBeyondSanitizer();
+  return filter.push(text) + filter.end();
 }

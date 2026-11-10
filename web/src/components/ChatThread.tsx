@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import LearningContext from './LearningContext';
+import {codeError, type LearningContext as Context, type LearningMode} from '../lib/learning';
 import UsageMeter from './UsageMeter';
 import ChatTurn from './ChatTurn';
 import ConversationHistory from './ConversationHistory';
@@ -7,7 +9,7 @@ import RobotSpecs from './RobotSpecs';
 import { CORPUS_SECTIONS, CORPUS_UPDATED } from '../lib/config';
 import { ask } from '../lib/ask';
 import { blankTurn, type Turn, type SeedTurn } from '../lib/chat-types';
-import { loadConversations, saveConversations, conversationMarkdown, type Conversation } from '../lib/conversations';
+import { loadConversations, saveConversations, conversationMarkdown, contextHistory, type Conversation } from '../lib/conversations';
 import { loadSpecs, specsForPrompt } from '../lib/specs';
 import './sources.css';
 import './chat.css';
@@ -45,6 +47,8 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
   const started = useRef(false);
   const lastCount = useRef(0);
   const specsRef = useRef<string | null>(specsForPrompt(loadSpecs()));
+  const learningRef = useRef<Context>({mode: 'explain', files: []});
+  const updateLearning = useCallback((value: Context) => {learningRef.current = value;}, []);
   const busy = turns.some((t) => t.status === 'thinking' || t.status === 'streaming');
   const activeTurn = turns[active] || turns.at(-1) || null;
   const anyCitations = turns.some((t) => t.citations.length && (t.answer || t.status === 'done' || t.status === 'refused'));
@@ -58,16 +62,16 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
     changeTurns((all) => all.map((t) => t.id === id ? { ...t, ...fn(t) } : t));
   }, [changeTurns]);
 
-  const send = useCallback((question: string, retryId?: number) => {
+  const send = useCallback((question: string, retryId?: number, helpMode?: LearningMode) => {
     const q = question.trim().slice(0, 500);
     if (!q || busyRef.current) return;
+    if (codeError(learningRef.current.files)) {setDraft(q); return;}
     busyRef.current = true;
     const controller = new AbortController();
     requestRef.current = controller;
     const id = retryId ?? nextId.current++;
     const index = retryId === undefined ? turnsRef.current.length : turnsRef.current.findIndex((t) => t.id === id);
-    const history = turnsRef.current.slice(0, index).filter((t) => t.answer && t.status === 'done').slice(-2)
-      .map((t) => ({ question: t.question, answer: t.answer }));
+    const history = contextHistory(turnsRef.current, index);
     changeTurns((all) => retryId === undefined ? [...all, blankTurn(id, q)] : all.map((t) => t.id === id ? blankTurn(id, q) : t));
     setActive(Math.max(0, index));
     setActiveCite(null);
@@ -76,7 +80,8 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
     let finished = false;
     ask(q, {
       onMeta: (m) => update(() => ({ citations: m.citations || [], excerpts: m.excerpts || [], agent: m.agent || null,
-        status: m.refused ? 'refused' : 'streaming', notice: null })),
+        tutor: m.tutor, status: m.refused ? 'refused' : 'streaming', notice: null })),
+      onEvidence: (evidence) => update(() => ({evidence})),
       onToken: (text) => update((t) => ({ answer: t.answer + text })),
       onBeyondStart: () => update((t) => ({ beyond: t.beyond || ' ' })),
       onBeyond: (text) => update((t) => ({ beyond: t.beyond.trimStart() + text })),
@@ -85,7 +90,7 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
       onDegrade: (p) => update(() => ({ answer: p.answerMd, notice: null })),
       onDone: (p) => { finished = true; update((t) => ({ status: t.status === 'refused' ? 'refused' : 'done', slug: p.slug })); },
       onError: (message) => { finished = true; update(() => ({ status: 'error', error: message })); },
-    }, { endpoint: index === 0 ? endpoint : '/api/ask', history, specs: specsRef.current, signal: controller.signal })
+    }, { endpoint: index === 0 ? endpoint : '/api/ask', history, learning: {...learningRef.current, mode: helpMode || learningRef.current.mode}, specs: specsRef.current, signal: controller.signal })
       .then(() => { if (!finished) update(() => ({ status: 'error', error: 'The connection ended before the answer finished. Try again.' })); })
       .catch((e) => update(() => ({ status: 'error', error: e?.message === 'Failed to fetch'
         ? 'Could not reach Sharp AI. Check your connection and try again.' : e?.message || 'Something went wrong.' })))
@@ -215,7 +220,7 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
       <div className={`chat${anyCitations && sourcesOpen ? '' : ' chat--norail'}`}>
         <div className="chat__thread" ref={threadRef}>
           <div className="chat__turns" aria-busy={busy}>
-            {turns.map((t, i) => <ChatTurn key={t.id} turn={t} index={i} isActive={i === active} onFocus={() => setActive(i)} patch={patch} onRetry={() => send(t.question, t.id)} />)}
+            {turns.map((t, i) => <ChatTurn key={t.id} turn={t} index={i} isActive={i === active} onFocus={() => setActive(i)} patch={patch} onRetry={() => send(t.question, t.id)} onFollowUp={send} disabled={busy} />)}
             {!turns.length && <div className="chat__empty">
               <span className="eyebrow">A workbench for your next idea</span>
               <h1>What are you<br />working on?</h1>
@@ -227,6 +232,7 @@ export default function ChatThread({ initialQuestion = '', endpoint = '/api/ask'
             </div>}
           </div>
           <div className="composer-shell">
+            <LearningContext onChange={updateLearning} disabled={busy} resetKey={sessionId} onExplain={() => send('Explain my attached code, point out the important lines, and suggest one small test.', undefined, 'explain')} />
             <RobotSpecs onChange={(s) => { specsRef.current = specsForPrompt(s); }} />
             <form className="composer" onSubmit={(e) => { e.preventDefault(); if (!busyRef.current) send(draft); }}>
               <div className="composer__field">

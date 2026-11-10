@@ -39,7 +39,8 @@ export async function keywordSearch(env, question, limit) {
     return results || [];
   } catch (err) {
     // A malformed MATCH must degrade to "no keyword hits", never 500 the request.
-    console.error('keywordSearch failed', err.message, 'match=', match);
+    if (env.PRIVATE_QUERY) console.error('keywordSearch failed for private context');
+    else console.error('keywordSearch failed', err.message, 'match=', match);
     return [];
   }
 }

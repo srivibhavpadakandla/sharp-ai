@@ -15,9 +15,13 @@
  *
  * The daily LLM ceiling degrades to "sources without a summary" — never errors.
  */
-import corpusInfo from './lib/corpus-info.json';
+import { normalizeLearning, readAskBody, learningQuery, tutorPlan } from './learning.js';
+import { buildEvidence, sourceVersion, manualSnapshotNotice } from './evidence.js';
+import { corsHeaders } from './cors.js';
+import { verifyFirebaseToken } from './firebase.js';
+import corpusInfo from './lib/corpus-info.json' with { type: 'json' };
 import { retrieve, retrieveMulti, chunksForUrl } from './retrieval.js';
-import { streamGemini, buildPrompt, createAnswerSplitter, sanitiseBeyond, needsDepth } from './gemini.js';
+import { streamGemini, buildPrompt, createAnswerSplitter, stripGroundedMarker, createBeyondSanitizer, needsDepth } from './gemini.js';
 import { classify } from './lib/topic.js';
 import { teamNumberIn, lookupTeam, describeTeam } from './lib/ftcscout.js';
 import { intentOf } from './lib/intent.js';
@@ -166,21 +170,6 @@ function retrievalQuery(question, page) {
   return [page.title, page.section, question].filter(Boolean).join(' — ');
 }
 
-function corsHeaders(env, request) {
-  const origin = request.headers.get('origin') || '';
-  const allowed = (env.SITE_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const ok = allowed.includes(origin)
-    || /^https?:\/\/localhost(:\d+)?$/.test(origin)
-    || /^https:\/\/[a-z0-9-]+\.sharp-ai\.pages\.dev$/.test(origin)
-    || /\.pages\.dev$/.test(origin);
-  return {
-    'access-control-allow-origin': ok ? origin : (allowed[0] || '*'),
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers': 'content-type',
-    'access-control-max-age': '86400',
-    vary: 'origin',
-  };
-}
 
 const json = (data, init = {}, extra = {}) => new Response(JSON.stringify(data), {
   ...init,
@@ -200,7 +189,10 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const cors = corsHeaders(env, request);
 
   let body;
-  try { body = await request.json(); } catch { return json({ error: 'invalid-json' }, { status: 400 }, cors); }
+  try { body = await readAskBody(request); } catch (error) {
+    return json({error: error.message === 'request-too-large' ? 'request-too-large' : 'invalid-json'},
+      {status: error.message === 'request-too-large' ? 413 : 400}, cors);
+  }
 
   const question = String(body.question ?? body.q ?? '').trim();
   const token = body.turnstileToken || body['cf-turnstile-response'];
@@ -227,20 +219,35 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         url: String(body.page.url || '').slice(0, 300),
       }
     : null;
+  let learning;
+  try { learning = normalizeLearning(body.learning); } catch (error) {
+    return json({error: error.message, limits: {files: 6, code: 16000}},
+      {status: error.message === 'context-too-long' ? 413 : 400}, cors);
+  }
+  const privateContext = Boolean(learning || page || specs || isFollowUp);
+  const plan = tutorPlan(question, history, learning, specs);
+  const retrievalEnv = privateContext ? {...env, PRIVATE_QUERY: true} : env;
+  const query = learning ? learningQuery(question, page, learning, history) : retrievalQuery(question, page);
+  const log = (entry) => privateContext ? Promise.resolve() : logQuery(env, entry);
   const isCode = isCodeRequest(question);
   // The lesson panel asks for a conversation; the public site asks for a
   // citable answer page. Same retrieval, different voice.
   const chat = body.chat === true;
 
   // --- 1. Who is asking -----------------------------------------------------
-  // Turnstile only. There used to be a second path here: a signed-in account
-  // stood in for the CAPTCHA, because a Google sign-in proves more than a
-  // checkbox does and making a signed-in student solve one too is a toll with
-  // no purpose. The only site that signed anyone in has been removed, so the
-  // account path verified tokens no caller could produce.
-  const ts = await verifyTurnstile(env, token, request);
-  if (!ts.ok) {
-    return json({ error: 'turnstile-failed', detail: ts.reason }, { status: 403 }, cors);
+  let identity = null;
+  if (body.idToken) {
+    identity = await verifyFirebaseToken(env, body.idToken);
+    if (!identity.ok) {
+      const unavailable = ['not-configured', 'jwk-unavailable'].includes(identity.reason);
+      return json({ error: unavailable ? 'auth-unavailable' : 'auth-failed' },
+        { status: unavailable ? 503 : 403 }, cors);
+    }
+  } else {
+    const ts = await verifyTurnstile(env, token, request);
+    if (!ts.ok) {
+      return json({ error: 'turnstile-failed', detail: ts.reason }, { status: 403 }, cors);
+    }
   }
 
   // --- 3. Length (checked before the KV round-trips so junk costs nothing) ---
@@ -259,7 +266,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   }
 
   // --- 2. Rate limit --------------------------------------------------------
-  const rl = await checkRateLimit(env, request);
+  const rl = await checkRateLimit(env, request, identity);
   if (!rl.ok) {
     return json(
       { error: 'rate-limited', scope: rl.scope, limit: rl.limit },
@@ -273,10 +280,10 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const questionHash = await sha256hex(norm);
   // Keyed on the same subject retrieval used, so a deictic question cannot
   // serve one lesson's answer to another.
-  const cacheSubject = (chat ? 'chat: ' : '') + retrievalQuery(question, page);
-  const cached = isFollowUp ? null : await readCache(env, cacheSubject);
+  const cacheSubject = 'learning-v1: ' + (chat ? 'chat: ' : '') + retrievalQuery(question, page);
+  const cached = privateContext ? null : await readCache(env, cacheSubject);
   if (cached) {
-    ctx.waitUntil(logQuery(env, {
+    ctx.waitUntil(log({
       question, questionHash, cacheHit: true, llmCalled: false,
       sourceIds: cached.sourceIds, chunkIds: (cached.citations || []).map((c) => c.chunkId),
       latencyMs: Date.now() - started,
@@ -291,7 +298,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // is spent deciding something we already know.
   const lib = question.match(UNINDEXED_LIBRARY);
   if (lib && !isFollowUp) {
-    ctx.waitUntil(logQuery(env, {
+    ctx.waitUntil(log({
       question, questionHash, cacheHit: false, belowThreshold: true, llmCalled: false,
       latencyMs: Date.now() - started,
     }));
@@ -307,7 +314,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   const intent = intentOf(question);
   const teamNo = teamNumberIn(question);
   const [{ chunks, gate, stats }, teamData, pageChunks] = await Promise.all([
-    retrieve(env, retrievalQuery(question, page)),
+    retrieve(retrievalEnv, query),
     teamNo ? lookupTeam(teamNo, Number(env.FTC_SEASON || 2025)) : Promise.resolve(null),
     // Loaded, not searched for. We know which page the student is on, so its
     // own text is fetched by URL rather than left to resemble the question
@@ -328,12 +335,12 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     // Scored rather than an AND of two weak signals. Domain-only words decide
     // alone, ordinary engineering words need company, and a confident embedding
     // can carry a question that used none of the vocabulary.
-    const topic = classify(question, stats.bestCosine ?? 0);
+    const topic = classify(learning ? query : question, stats.bestCosine ?? 0);
 
     if (topic.kind === 'meta') {
       // Small talk, or a question about the site. Answering it is not a
       // licensing or accuracy risk, and refusing looks broken.
-      ctx.waitUntil(logQuery(env, {
+      ctx.waitUntil(log({
         question, questionHash, cacheHit: false, belowThreshold: true, llmCalled: false,
         bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
         latencyMs: Date.now() - started,
@@ -407,7 +414,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         agent.queries = plan.queries || [];
         agent.interpretation = plan.interpretation || null;
 
-        const wide = await retrieveMulti(env, queries);
+        const wide = await retrieveMulti(retrievalEnv, queries);
         mark('retrieveMulti');
         const candidates = wide.chunks.length ? wide.chunks : chunks;
 
@@ -422,7 +429,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       }
     } catch (err) {
       // The agentic layer is an improvement, never a dependency.
-      console.error('agentic pass failed, using fusion order', err.message);
+      console.error('agentic pass failed, using fusion order', privateContext ? 'private request' : err.message);
       finalChunks = chunks;
     }
   }
@@ -438,14 +445,23 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     ].slice(0, Number(env.TOP_K || 16) + pageChunks.length);
   }
 
-  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, uncovered, offTopic, liveBlock, intent });
+  const { citations, excerpts } = buildPrompt(question, finalChunks, { isError, isCode, history, specs, page, chat, learning, plan, uncovered, offTopic, liveBlock, intent });
   const category = finalChunks[0]?.category || null;
+  const manualNotice = manualSnapshotNotice(question, citations);
+  if (plan.needsVersion) {
+    const libraryCitations = citations.filter((c) => c.sourceName.toLowerCase().includes(plan.needsVersion.toLowerCase().split(' ')[0]));
+    return streamPrerendered({question,
+      answerMd: `Which installed version of ${plan.needsVersion} are you using? Paste its Gradle dependency or version-catalog entry and the exact compiler error, if any. API names differ between versions, so I need that before suggesting a replacement method.`,
+      citations: libraryCitations, excerpts: [], slug: null}, cors,
+      {privateContext, clarification: true, tutor: {...plan, followUps: ['Where can I find the installed version?']}});
+  }
+
 
   // --- Daily ceiling: degrade to sources, never error -----------------------
   const reservation = await reserveLlmCall(env);
   if (!reservation.granted) {
     const md = degradedMarkdown(finalChunks);
-    ctx.waitUntil(logQuery(env, {
+    ctx.waitUntil(log({
       question, questionHash, cacheHit: false, llmCalled: false, degraded: true,
       bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
       sourceIds: [...new Set(finalChunks.map((c) => c.sourceId))],
@@ -472,6 +488,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     let citeChecked = 0;
     let citeWeak = 0;
     const splitter = createAnswerSplitter();
+    const beyondFilter = createBeyondSanitizer();
 
     try {
       agent.deep = needsDepth({ isCode, isError, intent, question, history });
@@ -479,19 +496,24 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       agent.timings = t;
       await writer.write(encoder.encode(sse('meta', {
         question, citations, excerpts, category,
-        cached: false, degraded: false,
+        cached: false, degraded: false, privateContext, tutor: plan,
         agent, isCode,
         stats: { bestBm25: stats.bestBm25, bestCosine: stats.bestCosine },
       })));
 
+      if (manualNotice) {
+        grounded = manualNotice + '\n\n';
+        await writer.write(encoder.encode(sse('token', {t: grounded})));
+      }
       let announcedBeyond = false;
-      const emit = async ({ grounded: g, beyond: b }) => {
+      const emit = async ({ grounded: g, beyond: b }, final = false) => {
         if (g) {
           grounded += g;
           await writer.write(encoder.encode(sse('token', { t: g })));
         }
-        if (b) {
-          let text = sanitiseBeyond(b);
+        if (b || final) {
+          let text = beyondFilter.push(b) + (final ? beyondFilter.end() : '');
+          if (!text) return;
           if (!announcedBeyond) {
             announcedBeyond = true;
             text = text.replace(/^\s+/, '');          // only the very first delta
@@ -509,10 +531,10 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       const onModel = (model) => { answerModel = model; };
       const onUsage = (m) => { usageMeta = m; };
 
-      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, uncovered, offTopic, liveBlock, intent, onUsage, onModel })) {
+      for await (const delta of streamGemini(env, { question, chunks: finalChunks, isError, isCode, history, specs, page, chat, learning, plan, uncovered, offTopic, liveBlock, intent, onUsage, onModel })) {
         await emit(splitter.push(delta));
       }
-      await emit(splitter.end());
+      await emit(splitter.end(), true);
 
       // Awaited, NOT ctx.waitUntil: this runs inside the pump, which is itself
       // already a waitUntil task running after the handler returned. Registering
@@ -547,6 +569,8 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         }
       }
 
+      await writer.write(encoder.encode(sse('evidence', {claims: buildEvidence(grounded, citations, excerpts)})));
+
       // The generated code is checked against the real SDK surface before the
       // reader is told it is done. Warnings only — see codegen.js.
       let validation = null;
@@ -565,7 +589,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
       // which is never persisted, so caching this would serve every later
       // asker the bare "not covered" line with the reasoning stripped out, and
       // they would never get a fresh generation. Better to regenerate.
-      if (grounded.trim() && !isFollowUp && !uncovered && citations.length > 0) {
+      if (grounded.trim() && !privateContext && !uncovered && citations.length > 0) {
         const saved = await writeAnswer(env, {
           cacheSubject,
           // Grounded only. Persisting the ungrounded half would put uncited
@@ -580,7 +604,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         validated: validation ? validation.ok : null,
       })));
 
-      await logQuery(env, {
+      await log({
         question, questionHash, cacheHit: false, llmCalled: true,
         citeChecked, citeWeak,
         bestBm25: stats.bestBm25, bestCosine: stats.bestCosine,
@@ -590,7 +614,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
         latencyMs: Date.now() - started,
       });
     } catch (err) {
-      console.error('ask failed', err.stack || err.message);
+      console.error('ask failed', privateContext ? 'private request' : err.stack || err.message);
       // Degrade in place: the reader already has the sources, give them the
       // excerpt fallback rather than an error page.
       // The reason and the message must agree. They did not: the reason
@@ -629,17 +653,20 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
 
 /** Replays an already-known answer over the same SSE protocol the client expects. */
 function streamPrerendered(payload, cors, meta = {}) {
+  const notice = manualSnapshotNotice(payload.question, payload.citations || []);
+  const answer = notice && !payload.answerMd.startsWith(notice) ? notice + '\n\n' + payload.answerMd : payload.answerMd;
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
       controller.enqueue(encoder.encode(sse('meta', {
         question: payload.question,
-        citations: payload.citations || [],
+        citations: (payload.citations || []).map((c) => ({...c, version: c.version || sourceVersion(c)})),
         excerpts: payload.excerpts || [],
         category: payload.category || null,
         ...meta,
       })));
-      controller.enqueue(encoder.encode(sse('token', { t: payload.answerMd })));
+      controller.enqueue(encoder.encode(sse('token', { t: stripGroundedMarker(answer) })));
+      controller.enqueue(encoder.encode(sse('evidence', {claims: buildEvidence(answer, payload.citations || [], payload.excerpts || [])})));
       controller.enqueue(encoder.encode(sse('done', { slug: null })));
       controller.close();
     },
@@ -875,9 +902,9 @@ export default {
     try {
       const p = url.pathname.replace(/\/+$/, '') || '/';
 
-      if (p === '/api/ask' && request.method === 'POST') return handleAsk(request, env, ctx);
+      if (p === '/api/ask' && request.method === 'POST') return await handleAsk(request, env, ctx);
       if (p === '/api/explain-error' && request.method === 'POST') {
-        return handleAsk(request, env, ctx, { isError: true });
+        return await handleAsk(request, env, ctx, { isError: true });
       }
       if (p === '/api/feedback' && request.method === 'POST') return handleFeedback(request, env);
       if (p === '/api/search') return handleSearch(request, env, url);
@@ -902,8 +929,8 @@ export default {
 
       return json({ error: 'not-found' }, { status: 404 }, cors);
     } catch (err) {
-      console.error('unhandled', err.stack || err.message);
-      return json({ error: 'internal', message: err.message }, { status: 500 }, cors);
+      console.error('unhandled request');
+      return json({ error: 'internal' }, { status: 500 }, cors);
     }
   },
 };

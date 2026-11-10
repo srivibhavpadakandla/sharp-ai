@@ -24,7 +24,7 @@ export function parseConversations(raw: string | null): Conversation[] {
           n: c.n, chunkId: short(c.chunkId, 100), sourceId: short(c.sourceId, 100),
           sourceName: short(c.sourceName, 200), pageTitle: short(c.pageTitle, 300),
           sectionTitle: short(c.sectionTitle, 300), headingPath: short(c.headingPath, 600),
-          url: short(c.url, 2000), license: short(c.license, 200), canExcerpt: c.canExcerpt === true,
+          url: short(c.url, 2000), version: short(c.version, 200) || undefined, license: short(c.license, 200), canExcerpt: c.canExcerpt === true,
           mode: c.mode === 'summarize' ? 'summarize' as const : c.canExcerpt === true ? 'full' as const : 'link' as const,
         })) : [];
         return [{
@@ -32,6 +32,15 @@ export function parseConversations(raw: string | null): Conversation[] {
           excerpts: Array.isArray(t.excerpts) ? t.excerpts.slice(0, 48).flatMap((e: any) => {
             const citation = citations.find((c: any) => c.chunkId === e?.chunkId && c.canExcerpt);
             return citation ? [{ chunkId: citation.chunkId, n: citation.n, text: short(e.text, 12000) }] : [];
+          }) : [],
+          evidence: Array.isArray(t.evidence) ? t.evidence.slice(0, 12).flatMap((e: any) => {
+            if (!e || typeof e.claim !== 'string' || !Array.isArray(e.sources)) return [];
+            return [{claim: short(e.claim, 1500), sources: e.sources.slice(0, 48).flatMap((source: any) => {
+              if (!source || !Number.isInteger(source.n) || source.n < 1 || source.n > 48) return [];
+              const citation = citations.find((c: any) => c.n === source.n);
+              return [{n: source.n, status: !citation ? 'missing' as const : !citation.canExcerpt ? 'restricted' as const : source.status === 'matched' ? 'matched' as const : 'weak' as const,
+                passage: citation?.canExcerpt ? short(source.passage, 900) || null : null, version: citation?.version || null}];
+            })}];
           }) : [],
           status: ['done', 'refused', 'error', 'stopped'].includes(t.status) ? t.status : 'stopped',
           error: short(t.error, 500) || null, notice: short(t.notice, 500) || null,
@@ -53,7 +62,7 @@ export function saveConversations(items: Conversation[]): boolean {
     if (items.some((c) => c.turns.length > 200)) return false;
     // Only grounded answers are retained. The general reasoning half stays ephemeral.
     const safe = items.slice(0, MAX_CONVERSATIONS).map((c) => ({ ...c, turns: c.turns.map((t) => ({
-      id: t.id, question: t.question, answer: t.answer, citations: t.citations, excerpts: t.excerpts,
+      id: t.id, question: t.question, answer: t.answer, citations: t.citations, excerpts: t.excerpts, evidence: t.evidence,
       status: t.status, error: t.error, notice: t.notice,
     })) }));
     const raw = JSON.stringify(safe);
@@ -71,4 +80,10 @@ export function answerMarkdown(turn: Turn): string {
 export function conversationMarkdown(turns: Turn[]): string {
   return '# Sharp AI conversation\n\n' + turns.map((t) => `## ${t.question}\n\n${answerMarkdown(t)}`).join('\n\n---\n\n')
     + '\n\nGenerated answers can be wrong. Verify the linked documentation.\n';
+}
+
+/** In-memory follow-ups may refer to uncited reasoning, which is never documentary evidence. */
+export function contextHistory(turns: Turn[], beforeIndex = turns.length) {
+  return turns.slice(0, beforeIndex).filter((t) => t.status === 'done' && (t.answer || t.beyond)).slice(-2)
+    .map((t) => ({question: t.question, answer: [t.answer, t.beyond].filter(Boolean).join('\n\n').slice(0, 1200)}));
 }

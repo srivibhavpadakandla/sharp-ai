@@ -21,6 +21,7 @@ const STRONG = [
   'auton', 'autonomous', 'telemetry', 'game ?piece', 'game ?element', 'motor', 'drivetrain', 'gear ?ratio', 'sprocket',
   'turret', 'outtake', 'localiz', 'trajectory', 'kinematics', 'robotics',
   'robot', 'alliance', 'ftc ?dashboard', 'rev ?hub', 'spark ?mini',
+  'fll', 'first lego league', 'spike ?prime', 'pybricks', 'robot ?game',
 ];
 
 /** Words that are on-topic in this context but ordinary on their own. */

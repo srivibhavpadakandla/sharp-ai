@@ -27,6 +27,7 @@ import { samples as sdkSamples, api as sdkApi } from './ftc-sdk.js';
 import * as firstManual from './first-manual.js';
 import * as firstQa from './first-qa.js';
 import { rrQuickstart } from './rr-quickstart.js';
+import * as telemarkFll from './telemark-fll.js';
 
 export const SOURCES = {
   gm0,
@@ -42,6 +43,7 @@ export const SOURCES = {
   'ftc-community': ftcCommunity,
   frczero,
   'community-hubs': communityHubs,
+  'telemark-fll': telemarkFll,
 };
 
 export function getSource(id) {

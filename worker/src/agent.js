@@ -91,7 +91,8 @@ const PLAN_SCHEMA = {
   required: ['interpretation', 'queries'],
 };
 
-const PLAN_SYSTEM = `You plan documentation searches for a FIRST Tech Challenge (FTC) knowledge base.
+const PLAN_SYSTEM = `You plan documentation searches for a FIRST robotics knowledge base covering FTC and FLL Challenge.
+Keep FTC and FLL hardware, programming APIs, and competition rules separate.
 
 You are given a team's question, in their own words, plus the headings that a
 first naive search returned. Your job is NOT to answer. Your job is to work out
@@ -134,7 +135,8 @@ const RERANK_SCHEMA = {
   required: ['ranked'],
 };
 
-const RERANK_SYSTEM = `You rank FTC documentation sections by how well they answer a specific question.
+const RERANK_SYSTEM = `You rank FTC and FLL Challenge documentation sections by how well they answer a specific question.
+Prefer sections from the program the team asks about; do not substitute FTC rules for FLL rules.
 
 You see each candidate's heading path and opening text. Return the numbers of the
 best sections, most useful first, at most 16. Include a section if it carries

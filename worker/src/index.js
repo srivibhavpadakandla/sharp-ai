@@ -51,9 +51,9 @@ import { MAX_QUESTION_CHARS } from './lib/query.js';
  * site look broken to anyone who typed "hello" first.
  */
 const META_ANSWER =
-  'I help you design, wire, program, and troubleshoot FIRST Tech Challenge robots. '
+  'I help with FIRST Tech Challenge and FIRST LEGO League Challenge robots. '
   + 'Answers draw on indexed documentation from Game Manual 0, FTC Docs, the official SDK, '
-  + 'the Competition Manual, Pedro Pathing, Road Runner, and other robotics sources.\n\n'
+  + 'the FTC Competition Manual, Telemark FLL lessons, Pedro Pathing, Road Runner, and other robotics sources.\n\n'
   + 'Ask a concrete question, paste an error, or add your robot configuration. '
   + 'Every grounded answer links its supporting sections. Rules are summarized in my own words; '
   + 'check the current official manual and Team Q&A before relying on an interpretation.\n\n'
@@ -61,7 +61,7 @@ const META_ANSWER =
   + 'General engineering reasoning appears separately and is not retained in saved chats.';
 
 const OFF_TOPIC_REFUSAL =
-  'I only answer questions about building, wiring and programming FIRST Tech '
+  'I only answer questions about building, wiring and programming FTC or FLL '
   + 'Challenge robots, using documentation that has been indexed section by '
   + 'section. That question is outside what this index covers.';
 
@@ -76,7 +76,8 @@ const OFF_TOPIC_REFUSAL =
  */
 const FTC_VOCAB = new RegExp(
   '\\b(' + [
-    'ftc', 'first tech', 'robot', 'robotics', 'drivetrain', 'mecanum', 'omni',
+    'ftc', 'first tech', 'fll', 'first lego league', 'spike ?prime', 'pybricks',
+    'robot ?game', 'robot', 'robotics', 'drivetrain', 'mecanum', 'omni',
     'tank drive', 'swerve', 'strafe', 'odometry', 'dead ?wheel', 'localiz',
     'intake', 'outtake', 'transfer', 'claw', 'turret', 'linear slide', 'lift',
     'arm', 'linkage', 'gear ?ratio', 'sprocket', 'belt', 'chain', 'servo',
@@ -94,14 +95,15 @@ function uncoveredRefusal(question, library) {
   const lead = library
     ? `**${library}** is a third-party library, and it is not part of any documentation Sharp AI has indexed.\n\n`
       + `I could give you an answer assembled from adjacent pages about PID control or path following, but it would not be about ${library}, and you would have no way to tell. So I would rather not.\n\n`
-    : `That looks like a FIRST Tech Challenge question, but it is not covered by the documentation indexed so far.\n\n`;
+    : `That looks like a FIRST robotics question, but it is not covered by the documentation indexed so far.\n\n`;
   return (
     lead
-    + `Sharp AI reads **Game Manual 0** and the **official FTC Docs** in full, `
+    + `Sharp AI reads **Telemark FLL**, **Game Manual 0**, and the **official FTC Docs** in full, `
     + `and indexes **REV**, **Road Runner**, **CTRL ALT FTC** and **FTCLib** by `
     + `page title and link only — none of those publishes an open licence, so `
     + `their text is never copied here.\n\n`
     + `Rather than guess, here is where that answer actually lives:\n\n`
+    + `- [Telemark FLL](https://telemarkfirst.github.io/fll/) — FLL lessons and practice\n`
     + `- [ftc-docs](https://ftc-docs.firstinspires.org) — official FTC documentation\n`
     + `- [Game Manual 0](https://gm0.org) — the indexed source, for adjacent topics\n`
     + `- [CTRL ALT FTC](https://www.ctrlaltftc.com) — control theory\n`
@@ -140,7 +142,7 @@ const UNINDEXED_LIBRARY = /\b(solvers\s*lib|meepmeep|next\s*ftc|rr\s*dashboard)\
 const GREETING = /^\s*(h(ello|i|ey|iya)|yo|sup|good\s+(morning|afternoon|evening)|greetings|what\s*'?s\s+up|howdy|test|ping)\b[\s!.?]*$/i;
 
 const GREETING_REPLY =
-  "Hello. Ask me anything about building, wiring or programming an FTC robot — "
+  "Hello. Ask me about building, wiring or programming an FTC or FLL robot — "
   + "drivetrains, odometry, intakes, electronics, OpModes, the notebook — and I "
   + "will answer from indexed documentation with the source shown beside every "
   + "claim.\n\nIf you have an error, paste the stack trace and I will work through it.";
@@ -320,7 +322,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
     // own text is fetched by URL rather than left to resemble the question
     // well enough to be retrieved. Without this, "help me with question 3"
     // finds lessons about the topic and not the exercise being asked about.
-    chat && page?.url ? chunksForUrl(env, page.url) : Promise.resolve([]),
+    page?.url ? chunksForUrl(env, page.url) : Promise.resolve([]),
   ]);
   const liveBlock = teamData ? describeTeam(teamData) : null;
 
@@ -331,7 +333,7 @@ async function handleAsk(request, env, ctx, { isError = false } = {}) {
   // BEYOND marker the UI already labels as unverified, and is never persisted.
   let uncovered = false;
   let offTopic = false;
-  if (!gate.pass || !chunks.length) {
+  if ((!gate.pass || !chunks.length) && !pageChunks.length) {
     // Scored rather than an AND of two weak signals. Domain-only words decide
     // alone, ordinary engineering words need company, and a confident embedding
     // can carry a question that used none of the vocabulary.

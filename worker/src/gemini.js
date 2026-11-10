@@ -382,7 +382,7 @@ function pickModel(env, opts) {
  * Calls Gemini and yields plain text deltas.
  * @returns {AsyncGenerator<string>}
  */
-export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, learning = null, plan = {mode: 'explain', diagnostic: null}, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup', onUsage = null, onModel = null }) {
+export async function* streamGemini(env, { question, chunks, isError = false, isCode = false, history = [], specs = null, page = null, chat = false, learning = null, plan = {mode: 'explain', diagnostic: null}, uncovered = false, offTopic = false, liveBlock = null, intent = 'lookup', onUsage = null, onModel = null, signal = null }) {
   const { prompt } = buildPrompt(question, chunks, { isError, isCode, history, specs, page, chat, learning, plan, uncovered, liveBlock, intent });
   // Which model answers is decided per question, not per site.
   //
@@ -445,106 +445,130 @@ export async function* streamGemini(env, { question, chunks, isError = false, is
     ].map((category) => ({ category, threshold: 'BLOCK_ONLY_HIGH' })),
   };
 
-  const call = (payload) => fetch(`${GEMINI_BASE}/${model}:streamGenerateContent?alt=sse`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-goog-api-key': env.GEMINI_API_KEY,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  let res = await call(body);
-
-  // If the model or the key cannot do search grounding, answer without it
-  // rather than failing. Losing the web is a worse answer; losing the answer is
-  // a broken page.
-  if (!res.ok && body.tools && res.status !== 429 && res.status !== 503) {
-    const detail = await res.text().catch(() => '');
-    console.warn('search grounding rejected, retrying without it', detail.slice(0, 160));
-    const { tools, ...noTools } = body;
-    res = await call(noTools);
-  }
-
-  // The free tier limits requests per minute, and this site spends up to three
-  // calls on one question. Two students asking at once is enough to trip it, and
-  // that kind of 429 clears in seconds — degrading to raw sections because the
-  // minute was busy throws away an answer that was one short wait from working.
-  //
-  // Only the transient kind is retried. "Credits depleted" is a a wall, not a
-  // queue, and retrying it just makes the reader wait longer to be told no.
-  const transient = async (r) => {
-    // 503 "experiencing high demand" is the free tier's other way of saying
-    // come back in a moment, and it was not covered: a busy model dumped raw
-    // documentation on the reader as if the answer had failed.
-    if (r.status === 503) return true;
-    if (r.status !== 429) return false;
-    const body = await r.clone().text().catch(() => '');
-    return !/credit|billing|depleted|quota/i.test(body);
-  };
-  for (let attempt = 0; attempt < 3 && await transient(res); attempt += 1) {
-    // Rising delay: a spike that has not cleared in 1.2s often has by 3.6s.
-    const wait = 1200 * (attempt + 1);
-    console.warn(`model busy (${res.status}), retrying in ${wait}ms`);
-    await new Promise((r) => setTimeout(r, wait));
-    res = await call(body);
-  }
-
-  // A quota or billing refusal on the deep model must not take the site down
-  // with it. Pro is the expensive one and the first to be cut off; the fast
-  // model often still has quota, and a fast answer beats no answer.
-  if (res.status === 429 && model !== (env.GEMINI_MODEL || 'gemini-3.7-flash')) {
-    const detail = await res.text().catch(() => '');
-    console.warn(`deep model refused (${res.status}), falling back to the fast one`, detail.slice(0, 140));
-    model = env.GEMINI_MODEL || 'gemini-3.7-flash';
-    res = await call(body.tools ? { ...body, tools: undefined } : body);
-  }
-
-  // The answer model can have no quota even while the planning model works.
-  // Keep the cited answer available by using that model before showing raw sections.
-  const liteModel = env.GEMINI_FAST_MODEL || 'gemini-3.5-flash-lite';
-  if (res.status === 429 && model !== liteModel) {
-    console.warn('answer model quota exceeded, falling back to flash-lite');
-    model = liteModel;
-    const { tools, ...noTools } = body;
-    res = await call(noTools);
-  }
-
-  if (!res.ok || !res.body) {
-    const detail = await res.text().catch(() => '');
-    const quota = res.status === 429 && /credit|billing|quota/i.test(detail);
-    throw Object.assign(new Error(`Gemini ${res.status}: ${detail.slice(0, 300)}`), {
-      status: res.status,
-      quota,
-    });
-  }
-
-  if (onModel) onModel(model);
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let idx;
-    while ((idx = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, idx).trim();
-      buffer = buffer.slice(idx + 1);
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === '[DONE]') continue;
-      let json;
-      try { json = JSON.parse(payload); } catch { continue; }
-      // Gemini reports usage on the chunks, cumulatively, so the last one wins.
-      // Handed to a callback rather than returned: a generator's return value is
-      // discarded by `for await`, which is how every caller consumes this.
-      if (json?.usageMetadata && onUsage) { try { onUsage(json.usageMetadata); } catch { /* never break the stream for accounting */ } }
-      const parts = json?.candidates?.[0]?.content?.parts || [];
-      for (const p of parts) if (typeof p.text === 'string' && p.text) yield p.text;
+  const fast = env.GEMINI_MODEL || 'gemini-3.7-flash';
+  const lite = env.GEMINI_FAST_MODEL || 'gemini-3.5-flash-lite';
+  const models = [...new Set([model, fast, lite])];
+  let emitted = false;
+  for (let i = 0; i < models.length; i += 1) {
+    model = models[i];
+    try {
+      for await (const text of streamModel(env, model, i ? {...body, tools: undefined} : body, {signal, onUsage, onModel})) {
+        emitted = true;
+        yield text;
+      }
+      return;
+    } catch (error) {
+      // Never replay an answer after any text has reached the caller.
+      if (emitted || signal?.aborted || i === models.length - 1 || !(error.modelTimeout || error.status === 429)) throw error;
+      console.warn('answer model unavailable before content; trying configured fallback');
     }
+  }
+}
+
+function timeoutMs(value, fallback) {
+  const ms = Number(value);
+  return Number.isFinite(ms) && ms > 0 ? Math.min(ms, 120000) : fallback;
+}
+
+/** Deadline races also cover providers/mocks that ignore AbortSignal. */
+async function* streamModel(env, model, body, {signal, onUsage, onModel}) {
+  const controller = new AbortController();
+  let reader, response, closed = false, firstText = false, firstTimer, idleTimer;
+  let rejectDeadline;
+  const deadline = new Promise((_, reject) => {rejectDeadline = reject;});
+  // A deadline can expire while the generator is suspended at yield.
+  deadline.catch(() => {});
+  const stop = (error) => {
+    if (closed) return;
+    controller.abort(error);
+    rejectDeadline(error);
+    try {Promise.resolve(reader?.cancel(error)).catch(() => {});} catch { /* best effort */ }
+  };
+  const cancel = () => stop(signal.reason || new DOMException('Cancelled', 'AbortError'));
+  if (signal?.aborted) cancel();
+  else signal?.addEventListener('abort', cancel, {once: true});
+  firstTimer = setTimeout(() => stop(Object.assign(new Error('Model first-content deadline exceeded'), {modelTimeout: true})), timeoutMs(env.MODEL_FIRST_CONTENT_TIMEOUT_MS, 25000));
+  const bounded = (promise) => Promise.race([promise, deadline]);
+  const call = async (payload) => {
+    const pending = fetch(`${GEMINI_BASE}/${model}:streamGenerateContent?alt=sse`, {
+      method: 'POST', signal: controller.signal,
+      headers: {'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY},
+      body: JSON.stringify(payload),
+    });
+    // Cancel late headers even if fetch ignored the abort.
+    pending.then((response) => {if (closed) Promise.resolve(response.body?.cancel()).catch(() => {});}, () => {});
+    response = await bounded(pending);
+    return response;
+  };
+  const discard = (response) => {try {Promise.resolve(response.body?.cancel()).catch(() => {});} catch { /* best effort */ }};
+  try {
+    let res = await call(body);
+    if (!res.ok && body.tools && res.status !== 429 && res.status !== 503) {
+      discard(res);
+      const {tools, ...noTools} = body;
+      res = await call(noTools);
+    }
+    const transient = async (response) => {
+      if (response.status === 503) return true;
+      if (response.status !== 429) return false;
+      const copy = response.clone();
+      try {
+        return !/credit|billing|depleted|quota/i.test(await bounded(copy.text()));
+      } finally {discard(copy);}
+    };
+    for (let attempt = 0; attempt < 3 && await transient(res); attempt += 1) {
+      discard(res);
+      let timer;
+      try {await bounded(new Promise((resolve) => {timer = setTimeout(resolve, 1200 * (attempt + 1));}));}
+      finally {clearTimeout(timer);}
+      res = await call(body);
+    }
+    if (!res.ok || !res.body) {
+      const detail = await bounded(res.text());
+      throw Object.assign(new Error(`Gemini ${res.status}: ${detail.slice(0, 300)}`), {
+        status: res.status, quota: res.status === 429 && /credit|billing|quota/i.test(detail),
+      });
+    }
+    if (onModel) onModel(model);
+    reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const parse = (line) => {
+      if (!line.startsWith('data:')) return [];
+      let json;
+      try {json = JSON.parse(line.slice(5).trim());} catch {return [];}
+      if (json?.usageMetadata && onUsage) {try {onUsage(json.usageMetadata);} catch { /* accounting must not interrupt output */ }}
+      return (json?.candidates?.[0]?.content?.parts || [])
+        .filter((part) => part.thought !== true && typeof part.text === 'string' && part.text)
+        .map((part) => part.text);
+    };
+    while (true) {
+      const pending = reader.read();
+      if (firstText) idleTimer = setTimeout(() => stop(Object.assign(new Error('Model stream stalled'), {modelTimeout: true})), timeoutMs(env.MODEL_STREAM_IDLE_TIMEOUT_MS, 30000));
+      let result;
+      try {result = await bounded(pending);} finally {clearTimeout(idleTimer);}
+      buffer += decoder.decode(result.value, {stream: !result.done});
+      const lines = buffer.split('\n');
+      buffer = result.done ? '' : lines.pop();
+      for (const line of lines) for (const text of parse(line.trim())) {
+        // Thinking/usage/whitespace events cannot defeat the first-content deadline.
+        if (!firstText && !text.trim()) continue;
+        if (!firstText) {firstText = true; clearTimeout(firstTimer);}
+        yield text;
+      }
+      if (result.done) {
+        if (!firstText) throw Object.assign(new Error('Model finished without answer text'), {modelTimeout: true});
+        return;
+      }
+    }
+  } finally {
+    closed = true;
+    clearTimeout(firstTimer); clearTimeout(idleTimer);
+    signal?.removeEventListener('abort', cancel);
+    controller.abort();
+    try {Promise.resolve(reader?.cancel()).catch(() => {});} catch { /* best effort */ }
+    try {reader?.releaseLock();} catch { /* pending read may hold lock */ }
+    if (response) discard(response);
   }
 }
 

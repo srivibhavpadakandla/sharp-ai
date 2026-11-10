@@ -7,7 +7,7 @@ import type { APIRoute } from 'astro';
 // derived from what anyone asked.
 export const prerender = true;
 
-const STATIC = ['/', '/about', '/ask', '/chat', '/season', '/path', '/cad', '/lab', '/error', '/sources'];
+const STATIC = ['/', '/about', '/chat', '/season', '/path', '/cad', '/lab', '/error', '/sources'];
 
 export const GET: APIRoute = () => {
   const base = SITE_URL;
